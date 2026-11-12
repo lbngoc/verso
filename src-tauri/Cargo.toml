@@ -5,6 +5,7 @@ description = "Verso — instant translation of selected or typed text"
 edition = "2021"
 rust-version = "1.80"
 publish = false
+license = "MIT"
 
 [lib]
 name = "verso_lib"
