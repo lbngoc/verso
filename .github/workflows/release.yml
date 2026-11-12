@@ -1,0 +1,444 @@
+name: Release
+
+# Tagging vX.Y.Z builds the macOS (arm64 + x64) and Windows x64 installers, checks them, and publishes
+# them with checksums, notes and the public documents to the public repository (007 contracts/release-pipeline.md).
+# The version tag must match the three manifests and the changelog; a failed check publishes nothing.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to publish, for example v0.1.0-rc.1"
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+concurrency:
+  group: release-${{ github.event.inputs.tag || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  guard:
+    name: Guard (${{ github.event.inputs.tag || github.ref_name }})
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+      version: ${{ steps.tag.outputs.version }}
+      tag_version: ${{ steps.tag.outputs.tag_version }}
+      prerelease: ${{ steps.tag.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+          fetch-depth: 0
+      - name: Resolve the tag
+        id: tag
+        shell: bash
+        env:
+          TAG_INPUT: ${{ github.event.inputs.tag }}
+        run: |
+          set -euo pipefail
+          tag="${TAG_INPUT:-$GITHUB_REF_NAME}"
+          case "$tag" in
+            v*) ;;
+            *) echo "::error::the tag must start with v (got '$tag')"; exit 1 ;;
+          esac
+          version="${tag#v}"
+          core="${version%%-*}"
+          prerelease=false
+          [[ "$version" == *-* ]] && prerelease=true
+          printf 'tag=%s\nversion=%s\ntag_version=%s\nprerelease=%s\n' \
+            "$tag" "$core" "$version" "$prerelease" >> "$GITHUB_OUTPUT"
+      - name: Version guard
+        shell: bash
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: scripts/check-release-version.sh "$TAG"
+      - name: The updater public key must be set
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -q 'UNSET' src-tauri/tauri.conf.json; then
+            echo "::error::plugins.updater.pubkey still holds the placeholder (007 T043)"
+            exit 1
+          fi
+
+  check:
+    name: Check (${{ matrix.os }})
+    needs: guard
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.guard.outputs.tag }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - name: Install frontend dependencies
+        run: npm ci
+      - name: Rust format
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
+      - name: Rust clippy
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+      - name: Rust tests
+        run: cargo test --manifest-path src-tauri/Cargo.toml
+      - name: Frontend lint
+        run: npm run lint
+      - name: Frontend tests
+        run: npm test
+      - name: Build (no bundle)
+        run: npm run tauri build -- --no-bundle
+
+  build:
+    name: Build (${{ matrix.target }})
+    needs: [guard, check]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            bundles: app,dmg
+            suffix: _aarch64.dmg
+            find: "*.dmg"
+            updater_find: "*.app.tar.gz"
+            updater_suffix: _aarch64.app.tar.gz
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            bundles: app,dmg
+            suffix: _x64.dmg
+            find: "*.dmg"
+            updater_find: "*.app.tar.gz"
+            updater_suffix: _x64.app.tar.gz
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            bundles: nsis
+            suffix: _x64-setup.exe
+            find: "*-setup.exe"
+            updater_find: "*-setup.exe"
+            updater_suffix: _x64-setup.exe
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.guard.outputs.tag }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          key: ${{ matrix.target }}
+      - name: Install frontend dependencies
+        run: npm ci
+      - name: Require the updater key for a stable tag
+        if: needs.guard.outputs.prerelease == 'false'
+        shell: bash
+        env:
+          KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "$KEY" ]; then
+            echo "::error::TAURI_SIGNING_PRIVATE_KEY is missing; a stable release must update itself (007 T043)"
+            exit 1
+          fi
+      - name: Check the signing identity matches the certificate
+        shell: bash
+        env:
+          CERT: ${{ secrets.APPLE_CERTIFICATE }}
+          IDENTITY: ${{ vars.APPLE_SIGNING_IDENTITY }}
+        run: |
+          set -euo pipefail
+          if [ -n "$CERT" ] && [ -z "$IDENTITY" ]; then
+            echo "::error::APPLE_CERTIFICATE is set but APPLE_SIGNING_IDENTITY (repository variable) is empty"
+            exit 1
+          fi
+      - name: Install the self-signed macOS certificate
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        env:
+          CERT_B64: ${{ secrets.APPLE_CERTIFICATE }}
+          CERT_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          CERT_PUBLIC: ${{ secrets.APPLE_CERTIFICATE_PUBLIC }}
+        run: |
+          set -euo pipefail
+          if [ -z "$CERT_B64" ]; then
+            echo "no signing certificate; the build uses an ad-hoc identity"
+            exit 0
+          fi
+          keychain="$RUNNER_TEMP/verso-build.keychain-db"
+          security create-keychain -p actions "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p actions "$keychain"
+          printf '%s' "$CERT_B64" | base64 --decode > "$RUNNER_TEMP/verso-signing.p12"
+          security import "$RUNNER_TEMP/verso-signing.p12" -k "$keychain" \
+            -P "$CERT_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k actions "$keychain"
+          printf '%s' "$CERT_PUBLIC" > "$RUNNER_TEMP/verso-signing-cert.pem"
+          # A self-signed certificate must be trusted for codesign to find the identity; the runner
+          # allows sudo without a prompt (T059).
+          sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain \
+            "$RUNNER_TEMP/verso-signing-cert.pem"
+          security list-keychains -d user -s "$keychain" \
+            $(security list-keychains -d user | sed 's/"//g')
+          security default-keychain -s "$keychain"
+          security find-identity -v -p codesigning
+      - name: Build the installer
+        env:
+          # T059: the self-signed certificate is imported and trusted by the step above; the identity
+          # names it. Without the certificate this stays "-" (ad-hoc).
+          APPLE_SIGNING_IDENTITY: ${{ vars.APPLE_SIGNING_IDENTITY || '-' }}
+          # Signs the updater bundle; the private key exists only in CI (research R13).
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: npm run tauri build -- --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+      - name: Check the size budget and rename
+        shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
+          SUFFIX: ${{ matrix.suffix }}
+          PATTERN: ${{ matrix.find }}
+          UPDATER_PATTERN: ${{ matrix.updater_find }}
+          UPDATER_SUFFIX: ${{ matrix.updater_suffix }}
+          VERSION: ${{ needs.guard.outputs.tag_version }}
+        run: |
+          set -euo pipefail
+          bundle="src-tauri/target/${TARGET}/release/bundle"
+          artifact=$(find "$bundle" -type f -name "$PATTERN" | head -n 1)
+          if [ -z "$artifact" ]; then
+            echo "::error::no installer matching $PATTERN under $bundle"
+            exit 1
+          fi
+          size=$(wc -c < "$artifact")
+          echo "$artifact: $size bytes"
+          if [ "$size" -gt 31457280 ]; then
+            echo "::error file=$artifact::installer exceeds the 30 MB budget"
+            exit 1
+          fi
+          mkdir -p out
+          cp "$artifact" "out/Verso_${VERSION}${SUFFIX}"
+
+          # Updater bundle (macOS .app.tar.gz, Windows the NSIS installer itself) and its signature,
+          # named exactly as latest.json expects (contracts/update-channel.md).
+          updater=$(find "$bundle" -type f -name "$UPDATER_PATTERN" | head -n 1)
+          if [ -z "$updater" ]; then
+            echo "::error::no updater bundle matching $UPDATER_PATTERN under $bundle"
+            exit 1
+          fi
+          if [ ! -f "$updater.sig" ]; then
+            echo "::error::no signature next to $updater (is TAURI_SIGNING_PRIVATE_KEY set?)"
+            exit 1
+          fi
+          cp "$updater" "out/Verso_${VERSION}${UPDATER_SUFFIX}"
+          cp "$updater.sig" "out/Verso_${VERSION}${UPDATER_SUFFIX}.sig"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installer-${{ matrix.target }}
+          path: out/*
+          if-no-files-found: error
+
+  publish:
+    name: Publish (${{ github.event.inputs.tag || github.ref_name }})
+    needs: [guard, build]
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.PUBLIC_REPO_TOKEN }}
+      PUBLIC_REPO: ${{ vars.PUBLIC_REPO }}
+      TAG: ${{ needs.guard.outputs.tag }}
+      VERSION: ${{ needs.guard.outputs.version }}
+      TAG_VERSION: ${{ needs.guard.outputs.tag_version }}
+      PRERELEASE: ${{ needs.guard.outputs.prerelease }}
+      # Signing arrives with T028/T029; until then every build is unsigned.
+      MACOS_SIGNED: "no"
+      WINDOWS_SIGNED: "no"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.guard.outputs.tag }}
+      - name: Check the owner inputs are filled in
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -RInE '\[(LEGAL NAME|CONTACT EMAIL)\]' docs/public; then
+            echo "::error::docs/public still holds an owner placeholder (T002); fill it before publishing"
+            exit 1
+          fi
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: installer-*
+          merge-multiple: true
+          path: dist
+      - name: Verify the artifact set
+        shell: bash
+        run: |
+          set -euo pipefail
+          count=$(find dist -maxdepth 1 -type f | wc -l)
+          # Three installers, two macOS updater bundles (macOS only: the Windows updater payload is the
+          # setup itself, already counted as an installer) and three signatures = 8.
+          if [ "$count" -ne 8 ]; then
+            echo "::error::expected 8 artifacts, found $count"
+            ls -la dist
+            exit 1
+          fi
+      - name: Write the checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd dist
+          # SHA256SUMS covers the installers only; the updater bundles are checked by signature.
+          sha256sum Verso_*_aarch64.dmg Verso_*_x64.dmg Verso_*_x64-setup.exe > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+      - name: Detect the macOS signature
+        id: signing
+        shell: bash
+        env:
+          CERT: ${{ secrets.APPLE_CERTIFICATE }}
+        run: |
+          set -euo pipefail
+          if [ -n "$CERT" ]; then
+            echo "macos=self-signed" >> "$GITHUB_OUTPUT"
+          else
+            echo "macos=no" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Write the release notes
+        shell: bash
+        env:
+          MACOS_SIGNED: ${{ steps.signing.outputs.macos }}
+        run: |
+          set -euo pipefail
+          scripts/release-notes.sh "$TAG" > release-notes.md
+      - name: Write the update manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${PUBLIC_REPO:?set the PUBLIC_REPO repository variable (owner/verso-translate)}"
+          scripts/make-update-manifest.sh dist "$TAG" "$PUBLIC_REPO" release-notes.md > dist/latest.json
+      - name: Sync the public documents
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${PUBLIC_REPO:?set the PUBLIC_REPO repository variable (owner/verso-translate)}"
+          : "${GH_TOKEN:?set the PUBLIC_REPO_TOKEN repository secret}"
+          workdir="$RUNNER_TEMP/public"
+          auth=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
+          git -c http.extraheader="AUTHORIZATION: basic $auth" \
+            clone --depth 1 "https://github.com/${PUBLIC_REPO}.git" "$workdir"
+          git -C "$workdir" config http.extraheader "AUTHORIZATION: basic $auth"
+          find "$workdir" -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp docs/public/*.md "$workdir"/
+          cp -R docs/public/.github "$workdir"/.github
+          cp THIRD_PARTY.md "$workdir"/
+          scripts/check-public-tree.sh "$workdir"
+          git -C "$workdir" config user.name "github-actions[bot]"
+          git -C "$workdir" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C "$workdir" add -A
+          if git -C "$workdir" diff --cached --quiet; then
+            echo "the public documents are already up to date"
+          else
+            git -C "$workdir" commit -m "docs: sync for $TAG"
+            git -C "$workdir" push
+          fi
+      # Documents go first: GitHub refuses to create a release in a repository with no commits, which
+      # is exactly the state of the public repo on the first run.
+      - name: Publish the release
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${PUBLIC_REPO:?set the PUBLIC_REPO repository variable (owner/verso-translate)}"
+          : "${GH_TOKEN:?set the PUBLIC_REPO_TOKEN repository secret}"
+          # latest.json goes last, so a half-published release is never offered.
+          upload=()
+          for file in dist/*; do
+            [[ "$file" == "dist/latest.json" ]] && continue
+            upload+=("$file")
+          done
+          if gh release view "$TAG" --repo "$PUBLIC_REPO" >/dev/null 2>&1; then
+            gh release upload "$TAG" "${upload[@]}" --clobber --repo "$PUBLIC_REPO"
+          else
+            args=(--repo "$PUBLIC_REPO" --title "Verso $TAG_VERSION" --notes-file release-notes.md)
+            if [ "$PRERELEASE" = "true" ]; then
+              args+=(--prerelease)
+            fi
+            gh release create "$TAG" "${upload[@]}" "${args[@]}"
+          fi
+          gh release upload "$TAG" dist/latest.json --clobber --repo "$PUBLIC_REPO"
+
+  packages:
+    name: Package managers (${{ github.event.inputs.tag || github.ref_name }})
+    needs: [guard, publish]
+    # Stable tags only, and a failure here never unpublishes the release.
+    if: needs.guard.outputs.prerelease == 'false'
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.PUBLIC_REPO_TOKEN }}
+      PUBLIC_REPO: ${{ vars.PUBLIC_REPO }}
+      TAG: ${{ needs.guard.outputs.tag }}
+      PACKAGES_REPO_TOKEN: ${{ secrets.PACKAGES_REPO_TOKEN }}
+      HOMEBREW_REPO: ${{ vars.HOMEBREW_REPO || 'lbngoc/homebrew-verso' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.guard.outputs.tag }}
+      - name: Download the checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${PUBLIC_REPO:?set the PUBLIC_REPO repository variable}"
+          mkdir -p dist
+          gh release download "$TAG" --repo "$PUBLIC_REPO" --pattern SHA256SUMS.txt --dir dist
+      - name: Generate the manifests
+        shell: bash
+        run: |
+          set -euo pipefail
+          scripts/package-manifests.sh dist "$TAG" out "$PUBLIC_REPO"
+      - name: Update the Homebrew tap
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${PACKAGES_REPO_TOKEN:?set the PACKAGES_REPO_TOKEN repository secret}"
+          auth=$(printf 'x-access-token:%s' "$PACKAGES_REPO_TOKEN" | base64 -w0)
+          sync_repo() {
+            local repo="$1" target="$2" files="$3"
+            local work="$RUNNER_TEMP/$(basename "$repo")"
+            git clone --depth 1 "https://github.com/${repo}.git" "$work"
+            mkdir -p "$work/$target"
+            cp $files "$work/$target/"
+            git -C "$work" config user.name "github-actions[bot]"
+            git -C "$work" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git -C "$work" add -A
+            if git -C "$work" diff --cached --quiet; then
+              echo "$repo: already up to date"
+              return 0
+            fi
+            git -C "$work" -c http.extraheader="AUTHORIZATION: basic $auth" \
+              commit -m "verso $TAG"
+            git -C "$work" -c http.extraheader="AUTHORIZATION: basic $auth" push
+          }
+          sync_repo "$HOMEBREW_REPO" "Casks" "out/verso.rb"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: winget-manifests
+          path: out/*.yaml
+          if-no-files-found: error
