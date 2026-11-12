@@ -1,0 +1,97 @@
+/* Spotlight-like macOS stylesheet (T060): SF Pro through -apple-system, large result type,
+   system label colours over glass/vibrancy/opaque, hairline separators, bottom icon action bar. */
+
+[data-os="macos"] {
+  --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+  --radius-large: 16px;
+  --font-size-result: 17px;
+}
+
+[data-os="macos"][data-material="glass"] {
+  --radius-large: 22px;
+}
+
+[data-os="macos"] .material-surface {
+  box-shadow: none;
+}
+
+[data-os="macos"] .popup {
+  padding: 14px 16px 12px;
+}
+
+[data-os="macos"] .result-text {
+  font-size: var(--font-size-result);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+[data-os="macos"] .direction {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+[data-os="macos"] .hairline {
+  height: 1px;
+  background: var(--separator);
+  border: 0;
+  margin: 0;
+}
+
+[data-os="macos"] .action-bar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding-top: 8px;
+}
+
+[data-os="macos"] .action-bar .spacer {
+  flex: 1;
+}
+
+[data-os="macos"] .icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 30px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 7px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+[data-os="macos"] .icon-button:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+[data-os="macos"] .esc-hint {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+[data-os="macos"] .quick textarea {
+  font-size: 15px;
+  background: transparent;
+  border: 0;
+  padding: 4px 0;
+}
+
+[data-os="macos"] .quick .picker {
+  font-size: 12px;
+}
+
+[data-os="macos"] .quick .result {
+  font-size: 15px;
+  color: var(--text);
+}
+
+[data-os="macos"] .settings-card {
+  background: var(--surface-raised);
+  border-radius: 10px;
+  padding: 14px;
+}

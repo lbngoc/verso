@@ -1,0 +1,88 @@
+/* Fluent Windows stylesheet (T061): Segoe UI Variable, Fluent flyout fill/stroke tokens, 1 px
+   SurfaceStroke, accent focus ring, Fluent System Icons. */
+
+[data-os="windows"] {
+  --font-ui: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --radius-large: 8px;
+  --radius-small: 4px;
+  --font-size-result: 16px;
+}
+
+[data-os="windows"] .material-surface {
+  border: 1px solid var(--stroke);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+
+[data-os="windows"][data-material="opaque"] .material-surface {
+  background: var(--surface-opaque);
+}
+
+[data-os="windows"] .result-text {
+  font-size: var(--font-size-result);
+  color: var(--text);
+}
+
+[data-os="windows"] .direction {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+[data-os="windows"] .hairline {
+  height: 1px;
+  background: var(--stroke);
+  border: 0;
+  margin: 0;
+}
+
+[data-os="windows"] .action-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-top: 8px;
+}
+
+[data-os="windows"] .action-bar .spacer {
+  flex: 1;
+}
+
+[data-os="windows"] .icon-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 5px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+[data-os="windows"] .icon-button:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+[data-os="windows"] .icon-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  box-shadow: none;
+}
+
+[data-os="windows"] .esc-hint {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+[data-os="windows"] .quick textarea {
+  font-size: 15px;
+  border: 1px solid var(--stroke);
+  border-radius: 5px;
+  background: var(--surface-raised);
+}
+
+[data-os="windows"] .settings-card {
+  background: var(--surface-raised);
+  border: 1px solid var(--stroke);
+  border-radius: 8px;
+  padding: 14px;
+}
