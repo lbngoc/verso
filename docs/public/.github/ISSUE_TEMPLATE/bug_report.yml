@@ -1,0 +1,67 @@
+name: Bug report
+description: Something in Verso does not work as expected
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Do not paste translated or selected text, clipboard contents or anything
+        private. Security problems go through SECURITY.md, not a public issue.
+  - type: input
+    id: version
+    attributes:
+      label: Verso version
+      description: "Tray menu › About Verso (or Settings › About)"
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - macOS (Apple Silicon)
+        - macOS (Intel)
+        - Windows 11
+        - Windows 10
+        - Linux
+    validations:
+      required: true
+  - type: input
+    id: engines
+    attributes:
+      label: Engines
+      description: "The engine order from Settings › Engines, first one first."
+      placeholder: "http-google, http-bing"
+  - type: textarea
+    id: steps
+    attributes:
+      label: What did you do?
+      description: The shortest steps that show the problem.
+      placeholder: |
+        1. Select a sentence in Safari
+        2. Press Alt+Shift+T
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log excerpt (optional)
+      description: "macOS: ~/Library/Logs/app.versotranslate/verso.log — Windows: %LOCALAPPDATA%\\app.versotranslate\\logs\\verso.log. Remove anything personal."
+      render: text
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I read the troubleshooting guide.
+          required: true
+        - label: This is not a security problem.
+          required: true
