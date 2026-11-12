@@ -1,0 +1,11 @@
+node_modules/
+dist/
+build/
+coverage/
+src-tauri/target/
+spikes/
+references/
+.specify/
+specs/
+package-lock.json
+*.md

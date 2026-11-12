@@ -1,0 +1,39 @@
+{
+  "name": "verso-translate",
+  "private": true,
+  "version": "0.1.1",
+  "type": "module",
+  "description": "Verso — instant translation of selected or typed text (Tauri tray app)",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "build:windows": "tauri build --runner cargo-xwin --target x86_64-pc-windows-msvc --no-bundle",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check": "svelte-check --tsconfig ./tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^5",
+    "@tauri-apps/cli": "^2",
+    "@types/node": "^22",
+    "@eslint/js": "^9",
+    "eslint": "^9",
+    "eslint-plugin-svelte": "^2",
+    "globals": "^15",
+    "prettier": "^3",
+    "prettier-plugin-svelte": "^3",
+    "svelte": "^5",
+    "svelte-check": "^4",
+    "typescript": "^5",
+    "typescript-eslint": "^8",
+    "vite": "^6",
+    "vitest": "^2"
+  }
+}

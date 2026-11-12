@@ -1,0 +1,4 @@
+<!-- Verso mark, "two-way lines" (spec 008 FR-012). 24-unit master; small tray sizes are drawn per size in scripts/gen-tray-icon.py. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+  <path d="M3 7H21M17.5 3.5L21 7L17.5 10.5M9 12H15M21 17H3M6.5 13.5L3 17L6.5 20.5" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

@@ -1,0 +1,13 @@
+<!-- Verso app icon (spec 008 FR-011): the mark in white on the brand tile. Render to app-icon.png, then `npx tauri icon`. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1f7a72"/>
+      <stop offset="1" stop-color="#11504a"/>
+    </linearGradient>
+  </defs>
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#tile)"/>
+  <g transform="translate(176 176) scale(28)">
+    <path d="M3 7H21M17.5 3.5L21 7L17.5 10.5M9 12H15M21 17H3M6.5 13.5L3 17L6.5 20.5" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

@@ -1,0 +1,32 @@
+# Reference repos are read-only clones with their own .git (see references/README.md)
+references/*
+!references/README.md
+
+# Local memory index
+.memsearch/
+
+# Build output
+node_modules/
+target/
+dist/
+src-tauri/target/
+spikes/**/target/
+
+# Python caches (spike bench scripts)
+__pycache__/
+*.pyc
+
+.DS_Store
+
+# Local planning and agent workspace (kept on this Mac, not published)
+specs/
+.specify/
+.claude/
+.memsearch/
+
+# Local development artefacts (reference clones, spikes, VM helpers)
+spikes/
+references/
+.githooks/
+scripts/vm/
+scripts/cleanup.sh

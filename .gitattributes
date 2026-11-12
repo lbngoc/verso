@@ -1,0 +1,19 @@
+# Keep every text file LF in the repository and in checkouts on every OS, so `cargo fmt --check`
+# and the scripts behave the same on Windows as on macOS (007, first release run).
+* text=auto eol=lf
+
+# Binary assets: never normalise them.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.icns binary
+*.ico binary
+*.dmg binary
+*.zip binary
+*.pdf binary
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary
