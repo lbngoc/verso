@@ -37,7 +37,7 @@ the change and how it was tested; link an issue when there is one.
 - TypeScript and Svelte: Prettier (`npm run format`) and ESLint; no `any` without a reason.
 - Rust: `rustfmt` defaults, clippy clean, errors as `thiserror`/strings at the command boundary.
 - User-visible strings go through `src/lib/i18n/en.json` and `vi.json`; both files need the same keys.
-- Commits: a short imperative subject, then why in the body. Do not commit build output, logs or secrets.
+- Commits: group at the size of one user story or one major phase — a handful of substantial commits, not many small ones. A short imperative subject, then why in the body. Do not commit build output, logs or secrets.
 
 ## Pull requests
 
