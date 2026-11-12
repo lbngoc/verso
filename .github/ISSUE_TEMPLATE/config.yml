@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security problem
+    url: https://github.com/lbngoc/verso/blob/main/SECURITY.md
+    about: Report a vulnerability privately, never in a public issue.
+  - name: Troubleshooting
+    url: https://github.com/lbngoc/verso-translate/blob/main/TROUBLESHOOTING.md
+    about: Blocked engines, shortcuts that do not fire, permissions and logs.
