@@ -49,6 +49,7 @@ fi
 signed() {
   case "${1:-}" in
     yes | YES | true | TRUE | 1) echo yes ;;
+    self-signed) echo self-signed ;;
     *) echo no ;;
   esac
 }
