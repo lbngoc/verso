@@ -148,7 +148,7 @@ pub fn run() {
                     granted,
                 ) {
                     log::info!(
-                        "the code identity changed ({} -> {}) and Accessibility is missing; showing the re-grant step",
+                        "Accessibility is missing after an update ({} -> {}); showing the re-grant step",
                         profile.last_run_version,
                         env!("CARGO_PKG_VERSION")
                     );

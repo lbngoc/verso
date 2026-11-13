@@ -3,6 +3,15 @@
 All notable changes to Verso are listed here. The release pipeline publishes the section that matches
 the release tag, so a tag needs its section before it is pushed.
 
+## 0.1.3 — 2026-11-13
+
+The permission step also opens for upgrades from 0.1.0 and 0.1.1.
+
+### Fixed
+
+- Upgrading from a build that predates the version check now opens the guided Accessibility step at startup
+  when the grant is missing, instead of waiting for the first failed capture.
+
 ## 0.1.2 — 2026-11-13
 
 Stable signing identity for the preview.

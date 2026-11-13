@@ -177,18 +177,16 @@ impl SettingsProfile {
 
 /// Whether the app should guide the user to grant Accessibility again after an update (T059).
 ///
-/// Only a real version change counts: no first run (onboarding handles it), no prompt while the grant
-/// is intact, and nothing when the stored version is still empty (no baseline yet).
+/// No first run (onboarding handles it) and no prompt while the grant is intact. A stored version that
+/// differs from the running one is an update; an empty one is an upgrade from a build that never recorded
+/// it (0.1.0 and 0.1.1), which had no permission baseline either.
 pub fn needs_permission_regrant(
     onboarded: bool,
     last_run_version: &str,
     current_version: &str,
     permission_granted: bool,
 ) -> bool {
-    onboarded
-        && !last_run_version.is_empty()
-        && last_run_version != current_version
-        && !permission_granted
+    onboarded && last_run_version != current_version && !permission_granted
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -369,10 +367,12 @@ mod tests {
         assert!(needs_permission_regrant(true, "0.1.0", "0.1.1", false));
         // Not until onboarding has ended.
         assert!(!needs_permission_regrant(false, "0.1.0", "0.1.1", false));
-        // No update (same version), or no baseline yet.
+        // No update (same version): nothing to do.
         assert!(!needs_permission_regrant(true, "0.1.1", "0.1.1", false));
-        assert!(!needs_permission_regrant(true, "", "0.1.1", false));
+        // An empty baseline is an upgrade from a build that never stored one (0.1.0, 0.1.1).
+        assert!(needs_permission_regrant(true, "", "0.1.3", false));
         // The grant survived: nothing to do.
         assert!(!needs_permission_regrant(true, "0.1.0", "0.1.1", true));
+        assert!(!needs_permission_regrant(true, "", "0.1.3", true));
     }
 }
