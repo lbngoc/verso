@@ -2,7 +2,7 @@ import { defineConfig } from "vite";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 import { resolve } from "node:path";
 
-// Multi-page build: one HTML entry per Tauri window (popup, quick, settings, onboarding).
+// Multi-page build: one HTML entry per Tauri window (popup, quick, settings, onboarding, update).
 export default defineConfig({
   plugins: [svelte()],
   resolve: {
@@ -26,6 +26,7 @@ export default defineConfig({
         quick: resolve(__dirname, "quick.html"),
         settings: resolve(__dirname, "settings.html"),
         onboarding: resolve(__dirname, "onboarding.html"),
+        update: resolve(__dirname, "update.html"),
       },
     },
   },
