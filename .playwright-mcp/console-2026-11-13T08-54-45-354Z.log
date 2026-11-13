@@ -1,0 +1,16 @@
+[    1198ms] TypeError: Cannot read properties of undefined (reading 'invoke')
+    at invoke (http://localhost:1420/node_modules/.vite/deps/chunk-GR6UYLMF.js?v=6c114dac:128:37)
+    at Object.getSettings (http://localhost:1420/src/lib/ipc.ts?t=1794559118602:13:22)
+    at http://localhost:1420/src/routes/settings/+page.svelte:185:82
+[   21109ms] [ERROR] settings could not load TypeError: Cannot read properties of null (reading 'ui_language')
+    at http://localhost:1420/src/routes/settings/+page.svelte?t=1794560106081:189:34 @ http://localhost:1420/src/routes/settings/+page.svelte?t=1794560106081:219
+[   21147ms] TypeError: Cannot read properties of undefined (reading 'invoke')
+    at invoke (http://localhost:1420/node_modules/.vite/deps/chunk-GR6UYLMF.js?v=6c114dac:128:37)
+    at emit (http://localhost:1420/node_modules/.vite/deps/chunk-VXDZ4WHF.js?v=6c114dac:51:9)
+    at Object.emitPageReady (http://localhost:1420/src/lib/ipc.ts?t=1794559118602:63:24)
+    at http://localhost:1420/src/routes/settings/+page.svelte?t=1794560106081:224:73
+[   64386ms] TypeError: Cannot read properties of undefined (reading 'invoke')
+    at invoke (http://localhost:1420/node_modules/.vite/deps/chunk-GR6UYLMF.js?v=6c114dac:128:37)
+    at emit (http://localhost:1420/node_modules/.vite/deps/chunk-VXDZ4WHF.js?v=6c114dac:51:9)
+    at Object.emitPageReady (http://localhost:1420/src/lib/ipc.ts?t=1794559118602:63:24)
+    at http://localhost:1420/src/routes/settings/+page.svelte?t=1794560149523:228:73

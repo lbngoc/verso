@@ -108,9 +108,20 @@ body.quick-body {
 }
 
 body.settings-body,
+body.update-body,
 body.onboarding-body {
   background: var(--surface-opaque);
   user-select: text;
+}
+
+/* Settings: the sidebar column shows the native material behind the window (T038/T043). */
+body.settings-body {
+  background: transparent;
+}
+
+[data-material="opaque"] body.settings-body,
+[data-reduce-transparency="true"] body.settings-body {
+  background: var(--surface-opaque);
 }
 
 button {

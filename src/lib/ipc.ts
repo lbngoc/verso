@@ -258,6 +258,7 @@ export const events = {
   onSelfTestPainted: (handler: () => void): Promise<UnlistenFn> =>
     listen("selftest-painted", () => handler()),
   emitSelfTestPainted: () => emit("selftest-painted", {}),
+  emitPageReady: () => emit("page-ready", {}),
   onUpdateAvailable: (handler: (payload: UpdateInfo) => void): Promise<UnlistenFn> =>
     listen<UpdateInfo>("update-available", (event) => handler(event.payload)),
   onUpdateProgress: (handler: (payload: UpdateProgress) => void): Promise<UnlistenFn> =>

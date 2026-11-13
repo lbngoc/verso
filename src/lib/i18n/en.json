@@ -160,6 +160,7 @@
   "settings.shortcut_quick": "Quick panel",
   "settings.shortcut_translate": "Translate selection",
   "settings.shortcuts": "Shortcuts",
+  "settings.source_language": "Default source language",
   "settings.target_language": "Target language",
   "settings.text_size_preview": "The quick brown fox jumps over the lazy dog.",
   "settings.text_size_reset": "Reset",

@@ -77,6 +77,10 @@
         }
       });
     }
+    // The window is created hidden and shown once this page has painted (R13).
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => void events.emitPageReady()),
+    );
   });
 </script>
 

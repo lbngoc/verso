@@ -46,6 +46,8 @@ export function applyAppearance(value: Appearance): void {
   root.dataset.os = value.os;
   root.dataset.material = value.material;
   root.dataset.theme = value.theme;
+  root.dataset.reduceTransparency = String(value.reduce_transparency);
+  root.dataset.highContrast = String(value.high_contrast);
   appearance.set(value);
   // The system accent is kept in the store; whether it is used is decided by applyAccent().
   applyAccent();

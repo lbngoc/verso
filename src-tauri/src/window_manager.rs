@@ -290,16 +290,24 @@ pub fn take_settings_section() -> Option<String> {
 static SETTINGS_SECTION: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
 
 fn open_settings(app: &AppHandle, url: &str) {
-    match tauri::WebviewWindowBuilder::new(app, "settings", tauri::WebviewUrl::App(url.into()))
+    let builder = tauri::WebviewWindowBuilder::new(app, "settings", tauri::WebviewUrl::App(url.into()))
         .title("Verso Settings")
         .inner_size(780.0, 560.0)
         .min_inner_size(640.0, 460.0)
         .resizable(true)
-        .visible(true)
-        .build()
-    {
+        .visible(false);
+    #[cfg(target_os = "macos")]
+    let builder = builder
+        .title_bar_style(tauri::TitleBarStyle::Overlay)
+        .hidden_title(true)
+        .transparent(true);
+    match builder.build() {
         Ok(window) => {
-            let _ = window.set_focus();
+            // Painted before the window appears, so the first frame is never blank (R13).
+            reveal_on_ready(app, &window);
+            // The sidebar material sits behind the webview; the page leaves that column transparent.
+            let appearance = platform::services().appearance();
+            platform::services().apply_settings_material(&window, &appearance);
             // A recorder may have suspended the global shortcuts; closing Settings restores them.
             let handle = app.clone();
             window.on_window_event(move |event| {
@@ -313,6 +321,41 @@ fn open_settings(app: &AppHandle, url: &str) {
         }
         Err(error) => warn!("could not open Settings: {error}"),
     }
+}
+
+/// Shows a window created hidden once its page reports `page-ready`, or after 600 ms at the latest.
+fn reveal_on_ready(app: &AppHandle, window: &WebviewWindow) {
+    let listener_app = app.clone();
+    let listener_window = window.clone();
+    let _ = window.listen("page-ready", move |_| {
+        show_ready_window(&listener_app, &listener_window);
+    });
+    let timeout_window = window.clone();
+    let timeout_app = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(600));
+        if !timeout_window.is_visible().unwrap_or(false) {
+            show_ready_window(&timeout_app, &timeout_window);
+        }
+    });
+}
+
+fn show_ready_window(app: &AppHandle, window: &WebviewWindow) {
+    let window = window.clone();
+    let _ = app.run_on_main_thread(move || {
+        if window.is_visible().unwrap_or(false) {
+            return;
+        }
+        let _ = window.show();
+        let _ = window.set_focus();
+        // 1-pt nudge: forces a layout pass on a webview that painted before being shown (R13).
+        if let Ok(size) = window.inner_size() {
+            let scale = window.scale_factor().unwrap_or(1.0);
+            let logical = size.to_logical::<f64>(scale);
+            let _ = window.set_size(LogicalSize::new(logical.width, logical.height - 1.0));
+            let _ = window.set_size(LogicalSize::new(logical.width, logical.height));
+        }
+    });
 }
 
 /// Escape is registered globally only while a transient window is open, so it closes the popup
@@ -370,11 +413,12 @@ pub fn show_onboarding(app: &AppHandle) {
     .title("Welcome to Verso")
     .inner_size(560.0, 560.0)
     .resizable(false)
-    .visible(true)
+    .visible(false)
     .build()
     {
         Ok(window) => {
-            let _ = window.set_focus();
+            // Same hidden-until-ready rule as Settings (R13).
+            reveal_on_ready(app, &window);
         }
         Err(error) => warn!("could not open onboarding: {error}"),
     }

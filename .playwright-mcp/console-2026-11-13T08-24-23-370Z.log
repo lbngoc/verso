@@ -9,3 +9,33 @@
     at listen (http://localhost:1420/node_modules/.vite/deps/chunk-VXDZ4WHF.js?v=6c114dac:39:14)
     at Object.onPopupState (http://localhost:1420/src/lib/ipc.ts?t=1794558725637:50:30)
     at http://localhost:1420/src/routes/popup/+page.svelte?t=1794558725637:315:59
+[  829636ms] TypeError: Cannot read properties of undefined (reading 'transformCallback')
+    at transformCallback (http://localhost:1420/node_modules/.vite/deps/chunk-GR6UYLMF.js?v=6c114dac:24:37)
+    at listen (http://localhost:1420/node_modules/.vite/deps/chunk-VXDZ4WHF.js?v=6c114dac:39:14)
+    at Object.onPopupState (http://localhost:1420/src/lib/ipc.ts?t=1794559092751:50:30)
+    at http://localhost:1420/src/routes/popup/+page.svelte?t=1794559092751:315:59
+[  837645ms] TypeError: Cannot read properties of undefined (reading 'transformCallback')
+    at transformCallback (http://localhost:1420/node_modules/.vite/deps/chunk-GR6UYLMF.js?v=6c114dac:24:37)
+    at listen (http://localhost:1420/node_modules/.vite/deps/chunk-VXDZ4WHF.js?v=6c114dac:39:14)
+    at Object.onPopupState (http://localhost:1420/src/lib/ipc.ts?t=1794559100883:50:30)
+    at http://localhost:1420/src/routes/popup/+page.svelte?t=1794559100883:315:59
+[  855304ms] TypeError: Cannot read properties of undefined (reading 'transformCallback')
+    at transformCallback (http://localhost:1420/node_modules/.vite/deps/chunk-GR6UYLMF.js?v=6c114dac:24:37)
+    at listen (http://localhost:1420/node_modules/.vite/deps/chunk-VXDZ4WHF.js?v=6c114dac:39:14)
+    at Object.onPopupState (http://localhost:1420/src/lib/ipc.ts?t=1794559118602:50:30)
+    at http://localhost:1420/src/routes/popup/+page.svelte?t=1794559118602:315:59
+[  881374ms] TypeError: Cannot read properties of undefined (reading 'transformCallback')
+    at transformCallback (http://localhost:1420/node_modules/.vite/deps/chunk-GR6UYLMF.js?v=6c114dac:24:37)
+    at listen (http://localhost:1420/node_modules/.vite/deps/chunk-VXDZ4WHF.js?v=6c114dac:39:14)
+    at Object.onPopupState (http://localhost:1420/src/lib/ipc.ts?t=1794559118602:50:30)
+    at http://localhost:1420/src/routes/popup/+page.svelte?t=1794559144565:315:59
+[  881396ms] TypeError: Cannot read properties of undefined (reading 'transformCallback')
+    at transformCallback (http://localhost:1420/node_modules/.vite/deps/chunk-GR6UYLMF.js?v=6c114dac:24:37)
+    at listen (http://localhost:1420/node_modules/.vite/deps/chunk-VXDZ4WHF.js?v=6c114dac:39:14)
+    at Object.onPopupState (http://localhost:1420/src/lib/ipc.ts?t=1794559118602:50:30)
+    at http://localhost:1420/src/routes/popup/+page.svelte?t=1794559144569:315:59
+[ 1165897ms] TypeError: Cannot read properties of undefined (reading 'transformCallback')
+    at transformCallback (http://localhost:1420/node_modules/.vite/deps/chunk-GR6UYLMF.js?v=6c114dac:24:37)
+    at listen (http://localhost:1420/node_modules/.vite/deps/chunk-VXDZ4WHF.js?v=6c114dac:39:14)
+    at Object.onPopupState (http://localhost:1420/src/lib/ipc.ts?t=1794559118602:50:30)
+    at http://localhost:1420/src/routes/popup/+page.svelte?t=1794559429151:315:59

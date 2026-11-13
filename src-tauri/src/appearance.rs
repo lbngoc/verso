@@ -57,6 +57,9 @@ pub fn apply_to_windows(app: &AppHandle, appearance: &Appearance) {
                 platform::services().apply_window_material(&window, &appearance);
             }
         }
+        if let Some(window) = handle.get_webview_window("settings") {
+            platform::services().apply_settings_material(&window, &appearance);
+        }
     });
 }
 
