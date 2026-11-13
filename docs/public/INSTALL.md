@@ -1,6 +1,6 @@
 # Installing Verso
 
-Written for **Verso 0.1.1** (macOS 13 or later; Windows 10 or 11, 64-bit). The macOS build is ad-hoc signed
+Written for **Verso 0.1.2** (macOS 13 or later; Windows 10 or 11, 64-bit). The macOS build is ad-hoc signed
 but not notarized, and the Windows build is unsigned, so both systems ask for one confirmation on the first
 launch; the steps below cover it.
 
@@ -8,9 +8,9 @@ Take the installer from the [latest release](../../releases/latest) page. The fi
 
 | System | File |
 |---|---|
-| macOS, Apple Silicon (M1 and later) | `Verso_0.1.1_aarch64.dmg` |
-| macOS, Intel | `Verso_0.1.1_x64.dmg` |
-| Windows, 64-bit | `Verso_0.1.1_x64-setup.exe` |
+| macOS, Apple Silicon (M1 and later) | `Verso_0.1.2_aarch64.dmg` |
+| macOS, Intel | `Verso_0.1.2_x64.dmg` |
+| Windows, 64-bit | `Verso_0.1.2_x64-setup.exe` |
 
 ## Homebrew (macOS)
 
@@ -29,13 +29,13 @@ Each release lists the SHA-256 of every file in `SHA256SUMS.txt`.
 macOS:
 
 ```sh
-shasum -a 256 Verso_0.1.1_aarch64.dmg
+shasum -a 256 Verso_0.1.2_aarch64.dmg
 ```
 
 Windows (PowerShell):
 
 ```powershell
-Get-FileHash .\Verso_0.1.1_x64-setup.exe -Algorithm SHA256
+Get-FileHash .\Verso_0.1.2_x64-setup.exe -Algorithm SHA256
 ```
 
 The value must match the line for that file in `SHA256SUMS.txt`. If it does not, download the file again
@@ -63,7 +63,7 @@ Verso starts with the system at login only if **Launch at login** is enabled in 
 
 ## Windows
 
-1. Run `Verso_0.1.1_x64-setup.exe`.
+1. Run `Verso_0.1.2_x64-setup.exe`.
 2. Windows SmartScreen shows "Windows protected your PC" because the build is unsigned. Choose **More
    info**, then **Run anyway**. The installer needs no administrator rights and installs for the current
    user.

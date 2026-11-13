@@ -3,6 +3,18 @@
 All notable changes to Verso are listed here. The release pipeline publishes the section that matches
 the release tag, so a tag needs its section before it is pushed.
 
+## 0.1.2 — 2026-11-13
+
+Stable signing identity for the preview.
+
+### Changed
+
+- macOS builds are signed with the same code-signing identity on every release, so the Accessibility
+  permission now survives updates. Upgrading from 0.1.0 or 0.1.1 asks for it once more, and Verso opens the
+  guided permission step itself.
+- The source is public at <https://github.com/lbngoc/verso> under the MIT licence; the release pipeline now
+  runs on the public repository.
+
 ## 0.1.1 — 2026-11-11
 
 Update-path verification release. No feature changes.

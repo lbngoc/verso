@@ -1,7 +1,7 @@
 {
   "name": "verso-translate",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "description": "Verso \u2014 instant translation of selected or typed text (Tauri tray app)",
   "scripts": {

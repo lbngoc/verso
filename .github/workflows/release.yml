@@ -191,7 +191,7 @@ jobs:
           security create-keychain -p actions "$keychain"
           security set-keychain-settings -lut 21600 "$keychain"
           security unlock-keychain -p actions "$keychain"
-          printf '%s' "$CERT_B64" | base64 --decode > "$RUNNER_TEMP/verso-signing.p12"
+          printf '%s' "$CERT_B64" | base64 -D > "$RUNNER_TEMP/verso-signing.p12"
           security import "$RUNNER_TEMP/verso-signing.p12" -k "$keychain" \
             -P "$CERT_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k actions "$keychain"

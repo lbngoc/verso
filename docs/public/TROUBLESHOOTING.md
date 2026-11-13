@@ -1,6 +1,6 @@
 # Troubleshooting Verso
 
-Written for **Verso 0.1.1** (macOS 13 or later; Windows 10 or 11, 64-bit).
+Written for **Verso 0.1.2** (macOS 13 or later; Windows 10 or 11, 64-bit).
 
 ## The translation service is busy or refuses requests
 
