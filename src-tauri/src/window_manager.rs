@@ -234,7 +234,7 @@ pub fn show_quick(app: &AppHandle) -> tauri::Result<()> {
     window.set_position(LogicalPosition::new(position.x, position.y))?;
     window.show()?;
     window.set_focus()?;
-    register_escape(app);
+    // The focused panel handles Escape itself; only the popup needs the global registration (T056).
     Ok(())
 }
 
@@ -242,7 +242,7 @@ pub fn hide_quick(app: &AppHandle) {
     if let Some(window) = quick_window(app) {
         let _ = window.hide();
     }
-    unregister_escape(app);
+    // Escape belongs to the popup: hiding the panel must not unregister it.
 }
 
 pub fn toggle_quick(app: &AppHandle) {
