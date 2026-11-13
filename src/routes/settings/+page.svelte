@@ -105,10 +105,6 @@
     }
   }
 
-  async function chooseEngines(order: string[], disabled: string[]): Promise<void> {
-    await update({ engine_order: order, engines_disabled: disabled });
-  }
-
   function onProfile(profile: SettingsProfile): void {
     settings = profile;
   }

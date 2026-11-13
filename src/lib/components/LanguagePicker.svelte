@@ -185,7 +185,7 @@
     background: var(--surface-opaque);
     border: 1px solid var(--stroke);
     border-radius: var(--radius-small);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+    box-shadow: var(--shadow-menu);
     padding: 6px;
   }
 

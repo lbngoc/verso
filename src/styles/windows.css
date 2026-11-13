@@ -10,7 +10,7 @@
 
 [data-os="windows"] .material-surface {
   border: 1px solid var(--stroke);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  box-shadow: var(--shadow-menu);
 }
 
 [data-os="windows"][data-material="opaque"] .material-surface {

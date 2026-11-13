@@ -102,14 +102,14 @@
     width: 18px;
     height: 18px;
     border-radius: 50%;
-    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+    box-shadow: inset 0 0 0 1px var(--hairline-strong);
   }
 
   .chip.app {
-    background: #1b6f62;
+    background: var(--accent);
   }
 
   .chip.system {
-    background: conic-gradient(#ff375f, #ffd60a, #30d158, #0a84ff, #ff375f);
+    background: conic-gradient(var(--accent), var(--success), var(--accent));
   }
 </style>

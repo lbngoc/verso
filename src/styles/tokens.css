@@ -24,6 +24,9 @@
   --accent-text: #17695c;
   --accent-soft: color-mix(in srgb, var(--accent) 15%, transparent);
   --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent);
+  --shadow-menu: 0 8px 24px rgba(0, 0, 0, 0.2);
+  --shadow-control: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --hairline-strong: rgba(0, 0, 0, 0.12);
 }
 
 :root,
@@ -53,6 +56,7 @@
   --hover: rgba(255, 255, 255, 0.08);
   --danger: #ff6961;
   --success: #4cd964;
+  --hairline-strong: rgba(255, 255, 255, 0.16);
   --accent: #3fb8a3;
   --accent-contrast: #06231e;
   --accent-text: #5cc9b6;

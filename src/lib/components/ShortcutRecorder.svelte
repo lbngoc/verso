@@ -206,7 +206,7 @@
     padding: 4px 8px;
     border-radius: 6px;
     background: var(--surface-opaque);
-    box-shadow: inset 0 0 0 1px var(--stroke), 0 4px 12px rgba(0, 0, 0, 0.12);
+    box-shadow: inset 0 0 0 1px var(--stroke), var(--shadow-menu);
     font-size: 11px;
     color: var(--danger);
     white-space: nowrap;

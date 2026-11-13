@@ -200,8 +200,8 @@
     top: 2px;
     left: 2px;
     border-radius: 50%;
-    background: #fff;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    background: var(--accent-contrast);
+    box-shadow: var(--shadow-control);
     transition: transform 0.15s ease;
   }
 

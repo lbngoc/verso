@@ -29,3 +29,8 @@
     at emit (http://localhost:1420/node_modules/.vite/deps/chunk-VXDZ4WHF.js?v=6c114dac:51:9)
     at Object.emitPageReady (http://localhost:1420/src/lib/ipc.ts?t=1794560461531:70:24)
     at http://localhost:1420/src/routes/settings/+page.svelte?t=1794560461531:228:73
+[  882950ms] TypeError: Cannot read properties of undefined (reading 'invoke')
+    at invoke (http://localhost:1420/node_modules/.vite/deps/chunk-GR6UYLMF.js?v=6c114dac:128:37)
+    at emit (http://localhost:1420/node_modules/.vite/deps/chunk-VXDZ4WHF.js?v=6c114dac:51:9)
+    at Object.emitPageReady (http://localhost:1420/src/lib/ipc.ts?t=1794560461531:70:24)
+    at http://localhost:1420/src/routes/settings/+page.svelte?t=1794560967072:224:73
