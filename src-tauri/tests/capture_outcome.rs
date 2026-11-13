@@ -1,7 +1,8 @@
 //! T027 — capture outcomes map to popup/quick/onboarding states and clipboard notices.
 
 use verso_lib::core::capture::{
-    outcome_to_popup_state, terminal_bypass_modifier, Notice, PopupState, TerminalModifier,
+    outcome_to_popup_state, terminal_bypass_modifier, Notice, PopupState, StatusKind,
+    TerminalModifier,
 };
 use verso_lib::platform::{CaptureFailure, CaptureMethod, CaptureOutcome, ClipboardState};
 
@@ -32,7 +33,7 @@ fn accessibility_never_touches_the_clipboard() {
     let plan = outcome_to_popup_state(&outcome);
     assert_eq!(plan.clipboard, ClipboardState::Untouched);
     assert!(plan.notice.is_none());
-    assert_eq!(plan.popup, PopupState::Loading);
+    assert_eq!(plan.popup, PopupState::Status { kind: StatusKind::Translating });
 }
 
 #[test]

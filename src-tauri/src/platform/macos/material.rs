@@ -99,3 +99,34 @@ fn round_content(content: &NSView, radius: f64) {
         }
     }
 }
+
+/// Settings uses the system **sidebar** material behind the whole window: the content column paints
+/// an opaque surface over it and the sidebar column stays translucent (R12, T038).
+pub fn apply_settings(window: &WebviewWindow, appearance: &Appearance) {
+    if appearance.reduce_transparency || appearance.high_contrast {
+        let mut opaque = appearance.clone();
+        opaque.material = Material::Opaque;
+        apply(window, &opaque);
+        return;
+    }
+    let Ok(pointer) = window.ns_window() else {
+        return;
+    };
+    let Some(mtm) = MainThreadMarker::new() else {
+        debug!("sidebar material applied off the main thread; keeping the CSS fallback");
+        return;
+    };
+    let ns_window: &NSWindow = unsafe { &*(pointer as *const NSWindow) };
+    let Some(content) = ns_window.contentView() else {
+        return;
+    };
+
+    remove_material_views(&content);
+
+    let view = NSVisualEffectView::new(mtm);
+    view.setMaterial(NSVisualEffectMaterial::Sidebar);
+    view.setBlendingMode(NSVisualEffectBlendingMode::BehindWindow);
+    view.setState(NSVisualEffectState::FollowsWindowActiveState);
+    install(&content, &view, 10.0);
+    debug!("installed the sidebar material for Settings");
+}

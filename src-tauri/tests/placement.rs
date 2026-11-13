@@ -2,8 +2,8 @@
 
 use verso_lib::platform::{Point, Rect, Size};
 use verso_lib::window_manager::{
-    place_popup, PlacementInput, EDGE_MARGIN, PLACEMENT_GAP, POPUP_EXPANDED_WIDTH, POPUP_HEIGHT,
-    POPUP_WIDTH,
+    place_popup, PlacementInput, EDGE_MARGIN, PLACEMENT_GAP, POPUP_MAX_HEIGHT, POPUP_MAX_WIDTH,
+    POPUP_RESULT_HEIGHT, POPUP_WIDTH,
 };
 
 fn work_area() -> Rect {
@@ -18,7 +18,7 @@ fn work_area() -> Rect {
 fn size(width: f64) -> Size {
     Size {
         width,
-        height: POPUP_HEIGHT,
+        height: POPUP_RESULT_HEIGHT,
     }
 }
 
@@ -50,7 +50,7 @@ fn near_the_bottom_edge_it_flips_above_the_cursor() {
     });
     assert_eq!(
         position.y,
-        area.bottom() - 10.0 - PLACEMENT_GAP - POPUP_HEIGHT
+        area.bottom() - 10.0 - PLACEMENT_GAP - POPUP_RESULT_HEIGHT
     );
     assert!(position.y >= area.y + EDGE_MARGIN);
 }
@@ -93,7 +93,7 @@ fn all_four_corners_stay_inside_the_work_area() {
             y: area.bottom() - 1.0,
         },
     ];
-    for width in [POPUP_WIDTH, POPUP_EXPANDED_WIDTH] {
+    for width in [POPUP_WIDTH, POPUP_MAX_WIDTH] {
         for cursor in corners {
             let position = place_popup(&PlacementInput {
                 cursor,
@@ -112,7 +112,7 @@ fn all_four_corners_stay_inside_the_work_area() {
             );
             assert!(position.y >= area.y + EDGE_MARGIN - 0.001);
             assert!(
-                position.y + POPUP_HEIGHT <= area.bottom() - EDGE_MARGIN + 0.001,
+                position.y + POPUP_RESULT_HEIGHT <= area.bottom() - EDGE_MARGIN + 0.001,
                 "height overflows at the bottom"
             );
         }

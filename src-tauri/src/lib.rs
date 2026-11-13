@@ -110,10 +110,18 @@ pub fn run() {
             for label in ["popup", "quick"] {
                 if let Some(window) = handle.get_webview_window(label) {
                     let handle = handle.clone();
+                    let is_popup = label == "popup";
                     window.on_window_event(move |event| {
                         if let tauri::WindowEvent::Focused(false) = event {
-                            window_manager::hide_popup(&handle);
-                            window_manager::hide_quick(&handle);
+                            // A pinned popup stays until Esc or × (spec 009, R5).
+                            if is_popup && window_manager::POPUP_PINNED.load(std::sync::atomic::Ordering::SeqCst) {
+                                return;
+                            }
+                            if is_popup {
+                                window_manager::hide_popup(&handle);
+                            } else {
+                                window_manager::hide_quick(&handle);
+                            }
                         }
                     });
                 }
@@ -206,7 +214,11 @@ pub fn run() {
             commands::open_onboarding,
             commands::onboarding_step,
             commands::settings_section,
-            commands::set_popup_expanded,
+            commands::set_popup_size,
+            commands::set_popup_pinned,
+            commands::focus_popup,
+            commands::set_text_size_step,
+            commands::stop_speaking,
             commands::complete_engine_choice,
             commands::voice_exists,
             commands::engine_availability,

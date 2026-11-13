@@ -95,8 +95,11 @@ pub async fn translate_selection(
     state: State<'_, AppState>,
 ) -> Result<Option<TranslationResult>, EngineError> {
     let started = Instant::now();
-    let expanded = state.settings.get().popup_expanded;
-    let _ = window_manager::show_popup(&app, expanded);
+    // A second shortcut while the first is still working replaces the content: the older request
+    // must not paint its result over the newer one (spec 009, T017).
+    static REQUEST_SEQUENCE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let request = REQUEST_SEQUENCE.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
+    let _ = window_manager::show_popup(&app);
 
     let outcome = tokio::task::spawn_blocking(|| platform::services().capture_selection())
         .await
@@ -152,6 +155,12 @@ pub async fn translate_selection(
             Origin::Selection,
         )
         .await;
+
+    // A newer request replaced this one while it was translating: drop the late result.
+    if REQUEST_SEQUENCE.load(std::sync::atomic::Ordering::SeqCst) != request {
+        log::info!("translate_selection: request {request} superseded; its result is dropped");
+        return Ok(result.ok());
+    }
 
     match &result {
         Ok(value) => {
@@ -294,17 +303,40 @@ pub fn settings_section() -> Option<String> {
 }
 
 #[tauri::command]
-pub fn set_popup_expanded(
+pub fn set_popup_size(app: AppHandle, width: f64, height: f64) {
+    window_manager::resize_popup_to(&app, width, height);
+}
+
+#[tauri::command]
+pub fn set_popup_pinned(pinned: bool) {
+    window_manager::POPUP_PINNED.store(pinned, std::sync::atomic::Ordering::SeqCst);
+}
+
+#[tauri::command]
+pub fn focus_popup(app: AppHandle) {
+    if let Some(window) = window_manager::popup_window(&app) {
+        platform::services().focus_popup(&window);
+    }
+}
+
+#[tauri::command]
+pub fn stop_speaking() {
+    platform::services().stop_speaking();
+}
+
+/// The text size step the popup and the panel share (FR-005); the page debounces the writes.
+#[tauri::command]
+pub fn set_text_size_step(
     app: AppHandle,
     state: State<'_, AppState>,
-    expanded: bool,
+    step: i8,
 ) -> Result<SettingsProfile, String> {
+    let step = step.clamp(-2, 4);
     let profile = state
         .settings
-        .update(&json!({ "popup_expanded": expanded }))
+        .update(&json!({ "text_size_step": step }))
         .map_err(|error| error.to_string())?;
     let _ = app.emit("settings-changed", &profile);
-    window_manager::resize_popup(&app, expanded);
     Ok(profile)
 }
 

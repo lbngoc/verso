@@ -7,15 +7,23 @@ use serde::{Deserialize, Serialize};
 use crate::core::errors::EngineError;
 use crate::platform::{CaptureFailure, CaptureMethod, CaptureOutcome, ClipboardState};
 
-/// `PopupState` (data-model): hidden → loading → result | error | capture_failed.
+/// `PopupState` (data-model): hidden → status → result | error | capture_failed.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "state", rename_all = "snake_case")]
 pub enum PopupState {
     Hidden,
-    Loading,
+    /// The compact pill shown while translating, or after a Speak with nothing selected.
+    Status { kind: StatusKind },
     Result,
     Error { error: EngineError },
     CaptureFailed { failure: CaptureFailure },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StatusKind {
+    Translating,
+    NothingSelected,
 }
 
 /// A line shown with a result (popup-ui-contract § States › Notices).
@@ -131,7 +139,9 @@ pub fn outcome_to_popup_state(outcome: &CaptureOutcome) -> CapturePlan {
             },
         },
         None => CapturePlan {
-            popup: PopupState::Loading,
+            popup: PopupState::Status {
+                kind: StatusKind::Translating,
+            },
             clipboard,
             skipped_formats,
             notice,

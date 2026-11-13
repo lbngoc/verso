@@ -10,10 +10,15 @@ use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 use crate::core::capture::PopupState;
 use crate::platform::{self, Point, Rect, Size};
 
+pub const POPUP_PILL_WIDTH: f64 = 200.0;
+pub const POPUP_PILL_HEIGHT: f64 = 36.0;
 pub const POPUP_WIDTH: f64 = 380.0;
-pub const POPUP_HEIGHT: f64 = 180.0;
-pub const POPUP_EXPANDED_WIDTH: f64 = 720.0;
-pub const POPUP_EXPANDED_HEIGHT: f64 = 320.0;
+pub const POPUP_WIDE_WIDTH: f64 = 560.0;
+pub const POPUP_MIN_HEIGHT: f64 = 96.0;
+pub const POPUP_MAX_HEIGHT: f64 = 420.0;
+/// Default result height, used to place the window before the page reports its measured height.
+pub const POPUP_RESULT_HEIGHT: f64 = 140.0;
+pub const POPUP_MAX_WIDTH: f64 = 560.0;
 pub const QUICK_WIDTH: f64 = 560.0;
 pub const QUICK_HEIGHT: f64 = 320.0;
 pub const PLACEMENT_GAP: f64 = 12.0;
@@ -55,17 +60,31 @@ pub fn place_popup(input: &PlacementInput) -> Point {
     Point { x, y }
 }
 
-fn popup_size(expanded: bool) -> Size {
-    if expanded {
-        Size {
-            width: POPUP_EXPANDED_WIDTH,
-            height: POPUP_EXPANDED_HEIGHT,
-        }
+/// The pill the popup starts as while translating (contract § Status tooltip).
+pub fn popup_pill_size() -> Size {
+    Size {
+        width: POPUP_PILL_WIDTH,
+        height: POPUP_PILL_HEIGHT,
+    }
+}
+
+/// The size a result should use: wider for long text, then the page reports its measured height.
+pub fn popup_result_size(text_len: usize, step: i8) -> Size {
+    let width = if text_len > 240 || step > 1 {
+        POPUP_WIDE_WIDTH
     } else {
-        Size {
-            width: POPUP_WIDTH,
-            height: POPUP_HEIGHT,
-        }
+        POPUP_WIDTH
+    };
+    let lines = (text_len as f64 / 48.0).ceil().max(1.0);
+    let height = (32.0 + 36.0 + 10.0 + lines * 22.0).clamp(POPUP_MIN_HEIGHT, POPUP_MAX_HEIGHT);
+    Size { width, height }
+}
+
+/// Clamps a size the page measured into what the popup may occupy (R3).
+pub fn clamp_popup_size(width: f64, height: f64) -> Size {
+    Size {
+        width: width.clamp(POPUP_PILL_WIDTH, POPUP_MAX_WIDTH),
+        height: height.clamp(POPUP_PILL_HEIGHT, POPUP_MAX_HEIGHT),
     }
 }
 
@@ -80,7 +99,7 @@ pub fn quick_window(app: &AppHandle) -> Option<WebviewWindow> {
 /// Shows each transient window once off-screen so the webview is warm (SC-002).
 pub fn prewarm(app: &AppHandle) {
     for (label, size) in [
-        ("popup", popup_size(false)),
+        ("popup", popup_pill_size()),
         (
             "quick",
             Size {
@@ -101,15 +120,21 @@ pub fn prewarm(app: &AppHandle) {
     }
 }
 
-/// Shows the popup at the cursor without activating it (FR-002) and reports `loading`.
-pub fn show_popup(app: &AppHandle, expanded: bool) -> tauri::Result<()> {
+/// The cursor point the popup was placed at; content growth re-runs placement from it (R2/R3).
+static POPUP_ANCHOR: parking_lot::Mutex<Option<Point>> = parking_lot::Mutex::new(None);
+
+/// Pin state (memory only): a pinned popup ignores blur and outside clicks; every show resets it.
+pub static POPUP_PINNED: AtomicBool = AtomicBool::new(false);
+
+/// Shows the popup as the compact status pill at the cursor without activating it (FR-002).
+pub fn show_popup(app: &AppHandle) -> tauri::Result<()> {
     let Some(window) = popup_window(app) else {
         return Ok(());
     };
     let services = platform::services();
     let cursor = services.cursor_position();
     let work_area = services.monitor_work_area(cursor);
-    let size = popup_size(expanded);
+    let size = popup_pill_size();
     let position = place_popup(&PlacementInput {
         cursor,
         work_area,
@@ -118,6 +143,8 @@ pub fn show_popup(app: &AppHandle, expanded: bool) -> tauri::Result<()> {
         gap: PLACEMENT_GAP,
     });
 
+    *POPUP_ANCHOR.lock() = Some(cursor);
+    POPUP_PINNED.store(false, Ordering::SeqCst);
     platform::services().remember_capture_target();
     window.set_size(LogicalSize::new(size.width, size.height))?;
     window.set_position(LogicalPosition::new(position.x, position.y))?;
@@ -132,7 +159,14 @@ pub fn show_popup(app: &AppHandle, expanded: bool) -> tauri::Result<()> {
     });
     let _ = receiver.recv_timeout(std::time::Duration::from_millis(300));
     register_escape(app);
-    app.emit("popup-state", PopupState::Loading)?;
+    // Unpinned: a click outside closes the popup even before it ever took focus (R5).
+    platform::services().start_outside_click_monitor(app.clone());
+    app.emit(
+        "popup-state",
+        PopupState::Status {
+            kind: crate::core::capture::StatusKind::Translating,
+        },
+    )?;
     Ok(())
 }
 
@@ -140,12 +174,24 @@ fn services_show(window: &WebviewWindow) {
     platform::services().show_without_activation(window);
 }
 
-/// Resizes the open popup when the user toggles Expand (contract: 380 → 720 pt wide).
-pub fn resize_popup(app: &AppHandle, expanded: bool) {
-    if let Some(window) = popup_window(app) {
-        let size = popup_size(expanded);
-        let _ = window.set_size(LogicalSize::new(size.width, size.height));
-    }
+/// Grows (or shrinks) the open popup to the size the page measured, re-placing it from the anchor.
+pub fn resize_popup_to(app: &AppHandle, width: f64, height: f64) {
+    let Some(window) = popup_window(app) else {
+        return;
+    };
+    let size = clamp_popup_size(width, height);
+    let services = platform::services();
+    let cursor = POPUP_ANCHOR.lock().unwrap_or_else(|| services.cursor_position());
+    let work_area = services.monitor_work_area(cursor);
+    let position = place_popup(&PlacementInput {
+        cursor,
+        work_area,
+        size,
+        scale_factor: 1.0,
+        gap: PLACEMENT_GAP,
+    });
+    let _ = window.set_size(LogicalSize::new(size.width, size.height));
+    let _ = window.set_position(LogicalPosition::new(position.x, position.y));
 }
 
 pub fn hide_popup(app: &AppHandle) {
@@ -153,6 +199,14 @@ pub fn hide_popup(app: &AppHandle) {
         let _ = window.hide();
         platform::services().hide_window(&window);
     }
+    // Monitors live on the main run loop (macOS NSEvent); hide_popup can run on a worker thread.
+    let monitor_handle = app.clone();
+    let _ = app.run_on_main_thread(move || {
+        let _ = &monitor_handle;
+        platform::services().stop_outside_click_monitor();
+    });
+    platform::services().restore_capture_target();    POPUP_PINNED.store(false, Ordering::SeqCst);
+    *POPUP_ANCHOR.lock() = None;
     unregister_escape(app);
     let _ = app.emit("popup-state", PopupState::Hidden);
 }
@@ -341,7 +395,7 @@ pub fn self_test(app: &AppHandle, iterations: u32) {
         // Drop any paint event left over from the previous show before timing this one.
         while receiver.try_recv().is_ok() {}
         let started = Instant::now();
-        if let Err(error) = show_popup(app, false) {
+        if let Err(error) = show_popup(app) {
             warn!("self-test could not show the popup: {error}");
             return;
         }
@@ -377,5 +431,76 @@ pub fn self_test(app: &AppHandle, iterations: u32) {
             median,
             millis.len()
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn work_area() -> Rect {
+        Rect {
+            x: 0.0,
+            y: 0.0,
+            width: 1440.0,
+            height: 900.0,
+        }
+    }
+
+    #[test]
+    fn the_pill_is_compact() {
+        let pill = popup_pill_size();
+        assert_eq!(pill.width, 200.0);
+        assert_eq!(pill.height, 36.0);
+    }
+
+    #[test]
+    fn the_result_grows_wider_for_long_text_or_large_text_size() {
+        assert_eq!(popup_result_size(120, 0).width, POPUP_WIDTH);
+        assert_eq!(popup_result_size(240, 1).width, POPUP_WIDTH);
+        assert_eq!(popup_result_size(241, 0).width, POPUP_WIDE_WIDTH);
+        assert_eq!(popup_result_size(120, 2).width, POPUP_WIDE_WIDTH);
+    }
+
+    #[test]
+    fn the_result_height_stays_inside_its_limits() {
+        let short = popup_result_size(10, 0);
+        assert!(short.height >= POPUP_MIN_HEIGHT);
+        let huge = popup_result_size(20_000, 0);
+        assert_eq!(huge.height, POPUP_MAX_HEIGHT);
+        let clamped = clamp_popup_size(10_000.0, 10_000.0);
+        assert_eq!(clamped.width, POPUP_MAX_WIDTH);
+        assert_eq!(clamped.height, POPUP_MAX_HEIGHT);
+        let tiny = clamp_popup_size(10.0, 10.0);
+        assert_eq!(tiny.width, POPUP_PILL_WIDTH);
+        assert_eq!(tiny.height, POPUP_PILL_HEIGHT);
+    }
+
+    #[test]
+    fn a_grown_popup_near_the_edges_stays_inside_the_work_area() {
+        let area = work_area();
+        let size = popup_result_size(400, 0);
+        for cursor in [
+            Point { x: 1430.0, y: 890.0 },
+            Point { x: 1430.0, y: 20.0 },
+            Point { x: 20.0, y: 890.0 },
+            Point { x: 700.0, y: 450.0 },
+        ] {
+            let placed = place_popup(&PlacementInput {
+                cursor,
+                work_area: area,
+                size,
+                scale_factor: 1.0,
+                gap: PLACEMENT_GAP,
+            });
+            assert!(
+                placed.x >= area.x && placed.x + size.width <= area.right(),
+                "x {placed:?} for cursor {cursor:?}"
+            );
+            assert!(
+                placed.y >= area.y && placed.y + size.height <= area.bottom(),
+                "y {placed:?} for cursor {cursor:?}"
+            );
+        }
     }
 }

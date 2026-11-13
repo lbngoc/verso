@@ -8,6 +8,7 @@ use crate::platform::{
 
 pub mod appearance;
 pub mod cursor;
+pub mod events;
 pub mod material;
 pub mod panel;
 pub mod pasteboard;
@@ -83,5 +84,38 @@ impl PlatformServices for MacosServices {
 
     fn hide_window(&self, window: &WebviewWindow) {
         panel::hide(window);
+    }
+
+    fn read_clipboard_text(&self) -> Option<String> {
+        pasteboard::read_text()
+    }
+
+    fn stop_speaking(&self) {
+        tts::stop();
+    }
+
+    fn is_speaking(&self) -> bool {
+        tts::is_speaking()
+    }
+
+    fn start_outside_click_monitor(&self, app: tauri::AppHandle) {
+        events::start(app);
+    }
+
+    fn stop_outside_click_monitor(&self) {
+        events::stop();
+    }
+
+    fn focus_popup(&self, window: &WebviewWindow) {
+        // A non-activating panel can become key without activating Verso (R4).
+        panel::focus_on_interaction(window);
+    }
+
+    fn restore_capture_target(&self) {
+        // The panel never activates Verso, so AppKit already gives key back to the source app.
+    }
+
+    fn apply_settings_material(&self, window: &WebviewWindow, appearance: &Appearance) {
+        material::apply_settings(window, appearance);
     }
 }

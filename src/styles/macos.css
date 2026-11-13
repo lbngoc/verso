@@ -16,7 +16,8 @@
 }
 
 [data-os="macos"] .popup {
-  padding: 14px 16px 12px;
+  /* The result popup paints its own header/body/footer edge to edge (spec 009). */
+  padding: 0;
 }
 
 [data-os="macos"] .result-text {

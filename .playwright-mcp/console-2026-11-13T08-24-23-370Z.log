@@ -1,0 +1,6 @@
+[     528ms] TypeError: Cannot read properties of undefined (reading 'transformCallback')
+    at transformCallback (http://localhost:1420/node_modules/.vite/deps/chunk-GR6UYLMF.js?v=6c114dac:24:37)
+    at listen (http://localhost:1420/node_modules/.vite/deps/chunk-VXDZ4WHF.js?v=6c114dac:39:14)
+    at Object.onPopupState (http://localhost:1420/src/lib/ipc.ts:47:30)
+    at http://localhost:1420/src/routes/popup/+page.svelte:315:59
+[     514ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:1420/favicon.ico:1

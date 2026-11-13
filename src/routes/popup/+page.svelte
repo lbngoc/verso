@@ -1,19 +1,13 @@
 <script lang="ts">
-  import { onMount } from "svelte";
-  import ResultView from "$lib/components/ResultView.svelte";
-  import ResultActions from "$lib/components/ResultActions.svelte";
+  import { tick, onMount } from "svelte";
   import CaptureFailed from "$lib/components/CaptureFailed.svelte";
   import ErrorBanner from "$lib/components/ErrorBanner.svelte";
-  import Icon from "$lib/components/Icon.svelte";
+  import PopupHeader from "$lib/components/PopupHeader.svelte";
+  import PopupFooter from "$lib/components/PopupFooter.svelte";
   import { setUiLanguage, t as translator } from "$lib/i18n";
   import { initAppearance } from "$lib/stores/appearance";
   import { initTheme } from "$lib/stores/theme";
-  import {
-    buildNotices,
-    isRtl,
-    terminalModifier,
-    type NoticeItem,
-  } from "$lib/notices";
+  import { buildNotices, isRtl, terminalModifier, type NoticeItem } from "$lib/notices";
   import {
     commands,
     events,
@@ -26,18 +20,33 @@
     type TranslationResult,
   } from "$lib/ipc";
 
-  let popupState = $state<PopupState>({ state: "loading" });
+  let popupState = $state<PopupState>({ state: "hidden" });
   let result = $state<TranslationResult | null>(null);
   let error = $state<EngineError | null>(null);
   let capture = $state<CaptureOutcome | null>(null);
   let settings = $state<SettingsProfile | null>(null);
   let languages = $state<Language[]>([]);
-  let expanded = $state(false);
   let copied = $state(false);
+  let speaking = $state(false);
+  let pinned = $state(false);
+  let step = $state(0);
   let stillTranslating = $state(false);
   let voiceAvailable = $state<boolean | null>(null);
+  let root = $state<HTMLElement | null>(null);
   let unlisteners: Array<() => void> = [];
   let slowTimer: ReturnType<typeof setTimeout> | null = null;
+  let sizeTimer: ReturnType<typeof setTimeout> | null = null;
+  let saveTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const phase = $derived.by(() => {
+    if (popupState.state === "status") return "status";
+    if (error) return "error";
+    if (result) return "result";
+    if (popupState.state === "capture_failed") return "capture_failed";
+    return "status";
+  });
+
+  const statusKind = $derived(popupState.state === "status" ? popupState.kind : "translating");
 
   const notices = $derived.by(() => {
     const items: NoticeItem[] = [];
@@ -51,10 +60,7 @@
       }
     }
     if (capture?.clipboard === "partially_restored") {
-      items.push({
-        key: "notice.partial_restore",
-        params: { formats: capture.skipped_formats.join(", ") },
-      });
+      items.push({ key: "notice.partial_restore", params: { formats: capture.skipped_formats.join(", ") } });
     }
     if (capture?.clipboard === "not_restored") {
       items.push({ key: "notice.not_restored" });
@@ -62,8 +68,27 @@
     return items;
   });
 
-  const rtl = $derived(
-    result ? isRtl(result.direction_used.target, languages) : false,
+  const noticeText = $derived(
+    notices.length ? `${$translator(notices[0].key, notices[0].params ?? {})}` : "",
+  );
+
+  const direction = $derived(
+    result
+      ? `${(result.direction_used.source || "").toUpperCase()} → ${(result.direction_used.target || "").toUpperCase()}`
+      : "— → —",
+  );
+
+  const rtl = $derived(result ? isRtl(result.direction_used.target, languages) : false);
+
+  // Result font: 13/14/16/18/20/22/24 px, one point larger on macOS (R11).
+  const resultFontSize = $derived.by(() => {
+    const sizes = [13, 14, 16, 18, 20, 22, 24];
+    const base = sizes[Math.min(Math.max(step + 2, 0), sizes.length - 1)];
+    return `${base + (isMac ? 1 : 0)}px`;
+  });
+
+  const isMac = $derived(
+    typeof navigator !== "undefined" && navigator.userAgent.includes("Mac"),
   );
 
   async function refreshVoice(): Promise<void> {
@@ -77,6 +102,8 @@
 
   async function copyResult(): Promise<void> {
     if (!result) return;
+    // A selection inside the popup keeps the native copy.
+    if (window.getSelection()?.toString()) return;
     try {
       await navigator.clipboard.writeText(result.text);
     } catch {
@@ -93,16 +120,32 @@
 
   async function speakResult(): Promise<void> {
     if (!result) return;
+    if (speaking) {
+      speaking = false;
+      await commands.stopSpeaking().catch(() => undefined);
+      return;
+    }
+    speaking = true;
     try {
       await commands.speak(result.text, result.target_lang);
     } catch {
       /* the disabled state already explains a missing voice */
     }
+    setTimeout(() => (speaking = false), 1500);
   }
 
-  async function toggleExpanded(): Promise<void> {
-    expanded = !expanded;
-    settings = await commands.setPopupExpanded(expanded).catch(() => settings);
+  function setStep(next: number): void {
+    step = Math.min(4, Math.max(-2, next));
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      void commands.setTextSizeStep(step).catch(() => undefined);
+    }, 400);
+    requestSize();
+  }
+
+  async function setPinned(next: boolean): Promise<void> {
+    pinned = next;
+    await commands.setPopupPinned(pinned).catch(() => undefined);
   }
 
   function clearSlowTimer(): void {
@@ -113,25 +156,64 @@
     stillTranslating = false;
   }
 
+  /** Reports the measured content so Rust grows the pill in place (R2/R3). */
+  function requestSize(): void {
+    if (sizeTimer) clearTimeout(sizeTimer);
+    sizeTimer = setTimeout(() => {
+      void (async () => {
+        await tick();
+        if (!root) return;
+        if (phase === "status") {
+          await commands.setPopupSize(200, 36).catch(() => undefined);
+          return;
+        }
+        const long = (result?.text.length ?? 0) > 240 || step > 1;
+        const width = long ? 560 : 380;
+        const height = Math.min(420, Math.max(96, root.offsetHeight));
+        await commands.setPopupSize(width, height).catch(() => undefined);
+      })();
+    }, 16);
+  }
+
   function onKeydown(event: KeyboardEvent): void {
     if (event.key === "Escape") {
       event.preventDefault();
       commands.hidePopup();
       return;
     }
-    const mod = event.metaKey || event.ctrlKey;
-    if (!mod) return;
-    if (event.key.toLowerCase() === "c" && !window.getSelection()?.toString()) {
-      event.preventDefault();
-      copyResult();
+    if (event.metaKey || event.ctrlKey) {
+      if (event.key.toLowerCase() === "c") {
+        // Native copy of a selection; otherwise the whole translation.
+        if (!window.getSelection()?.toString()) {
+          event.preventDefault();
+          void copyResult();
+        }
+      }
+      return;
     }
-    if (event.key.toLowerCase() === "e") {
-      event.preventDefault();
-      toggleExpanded();
-    }
-    if (event.key === "Enter") {
-      event.preventDefault();
-      speakResult();
+    if (event.altKey) return;
+    switch (event.key) {
+      case "c":
+        event.preventDefault();
+        void copyResult();
+        break;
+      case "s":
+        event.preventDefault();
+        void speakResult();
+        break;
+      case "-":
+        event.preventDefault();
+        setStep(step - 1);
+        break;
+      case "=":
+      case "+":
+        event.preventDefault();
+        setStep(step + 1);
+        break;
+      case "0":
+        event.preventDefault();
+        setStep(0);
+        break;
     }
   }
 
@@ -139,34 +221,45 @@
     let cancelled = false;
     void (async () => {
       await initAppearance();
-      await initTheme();
+      const loaded = await initTheme();
       languages = await commands.listLanguages().catch(() => []);
-      settings = await commands.getSettings().catch(() => null);
+      settings = loaded ?? (await commands.getSettings().catch(() => null));
       if (cancelled) return;
-      if (settings) setUiLanguage(settings.ui_language);
-      expanded = settings?.popup_expanded ?? false;
+      if (settings) {
+        setUiLanguage(settings.ui_language);
+        step = settings.text_size_step ?? 0;
+      }
 
-        unlisteners.push(
+      unlisteners.push(
         await events.onPopupState((payload) => {
           popupState = payload;
-          if (payload.state === "loading") {
-            result = null;
-            error = null;
-            copied = false;
-            clearSlowTimer();
-            slowTimer = setTimeout(() => (stillTranslating = true), 3000);
+          if (payload.state === "status") {
+            pinned = false;
+            if (payload.kind === "translating") {
+              result = null;
+              error = null;
+              copied = false;
+              clearSlowTimer();
+              slowTimer = setTimeout(() => (stillTranslating = true), 3000);
+            } else {
+              // "Nothing selected" (Speak): no slow-translating hint.
+              result = null;
+              error = null;
+              clearSlowTimer();
+            }
             requestAnimationFrame(() =>
               requestAnimationFrame(() => events.emitSelfTestPainted()),
             );
           } else {
             clearSlowTimer();
           }
+          requestSize();
         }),
       );
 
       unlisteners.push(
         await events.onTranslationStarted(() => {
-          popupState = { state: "loading" };
+          popupState = { state: "status", kind: "translating" };
         }),
       );
 
@@ -179,8 +272,9 @@
           } else {
             result = payload;
             error = null;
-            refreshVoice();
+            void refreshVoice();
           }
+          requestSize();
         }),
       );
 
@@ -200,121 +294,155 @@
       window.removeEventListener("keydown", onKeydown);
       unlisteners.forEach((unlisten) => unlisten());
       clearSlowTimer();
+      if (sizeTimer) clearTimeout(sizeTimer);
+      if (saveTimer) clearTimeout(saveTimer);
     };
   });
 </script>
 
-<main class="material-surface popup" onpointerdown={focusCurrentWindow}>
-  {#if popupState.state === "capture_failed"}
+<main
+  class="material-surface popup phase-{phase}"
+  class:rtl
+  bind:this={root}
+  onpointerdown={focusCurrentWindow}
+  onpointerenter={() => commands.focusPopup().catch(() => undefined)}
+>
+  {#if phase === "status"}
+    <div class="pill" aria-live="polite">
+      {#if statusKind === "translating"}
+        <span class="spinner" aria-hidden="true"></span>
+        <span>{stillTranslating ? $translator("popup.still_translating") : $translator("popup.translating")}</span>
+      {:else}
+        <span>{$translator("popup.nothing_selected")}</span>
+      {/if}
+    </div>
+  {:else if phase === "capture_failed"}
     <CaptureFailed
-      failure={popupState.failure}
+      failure={popupState.state === "capture_failed" ? popupState.failure : "nothing_selected"}
       terminalModifier={terminalModifier(capture?.frontmost_app)}
       ongrant={() => commands.requestPermission("accessibility")}
       onrecheck={() => commands.checkPermissions("accessibility")}
       onquick={() => commands.showQuick()}
     />
-    <div class="action-bar">
-      <span class="spacer"></span>
-      <button
-        class="icon-button"
-        type="button"
-        title={$translator("popup.esc_hint")}
-        aria-label={$translator("popup.close")}
-        onclick={() => commands.hidePopup()}
-      >
-        <Icon name="close" />
-      </button>
-    </div>
-  {:else if popupState.state === "hidden"}
-    <p class="muted">{$translator("popup.loading")}</p>
-  {:else if error}
-    <ErrorBanner {error} onsettings={() => commands.openSettings()} onreport={() => commands.reportProblem()} />
-    <div class="action-bar">
-      <ResultActions
-        canCopy={false}
-        canSpeak={false}
-        language={result?.target_lang ?? ""}
-        {copied}
-        oncopy={copyResult}
-        onspeak={speakResult}
-      />
-      <span class="spacer"></span>
-      <button
-        class="icon-button"
-        type="button"
-        title={$translator("popup.esc_hint")}
-        aria-label={$translator("popup.close")}
-        onclick={() => commands.hidePopup()}
-      >
-        <Icon name="close" />
-      </button>
-    </div>
-  {:else if result}
-    <ResultView
-      {result}
-      sourceText={capture?.text ?? ""}
-      {expanded}
-      {notices}
-      {rtl}
+    <PopupFooter
+      canSpeak={false}
+      oncopy={() => undefined}
+      onspeak={() => undefined}
+      hint={$translator("popup.esc_hint")}
     />
-    <div class="action-bar">
-      <ResultActions
-        {copied}
-        language={result.target_lang}
-        {voiceAvailable}
-        oncopy={copyResult}
-        onspeak={speakResult}
-      />
-      <span class="spacer"></span>
-      <button
-        class="icon-button"
-        type="button"
-        onclick={toggleExpanded}
-        title={expanded ? $translator("popup.collapse") : $translator("popup.expand")}
-        aria-label={expanded ? $translator("popup.collapse") : $translator("popup.expand")}
-      >
-        <Icon name="expand" />
-      </button>
-      <button
-        class="icon-button"
-        type="button"
-        onclick={() => commands.hidePopup()}
-        title={$translator("popup.esc_hint")}
-        aria-label={$translator("popup.close")}
-      >
-        <Icon name="close" />
-      </button>
-    </div>
   {:else}
-    <div class="loading" aria-live="polite">
-      <span class="spinner" aria-hidden="true"></span>
-      <div class="loading-text">
-        <p>{$translator("popup.loading")}</p>
-        {#if stillTranslating}
-          <span class="muted">{$translator("popup.still_translating")}</span>
-        {/if}
-      </div>
+    <PopupHeader
+      {direction}
+      engine={result?.engine_id ?? ""}
+      {pinned}
+      onpin={(value) => void setPinned(value)}
+      onsize={(delta) => setStep(step + delta)}
+      onclose={() => commands.hidePopup()}
+    />
+    <div class="body" class:rtl>
+      {#if phase === "error" && error}
+        <ErrorBanner
+          {error}
+          onsettings={() => commands.openSettings()}
+          onreport={() => commands.reportProblem()}
+        />
+      {:else if result}
+        <p class="result-text" style:font-size={resultFontSize}>{result.text}</p>
+      {/if}
     </div>
-    <div class="action-bar">
-      <span class="spacer"></span>
-      <span class="esc-hint">{$translator("popup.esc_hint")}</span>
-    </div>
+    <PopupFooter
+      {copied}
+      {speaking}
+      canSpeak={voiceAvailable !== false}
+      notice={noticeText}
+      oncopy={() => void copyResult()}
+      onspeak={() => void speakResult()}
+    />
   {/if}
 </main>
 
 <style>
-  .loading {
+  .popup {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .pill {
     display: flex;
     align-items: center;
-    gap: 10px;
-    flex: 1;
+    gap: 8px;
+    height: 36px;
+    padding: 0 12px;
+    font-size: 12px;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
   }
 
-  .loading-text p {
+  .spinner {
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    border: 2px solid color-mix(in srgb, var(--accent) 30%, transparent);
+    border-top-color: var(--accent);
+    animation: spin 0.8s linear infinite;
+    flex: none;
+  }
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .spinner {
+      animation: none;
+    }
+  }
+
+  .body {
+    padding: 10px 12px;
+    overflow: auto;
+    max-height: 320px;
+  }
+
+  .result-text {
     margin: 0;
+    line-height: var(--line-height);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    user-select: text;
+    color: var(--text);
   }
 
-  .loading-text span {
-    font-size: 11px;
+  .rtl .result-text {
+    direction: rtl;
+    text-align: right;
+  }
+
+  /* Fade and scale on phase change, disabled with reduce-motion (T026). */
+  .phase-result .body,
+  .phase-error .body {
+    animation: grow 120ms ease-out;
+  }
+
+  @keyframes grow {
+    from {
+      opacity: 0;
+      transform: scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .phase-result .body,
+    .phase-error .body {
+      animation: none;
+    }
   }
 </style>

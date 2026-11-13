@@ -143,9 +143,11 @@ export interface CaptureOutcome {
   copy_attempted: boolean;
 }
 
+export type StatusKind = "translating" | "nothing_selected";
+
 export type PopupState =
   | { state: "hidden" }
-  | { state: "loading" }
+  | { state: "status"; kind: StatusKind }
   | { state: "result" }
   | { state: "error"; error: EngineError }
   | { state: "capture_failed"; failure: CaptureFailure };
@@ -193,8 +195,12 @@ export const commands = {
   openSettings: () => invoke<void>("open_settings"),
   openOnboarding: () => invoke<void>("open_onboarding"),
   onboardingStep: () => invoke<number>("onboarding_step"),
-  setPopupExpanded: (expanded: boolean) =>
-    invoke<SettingsProfile>("set_popup_expanded", { expanded }),
+  setPopupSize: (width: number, height: number) =>
+    invoke<void>("set_popup_size", { width, height }),
+  setPopupPinned: (pinned: boolean) => invoke<void>("set_popup_pinned", { pinned }),
+  focusPopup: () => invoke<void>("focus_popup"),
+  setTextSizeStep: (step: number) => invoke<SettingsProfile>("set_text_size_step", { step }),
+  stopSpeaking: () => invoke<void>("stop_speaking"),
   completeEngineChoice: (enginesDisabled: string[], engineOrder: string[]) =>
     invoke<SettingsProfile>("complete_engine_choice", {
       enginesDisabled,
