@@ -245,6 +245,67 @@ pub fn request_permission(kind: PermissionKind) -> PermissionStatus {
     platform::services().permission_status(kind)
 }
 
+/// Version and build date for the About section (spec 009, contracts/settings-window.md).
+#[derive(Debug, Clone, Serialize)]
+pub struct AppInfo {
+    pub version: String,
+    pub build_date: String,
+}
+
+/// `YYYY-MM-DD` from Unix seconds, UTC (no date crate for one line).
+fn build_date(seconds: u64) -> String {
+    let z = (seconds / 86_400) as i64 + 719_468;
+    let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
+    let doe = z - era * 146_097;
+    let yoe = (doe - doe / 1_460 + doe / 36_524 - doe / 146_096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let day = doy - (153 * mp + 2) / 5 + 1;
+    let month = if mp < 10 { mp + 3 } else { mp - 9 };
+    let year = if month <= 2 { yoe + era * 400 + 1 } else { yoe + era * 400 };
+    format!("{year:04}-{month:02}-{day:02}")
+}
+
+#[tauri::command]
+pub fn app_info() -> AppInfo {
+    let seconds: u64 = env!("VERSO_BUILD_DATE").parse().unwrap_or(0);
+    AppInfo {
+        version: env!("CARGO_PKG_VERSION").to_string(),
+        build_date: build_date(seconds),
+    }
+}
+
+/// Opens a link from the update notes in the default browser (http/https only, spec 009 T047).
+#[tauri::command]
+pub async fn open_update_window(app: AppHandle, mode: String) {
+    window_manager::open_update_window(&app, if mode == "offer" { "offer" } else { "check" });
+}
+
+#[tauri::command]
+pub fn hide_update_window(app: AppHandle) {
+    if let Some(window) = app.get_webview_window("update") {
+        let _ = window.close();
+    }
+}
+
+#[tauri::command]
+pub fn update_mode() -> String {
+    window_manager::take_update_mode()
+}
+
+#[tauri::command]
+pub fn open_url(app: AppHandle, url: String) -> Result<(), String> {
+    use tauri_plugin_opener::OpenerExt;
+    let parsed = url::Url::parse(&url).map_err(|error| format!("invalid url: {error}"))?;
+    match parsed.scheme() {
+        "http" | "https" => {}
+        other => return Err(format!("unsupported scheme: {other}")),
+    }
+    app.opener()
+        .open_url(parsed.as_str(), None::<&str>)
+        .map_err(|error| error.to_string())
+}
+
 #[tauri::command]
 pub fn detect_language(text: String) -> Option<String> {
     langdetect::detect_language(&text)

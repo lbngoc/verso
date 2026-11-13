@@ -1,18 +1,12 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { getVersion } from "@tauri-apps/api/app";
   import appIcon from "$lib/assets/app-icon.png";
   import Card from "$lib/components/Card.svelte";
   import { t } from "$lib/i18n";
-  import {
-    commands,
-    events,
-    type SettingsProfile,
-    type UpdateInfo,
-  } from "$lib/ipc";
+  import { commands, type AppInfo, type SettingsProfile } from "$lib/ipc";
 
-  // About: identity, report links and the update card (US4 replaces the inline update UI with the
-  // dedicated dialog; the checkbox and the manual check live here meanwhile).
+  // About: identity, links and the update card (spec 009, contracts/settings-window.md).
+  // The inline update UI of 0.1.x is gone: "Check for Updates…" opens the update dialog (T052).
   let {
     settings,
     onupdate,
@@ -21,46 +15,20 @@
     onupdate: (patch: Record<string, unknown>) => Promise<void>;
   } = $props();
 
-  let version = $state("");
-  let phase = $state<"idle" | "checking" | "up_to_date" | "available" | "downloading" | "ready" | "failed">("idle");
-  let update = $state<UpdateInfo | null>(null);
-  let percent = $state(0);
+  let info = $state<AppInfo | null>(null);
   let copied = $state(false);
+  let lastChecked = $state("");
 
   onMount(() => {
-    void getVersion().then((value) => (version = value)).catch(() => undefined);
-    const listeners = Promise.all([
-      events.onUpdateAvailable((info) => {
-        update = info;
-        if (phase !== "downloading") phase = "available";
-      }),
-      events.onUpdateProgress((payload) => (percent = payload.percent)),
-    ]);
-    return () => {
-      void listeners.then((fns) => fns.forEach((unlisten) => unlisten()));
-    };
+    void commands
+      .appInfo()
+      .then((value) => (info = value))
+      .catch(() => (info = { version: "", build_date: "dev" }));
   });
 
-  async function check(): Promise<void> {
-    phase = "checking";
-    try {
-      const info = await commands.checkForUpdate();
-      update = info;
-      phase = info ? "available" : "up_to_date";
-    } catch {
-      phase = "failed";
-    }
-  }
-
-  async function install(): Promise<void> {
-    percent = 0;
-    phase = "downloading";
-    try {
-      await commands.installUpdate();
-      phase = "ready";
-    } catch {
-      phase = "failed";
-    }
+  async function openUpdates(): Promise<void> {
+    lastChecked = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    await commands.openUpdateWindow("check").catch(() => undefined);
   }
 
   async function diagnostics(): Promise<void> {
@@ -74,14 +42,21 @@
   <Card>
     <div class="identity">
       <img src={appIcon} alt="" width="96" height="96" />
-      <div>
+      <div class="names">
         <h2>{$t("app.name")}</h2>
         <p class="hint">{$t("about.full_name")}</p>
-        <p class="hint">{$t("about.version", { version })}</p>
+        <p class="hint">
+          {#if info}
+            {$t("about.version_build", { version: info.version, date: info.build_date })}
+          {/if}
+        </p>
       </div>
     </div>
-    <p class="hint credits">{$t("about.credits")}</p>
+
     <div class="links">
+      <button type="button" onclick={() => void commands.openUrl("https://github.com/lbngoc/verso")}>
+        {$t("about.github")}
+      </button>
       <button type="button" onclick={() => void commands.reportProblem()}>
         {$t("about.report")}
       </button>
@@ -92,7 +67,7 @@
     </div>
   </Card>
 
-  <Card title={$t("about.updates")} helper={$t("about.automatic_hint")}>
+  <Card title={$t("about.updates")}>
     <label class="row check">
       <input
         type="checkbox"
@@ -101,32 +76,24 @@
       />
       <span>{$t("about.automatic")}</span>
     </label>
-    <p class="row state" aria-live="polite">
-      {#if phase === "checking"}
-        {$t("about.checking")}
-      {:else if phase === "up_to_date"}
-        {$t("about.up_to_date")}
-      {:else if phase === "available" && update}
-        {$t("about.available", { version: update.version })}
-      {:else if phase === "downloading"}
-        {$t("about.downloading", { percent })}
-      {:else if phase === "ready"}
-        {$t("about.ready")}
-      {:else if phase === "failed"}
-        {$t("about.check_failed")}
+    <div class="row">
+      <button type="button" onclick={() => void openUpdates()}>{$t("about.check_updates")}</button>
+      {#if lastChecked}
+        <span class="hint">{$t("about.last_checked", { when: lastChecked })}</span>
       {/if}
-    </p>
-    <div class="row actions">
-      {#if phase === "available"}
-        <button type="button" class="primary" onclick={() => void install()}>
-          {$t("about.install")}
-        </button>
-      {/if}
-      <button type="button" disabled={phase === "checking" || phase === "downloading"} onclick={() => void check()}>
-        {$t("about.check_now")}
-      </button>
     </div>
+    <p class="hint">{$t("about.automatic_hint")}</p>
   </Card>
+
+  <p class="legal">
+    <button type="button" class="link" onclick={() => void commands.openUrl("https://github.com/lbngoc/verso/blob/main/LICENSE")}>
+      {$t("about.terms")}
+    </button>
+    ·
+    <button type="button" class="link" onclick={() => void commands.openUrl("https://github.com/lbngoc/verso/blob/main/THIRD_PARTY.md")}>
+      {$t("about.licences")}
+    </button>
+  </p>
 </div>
 
 <style>
@@ -139,15 +106,15 @@
   .identity {
     display: flex;
     align-items: center;
-    gap: 16px;
-    padding: 8px 0;
+    gap: 18px;
+    padding: 8px 0 12px;
   }
 
   .identity img {
     border-radius: 22px;
   }
 
-  .identity h2 {
+  .names h2 {
     margin: 0;
     font-size: 20px;
     font-weight: 600;
@@ -159,35 +126,27 @@
     color: var(--text-secondary);
   }
 
-  .credits {
-    margin: 4px 0 8px;
-  }
-
-  .links {
+  .links,
+  .row {
     display: flex;
     align-items: center;
     gap: 8px;
     flex-wrap: wrap;
+    font-size: 13px;
   }
 
-  .row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 13px;
+  .links {
+    border-top: 1px solid var(--separator);
+    padding-top: 12px;
   }
 
   .check {
     cursor: pointer;
+    min-height: 36px;
   }
 
-  .state {
-    color: var(--text-secondary);
-    font-size: 12px;
-  }
-
-  .actions {
-    padding: 4px 0 6px;
+  .row {
+    min-height: 36px;
   }
 
   button {
@@ -200,9 +159,18 @@
     font-size: 12px;
   }
 
-  button.primary {
-    background: var(--accent);
-    color: var(--accent-contrast);
+  .legal {
+    margin: 0;
+    font-size: 11px;
+    color: var(--text-tertiary);
+    text-align: center;
+  }
+
+  .link {
+    background: none;
     box-shadow: none;
+    padding: 0;
+    color: var(--text-secondary);
+    text-decoration: underline;
   }
 </style>

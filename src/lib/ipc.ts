@@ -89,9 +89,16 @@ export interface SettingsProfile {
   [key: string]: unknown;
 }
 
+export interface AppInfo {
+  version: string;
+  build_date: string;
+}
+
 export interface UpdateInfo {
   version: string;
+  current: string;
   notes: string;
+  skipped: boolean;
 }
 
 export interface UpdateProgress {
@@ -223,6 +230,13 @@ export const commands = {
     }),
   checkForUpdate: () => invoke<UpdateInfo | null>("check_for_update"),
   installUpdate: () => invoke<void>("install_update"),
+  installUpdateOnQuit: () => invoke<void>("install_update_on_quit"),
+  skipUpdateVersion: (version: string) => invoke<void>("skip_update_version", { version }),
+  openUpdateWindow: (mode: "check" | "offer") => invoke<void>("open_update_window", { mode }),
+  updateMode: () => invoke<string>("update_mode"),
+  appInfo: () => invoke<AppInfo>("app_info"),
+  hideUpdateWindow: () => invoke<void>("hide_update_window"),
+  openUrl: (url: string) => invoke<void>("open_url", { url }),
   reportProblem: () => invoke<string>("report_problem"),
   copyDiagnostics: () => invoke<string>("copy_diagnostics"),
 };

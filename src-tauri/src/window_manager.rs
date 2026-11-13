@@ -323,6 +323,43 @@ fn open_settings(app: &AppHandle, url: &str) {
     }
 }
 
+/// How the update window was opened: `check` from About, `offer` from the tray (spec 009 T050).
+static UPDATE_MODE: parking_lot::Mutex<String> = parking_lot::Mutex::new(String::new());
+
+pub fn take_update_mode() -> String {
+    let mode = UPDATE_MODE.lock().clone();
+    if mode.is_empty() {
+        "check".into()
+    } else {
+        mode
+    }
+}
+
+/// Opens (or focuses) the update dialog: 600 × 460, not resizable, created hidden (R14).
+pub fn open_update_window(app: &AppHandle, mode: &str) {
+    *UPDATE_MODE.lock() = mode.to_string();
+    if let Some(window) = app.get_webview_window("update") {
+        let _ = window.show();
+        let _ = window.set_focus();
+        let _ = window.emit("update-mode", mode);
+        return;
+    }
+    let builder = tauri::WebviewWindowBuilder::new(
+        app,
+        "update",
+        tauri::WebviewUrl::App("update.html".into()),
+    )
+    .title("Software Update")
+    .inner_size(600.0, 460.0)
+    .min_inner_size(600.0, 460.0)
+    .resizable(false)
+    .visible(false);
+    match builder.build() {
+        Ok(window) => reveal_on_ready(app, &window),
+        Err(error) => warn!("could not open the update window: {error}"),
+    }
+}
+
 /// Shows a window created hidden once its page reports `page-ready`, or after 600 ms at the latest.
 fn reveal_on_ready(app: &AppHandle, window: &WebviewWindow) {
     let listener_app = app.clone();

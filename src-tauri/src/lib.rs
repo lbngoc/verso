@@ -209,6 +209,11 @@ pub fn run() {
             commands::check_permissions,
             commands::request_permission,
             commands::detect_language,
+            commands::open_url,
+            commands::app_info,
+            commands::open_update_window,
+            commands::update_mode,
+            commands::hide_update_window,
             commands::list_modules,
             commands::list_languages,
             commands::get_appearance,
@@ -234,9 +239,17 @@ pub fn run() {
             commands::copy_diagnostics,
             updater::check_for_update,
             updater::install_update,
+            updater::install_update_on_quit,
+            updater::skip_update_version,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running Verso");
+        .build(tauri::generate_context!())
+        .expect("error while running Verso")
+        .run(|app, event| {
+            // "Install on Quit": the verified bytes are applied as the app exits (spec 009, T049).
+            if let tauri::RunEvent::ExitRequested { .. } = event {
+                updater::install_pending_on_exit(app);
+            }
+        });
 }
 
 fn state_settings(app: &tauri::AppHandle) -> crate::core::settings::SettingsProfile {
