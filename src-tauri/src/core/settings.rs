@@ -23,11 +23,41 @@ pub enum Theme {
     Dark,
 }
 
+/// Where the accent colour comes from (FR-027/FR-028). Unknown values fall back to the app teal.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Accent {
+    App,
+    System,
+}
+
+impl Default for Accent {
+    fn default() -> Self {
+        Accent::App
+    }
+}
+
+impl<'de> Deserialize<'de> for Accent {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        // A hand-edited or newer value must not turn the whole file into a corrupt one.
+        let raw = String::deserialize(deserializer)?;
+        Ok(match raw.trim().to_ascii_lowercase().as_str() {
+            "system" => Accent::System,
+            _ => Accent::App,
+        })
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Shortcuts {
     pub translate: String,
     pub quick: String,
+    /// Speak the selection (FR-009); empty means unbound.
+    pub speak: String,
 }
 
 impl Default for Shortcuts {
@@ -35,6 +65,7 @@ impl Default for Shortcuts {
         Self {
             translate: "Alt+Shift+T".into(),
             quick: default_quick_shortcut().into(),
+            speak: "Alt+Shift+S".into(),
         }
     }
 }
@@ -68,6 +99,16 @@ pub struct SettingsProfile {
     /// Automatic update checks (FR-016): chosen during onboarding, changeable in Settings.
     pub check_updates: bool,
     pub telemetry_opt_in: bool,
+    /// Paste the clipboard into the quick panel when nothing is selected (FR-011). Off by default.
+    pub quick_paste_clipboard: bool,
+    /// Accent colour source (FR-027): the app teal, or the system accent behind a contrast guard.
+    pub accent: Accent,
+    /// Result text size step, clamped to −2…=4 (FR-005).
+    pub text_size_step: i8,
+    /// Version the user skipped in the update dialog (FR-023); must parse as a version.
+    pub skipped_update_version: Option<String>,
+    /// One-time notes already seen by the user (R7), e.g. `speak-unbound`.
+    pub notes_seen: Vec<String>,
     /// Unknown fields written by a newer build are preserved on save.
     #[serde(flatten)]
     pub extra: serde_json::Map<String, Value>,
@@ -91,6 +132,11 @@ impl Default for SettingsProfile {
             last_run_version: String::new(),
             check_updates: false,
             telemetry_opt_in: false,
+            quick_paste_clipboard: false,
+            accent: Accent::App,
+            text_size_step: 0,
+            skipped_update_version: None,
+            notes_seen: Vec::new(),
             extra: serde_json::Map::new(),
         }
     }
@@ -103,6 +149,23 @@ pub fn default_ui_language() -> String {
     } else {
         "en".into()
     }
+}
+
+/// Accepts `x.y.z` (an optional leading `v` is dropped); anything else is not a version.
+pub fn parse_version(raw: &str) -> Option<String> {
+    let trimmed = raw.trim();
+    let without_v = trimmed
+        .strip_prefix('v')
+        .or_else(|| trimmed.strip_prefix('V'))
+        .unwrap_or(trimmed);
+    let parts: Vec<&str> = without_v.split('.').collect();
+    if parts.len() != 3 {
+        return None;
+    }
+    let numeric = parts
+        .iter()
+        .all(|part| !part.is_empty() && part.chars().all(|c| c.is_ascii_digit()));
+    numeric.then(|| without_v.to_string())
 }
 
 impl SettingsProfile {
@@ -155,11 +218,27 @@ impl SettingsProfile {
         self.engines_disabled = disabled;
 
         if self.shortcuts.translate.trim().is_empty() {
-            self.shortcuts.translate = Shortcuts::default().translate;
+            self.shortcuts.translate.clear();
         }
         if self.shortcuts.quick.trim().is_empty() {
-            self.shortcuts.quick = Shortcuts::default().quick;
+            self.shortcuts.quick.clear();
         }
+        self.shortcuts.translate = self.shortcuts.translate.trim().to_string();
+        self.shortcuts.quick = self.shortcuts.quick.trim().to_string();
+        self.shortcuts.speak = self.shortcuts.speak.trim().to_string();
+        // R7: an added `speak` default may collide with a binding the user already had. Leave it
+        // unbound; Settings shows the one-time note (the UI records `speak-unbound` when dismissed).
+        if !self.shortcuts.speak.is_empty()
+            && (self.shortcuts.speak == self.shortcuts.translate
+                || self.shortcuts.speak == self.shortcuts.quick)
+        {
+            self.shortcuts.speak.clear();
+        }
+        self.text_size_step = self.text_size_step.clamp(-2, 4);
+        self.skipped_update_version = self
+            .skipped_update_version
+            .take()
+            .and_then(|version| parse_version(&version));
         if self.ui_language != "vi" {
             self.ui_language = "en".into();
         }
@@ -374,5 +453,88 @@ mod tests {
         // The grant survived: nothing to do.
         assert!(!needs_permission_regrant(true, "0.1.0", "0.1.1", true));
         assert!(!needs_permission_regrant(true, "", "0.1.3", true));
+    }
+
+    fn load_json(text: &str) -> (SettingsProfile, tempfile::TempDir) {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join(SETTINGS_FILE);
+        fs::write(&path, text).expect("write settings");
+        let (profile, warning) = load_profile(&path);
+        assert!(warning.is_none(), "a valid file must not warn");
+        (profile, dir)
+    }
+
+    #[test]
+    fn a_file_without_speak_gains_its_default() {
+        let (profile, _dir) = load_json(r#"{"shortcuts":{"translate":"Alt+Shift+T"}}"#);
+        assert_eq!(profile.shortcuts.speak, "Alt+Shift+S");
+        assert_eq!(profile.shortcuts.translate, "Alt+Shift+T");
+    }
+
+    #[test]
+    fn a_colliding_speak_binding_is_left_unbound_without_a_note_yet() {
+        let (profile, _dir) = load_json(r#"{"shortcuts":{"translate":"Alt+Shift+S"}}"#);
+        assert_eq!(profile.shortcuts.speak, "");
+        // The note is queued for the UI, not silently consumed by the migration.
+        assert!(!profile.notes_seen.iter().any(|note| note == "speak-unbound"));
+    }
+
+    #[test]
+    fn an_empty_binding_means_unbound() {
+        let (profile, _dir) = load_json(
+            r#"{"shortcuts":{"translate":"","quick":"","speak":""}}"#,
+        );
+        assert_eq!(profile.shortcuts.translate, "");
+        assert_eq!(profile.shortcuts.quick, "");
+        assert_eq!(profile.shortcuts.speak, "");
+    }
+
+    #[test]
+    fn text_size_step_is_clamped_and_accent_falls_back() {
+        let (profile, _dir) = load_json(r#"{"text_size_step":9,"accent":"magenta"}"#);
+        assert_eq!(profile.text_size_step, 4);
+        assert_eq!(profile.accent, Accent::App);
+        let (profile, _dir) = load_json(r#"{"text_size_step":-7}"#);
+        assert_eq!(profile.text_size_step, -2);
+        let (profile, _dir) = load_json(r#"{"accent":"system"}"#);
+        assert_eq!(profile.accent, Accent::System);
+    }
+
+    #[test]
+    fn an_unparsable_skipped_version_is_dropped() {
+        let (profile, _dir) = load_json(r#"{"skipped_update_version":"next"}"#);
+        assert_eq!(profile.skipped_update_version, None);
+        let (profile, _dir) = load_json(r#"{"skipped_update_version":"0.2.0"}"#);
+        assert_eq!(profile.skipped_update_version.as_deref(), Some("0.2.0"));
+    }
+
+    #[test]
+    fn new_options_default_to_off() {
+        let profile = SettingsProfile::default();
+        assert!(!profile.quick_paste_clipboard);
+        assert_eq!(profile.text_size_step, 0);
+        assert_eq!(profile.accent, Accent::App);
+        assert!(profile.notes_seen.is_empty());
+        assert_eq!(profile.skipped_update_version, None);
+    }
+
+    #[test]
+    fn unknown_fields_and_popup_expanded_survive_a_save() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join(SETTINGS_FILE);
+        fs::write(
+            &path,
+            r#"{"popup_expanded":true,"future_field":{"nested":1}}"#,
+        )
+        .expect("write settings");
+        let store = SettingsStore::open(&path);
+        store
+            .update(&serde_json::json!({"text_size_step": 2}))
+            .expect("update");
+        let text = fs::read_to_string(&path).expect("read");
+        let value: Value = serde_json::from_str(&text).expect("json");
+        assert_eq!(value["popup_expanded"], Value::Bool(true));
+        assert_eq!(value["future_field"]["nested"], Value::from(1));
+        assert_eq!(value["text_size_step"], Value::from(2));
     }
 }

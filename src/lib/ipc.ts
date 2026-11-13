@@ -51,7 +51,10 @@ export type TranslationOutcome =
 export interface Shortcuts {
   translate: string;
   quick: string;
+  speak: string;
 }
+
+export type Accent = "app" | "system";
 
 export interface SettingsProfile {
   schema: number;
@@ -68,6 +71,11 @@ export interface SettingsProfile {
   first_run_engine_choice_at: string | null;
   check_updates: boolean;
   telemetry_opt_in: boolean;
+  quick_paste_clipboard: boolean;
+  accent: Accent;
+  text_size_step: number;
+  skipped_update_version: string | null;
+  notes_seen: string[];
   [key: string]: unknown;
 }
 

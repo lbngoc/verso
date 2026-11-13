@@ -204,6 +204,34 @@ pub trait PlatformServices: Send + Sync {
     /// Remembers the window to capture from before the popup is shown (Windows needs it: the
     /// popup can become the foreground window, which would hide the user's selection from UIA).
     fn remember_capture_target(&self) {}
+
+    // ---- spec 009 additions (all default to a no-op so every platform and the test double compile). ----
+
+    /// Plain text from the clipboard, read only when the user enabled the panel prefill (FR-011).
+    fn read_clipboard_text(&self) -> Option<String> {
+        None
+    }
+
+    /// Stops the current utterance, if any (the Speak shortcut pressed again).
+    fn stop_speaking(&self) {}
+
+    fn is_speaking(&self) -> bool {
+        false
+    }
+
+    /// Watches for a mouse-down outside the popup while it is visible and unpinned (R5).
+    fn start_outside_click_monitor(&self, _app: tauri::AppHandle) {}
+
+    fn stop_outside_click_monitor(&self) {}
+
+    /// Makes the popup key on hover without activating Verso (R4).
+    fn focus_popup(&self, _window: &tauri::WebviewWindow) {}
+
+    /// Gives key back to the app the selection came from when the popup orders out.
+    fn restore_capture_target(&self) {}
+
+    /// Draws the Settings sidebar material (macOS sidebar vibrancy, Windows Mica).
+    fn apply_settings_material(&self, _window: &tauri::WebviewWindow, _appearance: &Appearance) {}
 }
 
 static SERVICES: OnceLock<Box<dyn PlatformServices>> = OnceLock::new();

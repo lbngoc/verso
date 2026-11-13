@@ -45,7 +45,7 @@
 
   .hint button {
     padding: 0;
-    color: var(--accent);
+    color: var(--accent-text);
     text-decoration: underline;
   }
 </style>

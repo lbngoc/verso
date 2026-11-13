@@ -223,7 +223,7 @@
   }
 
   li button.selected {
-    background: color-mix(in srgb, var(--accent) 18%, transparent);
+    background: var(--accent-soft);
   }
 
   li.group {

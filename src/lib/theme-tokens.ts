@@ -125,3 +125,48 @@ export function contrastRatio(first: string, second: string): number {
   const darker = Math.min(a, b);
   return (lighter + 0.05) / (darker + 0.05);
 }
+
+/** The accent token family (spec 009, contracts/settings-window.md § Accent tokens). */
+export interface AccentTokens {
+  accent: string;
+  contrast: string;
+  text: string;
+}
+
+export const APP_ACCENT: Record<"light" | "dark", AccentTokens> = {
+  light: { accent: "#1b6f62", contrast: "#ffffff", text: "#17695c" },
+  dark: { accent: "#3fb8a3", contrast: "#06231e", text: "#5cc9b6" },
+};
+
+const SURFACE_OPAQUE: Record<"light" | "dark", string> = {
+  light: "#ffffff",
+  dark: "#1e1e20",
+};
+
+function readableOn(background: string): string {
+  const onWhite = contrastRatio("#ffffff", background);
+  const onDark = contrastRatio("#06231e", background);
+  return onDark >= onWhite ? "#06231e" : "#ffffff";
+}
+
+/**
+ * Chooses the accent per role: the system colour while it passes the contrast guard, the app's value
+ * for each failing role (≥ 3:1 against the surface for rings/fills, ≥ 4.5:1 for text on accent and
+ * accent-coloured text).
+ */
+export function pickAccent(
+  systemAccent: string | null,
+  theme: "light" | "dark",
+): AccentTokens {
+  const app = APP_ACCENT[theme];
+  if (!systemAccent) return app;
+  const surface = SURFACE_OPAQUE[theme];
+  const passesFilled = contrastRatio(systemAccent, surface) >= 3;
+  if (!passesFilled) return app;
+  const contrast = readableOn(systemAccent);
+  return {
+    accent: systemAccent,
+    contrast: contrastRatio(contrast, systemAccent) >= 4.5 ? contrast : app.contrast,
+    text: contrastRatio(systemAccent, surface) >= 4.5 ? systemAccent : app.text,
+  };
+}

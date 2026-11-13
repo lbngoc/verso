@@ -43,6 +43,10 @@ pub fn register_all(app: &AppHandle) -> Result<(), String> {
 }
 
 fn register_one(app: &AppHandle, value: &str, action: Action) -> Result<(), String> {
+    // An empty binding means "unbound" (spec 009): nothing to register and no conflict to report.
+    if value.trim().is_empty() {
+        return Ok(());
+    }
     let shortcut: Shortcut = value
         .parse()
         .map_err(|_| format!("'{value}' is not a valid shortcut"))?;

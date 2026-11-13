@@ -19,8 +19,10 @@
   --font-size-result: 16px;
   --line-height: 1.45;
 
-  --accent: #0a84ff;
+  --accent: #1b6f62;
   --accent-contrast: #ffffff;
+  --accent-text: #17695c;
+  --accent-soft: color-mix(in srgb, var(--accent) 15%, transparent);
   --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent);
 }
 
@@ -51,6 +53,10 @@
   --hover: rgba(255, 255, 255, 0.08);
   --danger: #ff6961;
   --success: #4cd964;
+  --accent: #3fb8a3;
+  --accent-contrast: #06231e;
+  --accent-text: #5cc9b6;
+  --accent-soft: color-mix(in srgb, var(--accent) 22%, transparent);
 }
 
 /* Material-aware surface. The fallback colour matches theme-tokens.ts. */
