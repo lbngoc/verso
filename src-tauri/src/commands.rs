@@ -128,6 +128,14 @@ pub async fn translate_selection(
         window_manager::hide_popup(&app);
         let _ = window_manager::show_quick(&app);
         let _ = app.emit("popup-state", crate::core::capture::PopupState::Hidden);
+        // Clipboard prefill (FR-011): only on this path, only when the user opted in, and the read is
+        // guarded before it happens (R9).
+        let prefill = prefill_text(state.settings.get().quick_paste_clipboard, || {
+            platform::services().read_clipboard_text()
+        });
+        if let Some(text) = prefill {
+            let _ = app.emit("quick-prefill", json!({ "text": text }));
+        }
         return Ok(None);
     }
 
@@ -242,6 +250,75 @@ pub fn detect_language(text: String) -> Option<String> {
     langdetect::detect_language(&text)
 }
 
+/// Panel prefill helper (FR-011): reads the clipboard only when the option is on.
+///
+/// Kept pure so the "never reads when disabled" rule can be asserted in a test.
+pub fn prefill_text<F>(enabled: bool, read: F) -> Option<String>
+where
+    F: FnOnce() -> Option<String>,
+{
+    if !enabled {
+        return None;
+    }
+    let text = read()?;
+    let trimmed = text.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    Some(trimmed.chars().take(crate::core::pipeline::MAX_INPUT_CHARS).collect())
+}
+
+/// Speaks the selection in its detected language; a second press stops (R8, FR-009).
+pub async fn speak_selection(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
+    if platform::services().is_speaking() {
+        platform::services().stop_speaking();
+        return Ok(());
+    }
+    let outcome = tokio::task::spawn_blocking(|| platform::services().capture_selection())
+        .await
+        .map_err(|error| format!("capture task failed: {error}"))?;
+    if outcome.failure == Some(crate::platform::CaptureFailure::SecureField) {
+        // Nothing read, nothing spoken.
+        return Ok(());
+    }
+    let text = outcome
+        .text
+        .map(|text| text.trim().to_string())
+        .filter(|text| !text.is_empty());
+    let Some(text) = text else {
+        // The pill says "Nothing selected" for 1.5 s, then the popup hides itself.
+        let _ = window_manager::show_popup(&app);
+        let _ = app.emit(
+            "popup-state",
+            crate::core::capture::PopupState::Status {
+                kind: crate::core::capture::StatusKind::NothingSelected,
+            },
+        );
+        let handle = app.clone();
+        tokio::spawn(async move {
+            tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
+            window_manager::hide_popup(&handle);
+        });
+        return Ok(());
+    };
+    let settings = state.settings.get();
+    let lang = langdetect::detect_language(&text)
+        .filter(|lang| lang != "und")
+        .unwrap_or_else(|| {
+            if settings.source_lang == "auto" {
+                settings.target_lang.clone()
+            } else {
+                settings.source_lang.clone()
+            }
+        });
+    log::info!(
+        "speak selection: method={:?} chars={} lang={lang}",
+        outcome.method,
+        text.chars().count()
+    );
+    platform::services().speak(&text, &lang)
+}
+
 #[tauri::command]
 pub fn list_modules() -> Vec<ModuleInfo> {
     modules::list_modules()
@@ -305,6 +382,35 @@ pub fn settings_section() -> Option<String> {
 #[tauri::command]
 pub fn set_popup_size(app: AppHandle, width: f64, height: f64) {
     window_manager::resize_popup_to(&app, width, height);
+}
+
+/// Global shortcuts are suspended while the recorder listens (R6).
+#[tauri::command]
+pub fn suspend_shortcuts(app: AppHandle, suspended: bool) {
+    if suspended {
+        crate::shortcuts::suspend(&app);
+    } else {
+        let _ = crate::shortcuts::resume(&app);
+    }
+}
+
+#[tauri::command]
+pub fn set_shortcut(
+    app: AppHandle,
+    action: String,
+    accel: String,
+) -> Result<SettingsProfile, crate::shortcuts::BindingError> {
+    crate::shortcuts::set_binding(&app, &action, &accel)?;
+    Ok(app.state::<AppState>().settings.get())
+}
+
+#[tauri::command]
+pub fn reset_shortcut(
+    app: AppHandle,
+    action: String,
+) -> Result<SettingsProfile, crate::shortcuts::BindingError> {
+    crate::shortcuts::reset_binding(&app, &action)?;
+    Ok(app.state::<AppState>().settings.get())
 }
 
 #[tauri::command]
@@ -445,4 +551,34 @@ pub fn copy_diagnostics(app: AppHandle) -> Result<String, String> {
     let text = report::diagnostics(&context, &profile, &log, home.as_deref());
     platform::services().write_clipboard_text(&text)?;
     Ok(text)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::prefill_text;
+    use crate::core::pipeline::MAX_INPUT_CHARS;
+
+    #[test]
+    fn prefill_never_reads_the_clipboard_when_disabled() {
+        let called = std::cell::Cell::new(false);
+        let text = prefill_text(false, || {
+            called.set(true);
+            Some("bonjour".into())
+        });
+        assert_eq!(text, None);
+        assert!(!called.get(), "the clipboard must not be read when the option is off");
+    }
+
+    #[test]
+    fn prefill_trims_and_caps_the_text() {
+        let long = "x".repeat(MAX_INPUT_CHARS + 500);
+        let text = prefill_text(true, || Some(format!("  {long}  "))).unwrap();
+        assert_eq!(text.chars().count(), MAX_INPUT_CHARS);
+        assert_eq!(prefill_text(true, || Some("   ".into())), None);
+        assert_eq!(prefill_text(true, || None), None);
+        assert_eq!(
+            prefill_text(true, || Some("  hello  ".into())),
+            Some("hello".into())
+        );
+    }
 }

@@ -55,3 +55,21 @@ pub fn log_voice_availability(lang: &str) -> bool {
     debug!("voice for {lang}: {available}");
     available
 }
+
+/// Stops the current utterance (the Speak shortcut pressed again).
+pub fn stop() {
+    if let Ok(guard) = engine() {
+        if let Ok(mut tts) = guard.lock() {
+            let _ = tts.stop();
+        }
+    }
+}
+
+pub fn is_speaking() -> bool {
+    if let Ok(guard) = engine() {
+        if let Ok(tts) = guard.lock() {
+            return tts.is_speaking().unwrap_or(false);
+        }
+    }
+    false
+}

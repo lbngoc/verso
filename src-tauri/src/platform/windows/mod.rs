@@ -60,6 +60,18 @@ impl PlatformServices for WindowsServices {
         clipboard::write_text(text)
     }
 
+    fn read_clipboard_text(&self) -> Option<String> {
+        clipboard::read_text()
+    }
+
+    fn stop_speaking(&self) {
+        tts::stop();
+    }
+
+    fn is_speaking(&self) -> bool {
+        tts::is_speaking()
+    }
+
     fn supports(&self, feature: &str) -> bool {
         matches!(feature, "selection" | "tts" | "native_material")
     }

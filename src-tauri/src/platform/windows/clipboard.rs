@@ -268,3 +268,28 @@ pub fn write_text(text: &str) -> Result<(), String> {
         result
     }
 }
+
+/// Plain text only (`CF_UNICODETEXT`), read when the user enabled the panel prefill (FR-011).
+pub fn read_text() -> Option<String> {
+    unsafe {
+        OpenClipboard(None).ok()?;
+        let result = (|| -> Option<String> {
+            let handle = GetClipboardData(CF_UNICODETEXT).ok()?;
+            let global = HGLOBAL(handle.0);
+            let pointer = GlobalLock(global) as *const u16;
+            if pointer.is_null() {
+                return None;
+            }
+            let mut length = 0usize;
+            while *pointer.add(length) != 0 {
+                length += 1;
+            }
+            let units = std::slice::from_raw_parts(pointer, length);
+            let text = String::from_utf16_lossy(units);
+            let _ = GlobalUnlock(global);
+            Some(text)
+        })();
+        let _ = CloseClipboard();
+        result
+    }
+}

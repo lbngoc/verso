@@ -56,6 +56,16 @@ export interface Shortcuts {
 
 export type Accent = "app" | "system";
 
+export type ShortcutAction = "translate" | "speak" | "quick";
+
+/** Why the OS or the rules refused a recorded shortcut (`shortcut.err.*`). */
+export type BindingError =
+  | { reason: "no_modifier" }
+  | { reason: "shift_only" }
+  | { reason: "duplicate"; action: string }
+  | { reason: "reserved" }
+  | { reason: "taken"; detail: string };
+
 export interface SettingsProfile {
   schema: number;
   target_lang: string;
@@ -200,6 +210,11 @@ export const commands = {
   setPopupPinned: (pinned: boolean) => invoke<void>("set_popup_pinned", { pinned }),
   focusPopup: () => invoke<void>("focus_popup"),
   setTextSizeStep: (step: number) => invoke<SettingsProfile>("set_text_size_step", { step }),
+  suspendShortcuts: (suspended: boolean) => invoke<void>("suspend_shortcuts", { suspended }),
+  setShortcut: (action: ShortcutAction, accel: string) =>
+    invoke<SettingsProfile>("set_shortcut", { action, accel }),
+  resetShortcut: (action: ShortcutAction) =>
+    invoke<SettingsProfile>("reset_shortcut", { action }),
   stopSpeaking: () => invoke<void>("stop_speaking"),
   completeEngineChoice: (enginesDisabled: string[], engineOrder: string[]) =>
     invoke<SettingsProfile>("complete_engine_choice", {
@@ -233,6 +248,8 @@ export const events = {
   ): Promise<UnlistenFn> => listen("permission-changed", (event) => handler(event.payload as never)),
   onSettingsChanged: (handler: (payload: SettingsProfile) => void): Promise<UnlistenFn> =>
     listen<SettingsProfile>("settings-changed", (event) => handler(event.payload)),
+  onQuickPrefill: (handler: (payload: { text: string }) => void): Promise<UnlistenFn> =>
+    listen<{ text: string }>("quick-prefill", (event) => handler(event.payload)),
   onSettingsSection: (handler: (payload: string) => void): Promise<UnlistenFn> =>
     listen<string>("settings-section", (event) => handler(event.payload)),
   onShortcutConflict: (

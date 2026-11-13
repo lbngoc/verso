@@ -12,7 +12,7 @@ pub mod window_manager;
 
 use std::sync::Arc;
 
-use tauri::{Emitter, Manager};
+use tauri::{Emitter, Listener, Manager};
 
 use crate::commands::AppState;
 use crate::core::settings::{SettingsStore, SETTINGS_FILE};
@@ -138,6 +138,11 @@ pub fn run() {
             let profile = state_settings(&handle);
             autostart::apply(&handle, profile.launch_at_login);
             tray::create(&handle)?;
+            // The tray shows the current bindings, so a settings change rebuilds it (spec 009 T034).
+            {
+                let tray_handle = handle.clone();
+                handle.listen("settings-changed", move |_| tray::rebuild(&tray_handle));
+            }
 
             // T059: after an update macOS may keep the old Accessibility entry switched on while the new
             // build is not trusted. A version change with the grant missing opens the guided re-grant
@@ -219,6 +224,9 @@ pub fn run() {
             commands::focus_popup,
             commands::set_text_size_step,
             commands::stop_speaking,
+            commands::suspend_shortcuts,
+            commands::set_shortcut,
+            commands::reset_shortcut,
             commands::complete_engine_choice,
             commands::voice_exists,
             commands::engine_availability,

@@ -1,0 +1,139 @@
+<script lang="ts">
+  import Card from "$lib/components/Card.svelte";
+  import ShortcutRecorder from "$lib/components/ShortcutRecorder.svelte";
+  import { t } from "$lib/i18n";
+  import { commands, type SettingsProfile } from "$lib/ipc";
+
+  // Settings → Input → Shortcuts (spec 009, contracts/shortcuts.md).
+  let {
+    settings,
+    onchange,
+  }: { settings: SettingsProfile; onchange: (profile: SettingsProfile) => void } = $props();
+
+  const speakCollided = $derived(
+    settings.shortcuts.speak === "" &&
+      (settings.shortcuts.translate === "Alt+Shift+S" || settings.shortcuts.quick === "Alt+Shift+S") &&
+      !settings.notes_seen.includes("speak-unbound"),
+  );
+
+  async function setClipboardPrefill(enabled: boolean): Promise<void> {
+    const profile = await commands
+      .updateSettings({ quick_paste_clipboard: enabled })
+      .catch(() => null);
+    if (profile) onchange(profile);
+  }
+
+  async function dismissSpeakNote(): Promise<void> {
+    const notes = [...settings.notes_seen, "speak-unbound"];
+    const profile = await commands.updateSettings({ notes_seen: notes }).catch(() => null);
+    if (profile) onchange(profile);
+  }
+</script>
+
+<div class="section">
+  <Card title={$t("settings.card_global_shortcuts")}>
+    <div class="row">
+      <span class="label">{$t("shortcut.translate")}</span>
+      <ShortcutRecorder
+        action="translate"
+        label={$t("shortcut.translate")}
+        value={settings.shortcuts.translate}
+        {onchange}
+      />
+    </div>
+    <div class="row">
+      <span class="label">{$t("shortcut.speak")}</span>
+      <ShortcutRecorder
+        action="speak"
+        label={$t("shortcut.speak")}
+        value={settings.shortcuts.speak}
+        {onchange}
+      />
+    </div>
+    <div class="row">
+      <span class="label">{$t("shortcut.quick")}</span>
+      <ShortcutRecorder
+        action="quick"
+        label={$t("shortcut.quick")}
+        value={settings.shortcuts.quick}
+        {onchange}
+      />
+    </div>
+  </Card>
+
+  {#if speakCollided}
+    <div class="note" role="status">
+      <p>{$t("shortcut.note.speak_unbound")}</p>
+      <button type="button" onclick={() => void dismissSpeakNote()}>{$t("update.ok")}</button>
+    </div>
+  {/if}
+
+  <Card title={$t("settings.card_quick_panel")}>
+    <label class="row check">
+      <input
+        type="checkbox"
+        checked={settings.quick_paste_clipboard}
+        onchange={(event) => void setClipboardPrefill(event.currentTarget.checked)}
+      />
+      <span class="label">{$t("shortcut.paste_clipboard")}</span>
+    </label>
+  </Card>
+</div>
+
+<style>
+  .section {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 36px;
+  }
+
+  .row + .row {
+    border-top: 1px solid var(--separator);
+  }
+
+  .check {
+    cursor: pointer;
+  }
+
+  .label {
+    font-size: 13px;
+    color: var(--text);
+  }
+
+  .check .label {
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+
+  .note {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    background: var(--accent-soft);
+    color: var(--text);
+    font-size: 12px;
+  }
+
+  .note p {
+    margin: 0;
+    flex: 1;
+  }
+
+  .note button {
+    border: none;
+    border-radius: 6px;
+    padding: 3px 10px;
+    background: var(--accent);
+    color: var(--accent-contrast);
+    font-size: 12px;
+  }
+</style>

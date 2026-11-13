@@ -292,14 +292,24 @@ static SETTINGS_SECTION: std::sync::Mutex<Option<String>> = std::sync::Mutex::ne
 fn open_settings(app: &AppHandle, url: &str) {
     match tauri::WebviewWindowBuilder::new(app, "settings", tauri::WebviewUrl::App(url.into()))
         .title("Verso Settings")
-        .inner_size(720.0, 620.0)
-        .min_inner_size(560.0, 460.0)
+        .inner_size(780.0, 560.0)
+        .min_inner_size(640.0, 460.0)
         .resizable(true)
         .visible(true)
         .build()
     {
         Ok(window) => {
             let _ = window.set_focus();
+            // A recorder may have suspended the global shortcuts; closing Settings restores them.
+            let handle = app.clone();
+            window.on_window_event(move |event| {
+                if matches!(
+                    event,
+                    tauri::WindowEvent::Destroyed | tauri::WindowEvent::CloseRequested { .. }
+                ) {
+                    let _ = crate::shortcuts::resume(&handle);
+                }
+            });
         }
         Err(error) => warn!("could not open Settings: {error}"),
     }

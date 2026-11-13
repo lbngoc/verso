@@ -12,7 +12,7 @@ use parking_lot::Mutex;
 use tauri::image::Image;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::TrayIconBuilder;
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 
 use crate::shortcuts;
 use crate::window_manager;
@@ -75,9 +75,28 @@ pub fn set_update_available(app: &AppHandle, version: Option<&str>) {
 }
 
 fn build_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
-    let translate = MenuItem::with_id(app, "translate", "Translate Selection", true, None::<&str>)?;
-    let quick = MenuItem::with_id(app, "quick", "Quick Input…", true, None::<&str>)?;
-    let settings = MenuItem::with_id(app, "settings", "Settings…", true, None::<&str>)?;
+    let settings = app.state::<crate::commands::AppState>().settings.get();
+    let translate_accel = settings.shortcuts.translate.clone();
+    let speak_accel = settings.shortcuts.speak.clone();
+    let quick_accel = settings.shortcuts.quick.clone();
+    let accel = |value: String| (!value.trim().is_empty()).then_some(value);
+
+    let translate = MenuItem::with_id(
+        app,
+        "translate",
+        "Translate Selection",
+        true,
+        accel(translate_accel),
+    )?;
+    let speak = MenuItem::with_id(
+        app,
+        "speak",
+        "Speak Selection",
+        true,
+        accel(speak_accel),
+    )?;
+    let quick = MenuItem::with_id(app, "quick", "Quick Input…", true, accel(quick_accel))?;
+    let settings_item = MenuItem::with_id(app, "settings", "Settings…", true, None::<&str>)?;
     let about = MenuItem::with_id(app, "about", "About Verso", true, None::<&str>)?;
     let report = MenuItem::with_id(app, "report", "Report a problem…", true, None::<&str>)?;
     let separator = PredefinedMenuItem::separator(app)?;
@@ -98,7 +117,7 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
         .transpose()?;
 
     let mut items: Vec<&dyn tauri::menu::IsMenuItem<tauri::Wry>> =
-        vec![&translate, &quick, &settings, &about];
+        vec![&translate, &speak, &quick, &settings_item, &about];
     if let Some(update) = &update {
         items.push(update);
     }
@@ -106,6 +125,22 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     items.push(&separator);
     items.push(&quit);
     Menu::with_items(app, &items)
+}
+
+/// Rebuilds the tray menu (bindings changed, or the update item appeared).
+pub fn rebuild(app: &AppHandle) {
+    let handle = app.clone();
+    let _ = app.run_on_main_thread(move || {
+        let Some(tray) = handle.tray_by_id(TRAY_ID) else {
+            return;
+        };
+        match build_menu(&handle) {
+            Ok(menu) => {
+                let _ = tray.set_menu(Some(menu));
+            }
+            Err(error) => log::warn!("tray menu could not be rebuilt: {error}"),
+        }
+    });
 }
 
 /// sRGB relative luminance (WCAG 2.x), used only to tell a dark theme background from a light one.
@@ -216,6 +251,7 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id.as_ref() {
             "translate" => shortcuts::trigger_translate(app),
+            "speak" => shortcuts::trigger_speak(app),
             "quick" => {
                 let _ = window_manager::show_quick(app);
             }

@@ -2,6 +2,7 @@
   import { onMount, tick } from "svelte";
   import { getVersion } from "@tauri-apps/api/app";
   import Engines from "./Engines.svelte";
+  import Shortcuts from "./sections/Shortcuts.svelte";
   import appIcon from "$lib/assets/app-icon.png";
   import { setUiLanguage, t as translator } from "$lib/i18n";
   import { initAppearance } from "$lib/stores/appearance";
@@ -215,23 +216,9 @@
 
     <section class="card">
       <h2>{$translator("settings.shortcuts")}</h2>
-      <label class="field">
-        <span>{$translator("settings.shortcut_translate")}</span>
-        <input
-          bind:value={shortcutTranslate}
-          onblur={updateShorts}
-          onkeydown={(event) => event.key === "Enter" && updateShorts()}
-        />
-      </label>
-      <label class="field">
-        <span>{$translator("settings.shortcut_quick")}</span>
-        <input
-          bind:value={shortcutQuick}
-          onblur={updateShorts}
-          onkeydown={(event) => event.key === "Enter" && updateShorts()}
-        />
-      </label>
-      <p class="hint">{$translator("settings.shortcut_hint")}</p>
+      {#if settings}
+        <Shortcuts {settings} onchange={(profile) => (settings = profile)} />
+      {/if}
       {#if conflict}
         <p class="conflict" role="alert">
           {$translator("settings.shortcut_conflict", { shortcut: shortcutTranslate, reason: conflict })}
@@ -437,8 +424,7 @@
     font-size: 13px;
   }
 
-  .field select,
-  .field input {
+  .field select {
     min-width: 220px;
   }
 
