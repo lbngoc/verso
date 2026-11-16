@@ -170,7 +170,8 @@
         }
         const long = (result?.text.length ?? 0) > 240 || step > 1;
         const width = long ? 560 : 380;
-        const height = Math.min(420, Math.max(96, root.offsetHeight));
+        // Round up: a fractional content height used to clip the footer's last line.
+        const height = Math.min(420, Math.max(96, Math.ceil(root.getBoundingClientRect().height)));
         await commands.setPopupSize(width, height).catch(() => undefined);
       })();
     }, 16);
@@ -369,6 +370,8 @@
     display: flex;
     flex-direction: column;
     min-height: 0;
+    /* Size to the content so the page can report the height the window must grow to (R3). */
+    height: auto;
   }
 
   .pill {

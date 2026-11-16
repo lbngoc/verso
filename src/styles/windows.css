@@ -86,3 +86,21 @@
   border-radius: 8px;
   padding: 14px;
 }
+
+/* Settings on Windows: Mica behind the sidebar, Fluent cards over the content column (T068). */
+[data-os="windows"] .settings-shell {
+  background: transparent;
+}
+
+[data-os="windows"] .content {
+  box-shadow: 0 0 0 1px var(--stroke);
+}
+
+[data-os="windows"] .popup-header,
+[data-os="windows"] .popup-footer {
+  height: 34px;
+}
+
+[data-os="windows"] .pill {
+  height: 34px;
+}

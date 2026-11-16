@@ -58,6 +58,21 @@ pub fn activate(window: &WebviewWindow) {
     }
 }
 
+/// Makes the popup the foreground window on hover/click so its page receives the keys (R4).
+pub fn focus_popup(window: &WebviewWindow) {
+    let Some(hwnd) = hwnd_of(window) else {
+        return;
+    };
+    unsafe {
+        let _ = set_foreground_window_compat(hwnd);
+    }
+}
+
+/// Gives the foreground back to the window the selection came from when the popup hides.
+pub fn restore_capture_target() {
+    super::selection::restore_capture_target();
+}
+
 unsafe fn set_foreground_window_compat(hwnd: HWND) -> bool {
     windows::Win32::UI::WindowsAndMessaging::SetForegroundWindow(hwnd).as_bool()
 }

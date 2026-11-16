@@ -5,9 +5,9 @@ use log::debug;
 use tauri::WebviewWindow;
 use windows::Win32::Foundation::HWND;
 use windows::Win32::Graphics::Dwm::{
-    DwmSetWindowAttribute, DWMSBT_TRANSIENTWINDOW, DWMWA_BORDER_COLOR, DWMWA_SYSTEMBACKDROP_TYPE,
-    DWMWA_USE_IMMERSIVE_DARK_MODE, DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUND,
-    DWMWINDOWATTRIBUTE,
+    DwmSetWindowAttribute, DWMSBT_MAINWINDOW, DWMSBT_TRANSIENTWINDOW, DWMWA_BORDER_COLOR,
+    DWMWA_SYSTEMBACKDROP_TYPE, DWMWA_USE_IMMERSIVE_DARK_MODE, DWMWA_WINDOW_CORNER_PREFERENCE,
+    DWMWCP_ROUND, DWMWINDOWATTRIBUTE,
 };
 
 use super::appearance::build_number;
@@ -64,4 +64,24 @@ pub fn apply(window: &WebviewWindow, appearance: &Appearance) {
         "applied DWM attributes (build {build}, material {:?})",
         appearance.material
     );
+}
+
+/// Settings gets Mica on Windows 11 22H2+; solid otherwise and in high contrast (T066).
+pub fn apply_settings(window: &WebviewWindow, appearance: &Appearance) {
+    let Some(hwnd) = hwnd_of(window) else {
+        return;
+    };
+    let build = build_number();
+    let dark: i32 = if appearance.theme == UiTheme::Dark { 1 } else { 0 };
+    set_attribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &dark.to_ne_bytes());
+
+    if build >= 22_621 && !appearance.high_contrast && !appearance.reduce_transparency {
+        let backdrop: i32 = DWMSBT_MAINWINDOW.0;
+        set_attribute(hwnd, DWMWA_SYSTEMBACKDROP_TYPE, &backdrop.to_ne_bytes());
+        debug!("Mica backdrop applied to Settings");
+    } else {
+        let solid: i32 = 1;
+        set_attribute(hwnd, DWMWA_SYSTEMBACKDROP_TYPE, &solid.to_ne_bytes());
+        debug!("Settings falls back to a solid surface");
+    }
 }

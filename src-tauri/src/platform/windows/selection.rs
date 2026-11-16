@@ -51,6 +51,11 @@ pub fn remember_capture_target() {
     debug!("remembered the capture target window");
 }
 
+/// Brings the remembered window back to the foreground (spec 009, R4).
+pub fn restore_capture_target() {
+    bring_target_forward(target_window());
+}
+
 fn target_window() -> HWND {
     let raw = CAPTURE_TARGET.load(Ordering::SeqCst);
     if raw != 0 {

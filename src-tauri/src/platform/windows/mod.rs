@@ -9,6 +9,7 @@ use crate::platform::{
 pub mod appearance;
 pub mod clipboard;
 pub mod cursor;
+pub mod events;
 pub mod material;
 pub mod selection;
 pub mod tts;
@@ -94,5 +95,25 @@ impl PlatformServices for WindowsServices {
 
     fn remember_capture_target(&self) {
         selection::remember_capture_target();
+    }
+
+    fn start_outside_click_monitor(&self, app: tauri::AppHandle) {
+        events::start(app);
+    }
+
+    fn stop_outside_click_monitor(&self) {
+        events::stop();
+    }
+
+    fn focus_popup(&self, window: &WebviewWindow) {
+        window_style::focus_popup(window);
+    }
+
+    fn restore_capture_target(&self) {
+        window_style::restore_capture_target();
+    }
+
+    fn apply_settings_material(&self, window: &WebviewWindow, appearance: &Appearance) {
+        material::apply_settings(window, appearance);
     }
 }

@@ -301,6 +301,10 @@ fn open_settings(app: &AppHandle, url: &str) {
         .title_bar_style(tauri::TitleBarStyle::Overlay)
         .hidden_title(true)
         .transparent(true);
+    // Windows: Mica (or the solid fallback) shows through the sidebar column; the page paints the
+    // content column opaque over it.
+    #[cfg(windows)]
+    let builder = builder.transparent(true);
     match builder.build() {
         Ok(window) => {
             // Painted before the window appears, so the first frame is never blank (R13).
