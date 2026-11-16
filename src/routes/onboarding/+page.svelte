@@ -78,9 +78,7 @@
       });
     }
     // The window is created hidden and shown once this page has painted (R13).
-    requestAnimationFrame(() =>
-      requestAnimationFrame(() => void events.emitPageReady()),
-    );
+    requestAnimationFrame(() => requestAnimationFrame(() => void events.emitPageReady()));
   });
 </script>
 
@@ -89,7 +87,9 @@
     <h1>{$translator("onboarding.title")}</h1>
     <p class="muted">{$translator("onboarding.subtitle")}</p>
     <span class="step">
-      {step === 0 ? $translator("onboarding.step_engines") : $translator("onboarding.step_permission")}
+      {step === 0
+        ? $translator("onboarding.step_engines")
+        : $translator("onboarding.step_permission")}
     </span>
   </header>
 
@@ -112,14 +112,14 @@
                 type="button"
                 aria-label={$translator("settings.move_up")}
                 disabled={index === 0}
-                onclick={() => move(id, -1)}
-              >↑</button>
+                onclick={() => move(id, -1)}>↑</button
+              >
               <button
                 type="button"
                 aria-label={$translator("settings.move_down")}
                 disabled={index === order.length - 1}
-                onclick={() => move(id, 1)}
-              >↓</button>
+                onclick={() => move(id, 1)}>↓</button
+              >
             </div>
           </article>
         {/if}

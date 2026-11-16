@@ -6,13 +6,16 @@
 > builds and winget arrive in ordinary updates afterwards. Homebrew is available now.
 
 Verso is a small translator that lives in the menu bar (macOS) or the notification area (Windows). Select
-text in any app and press `Alt+Shift+T`: Verso translates it and shows the result in a popup that can copy
-or speak it. Text you type yourself goes through the quick panel.
+text in any app and press `Alt+Shift+T`: a small tooltip appears next to the selection and grows into the
+translation, with **Copy** on `c` and **Speak** on `s`. `Alt+Shift+S` reads the selection aloud without a
+window, and `Alt+Shift+Cmd+T` (Windows: `Ctrl+Alt+Shift+T`) opens the quick panel for text you type.
 
 - **Engines**: Google Translate and Microsoft Translator (Bing), no account or API key needed, with
   automatic fallback when one fails.
 - **Automatic source language**, dozens of target languages, English or Vietnamese interface.
-- **Light and dark themes**; the tray mark follows the system.
+- **Keyboard-first**: `c` copy, `s` speak, `-`/`=`/`0` text size, `Tab` swaps languages in the panel.
+- **Light and dark themes** and one accent colour (Verso teal, or the system accent); the tray mark
+  follows the system.
 - **Updates itself** once you agree to the daily check, with a signed, verified download.
 - **Report a problem** from the tray or Settings, with the log tail prefilled into the issue form.
 - **No telemetry** and no account. See [PRIVACY.md](PRIVACY.md).

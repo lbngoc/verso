@@ -54,7 +54,10 @@
     </div>
 
     <div class="links">
-      <button type="button" onclick={() => void commands.openUrl("https://github.com/lbngoc/verso")}>
+      <button
+        type="button"
+        onclick={() => void commands.openUrl("https://github.com/lbngoc/verso")}
+      >
         {$t("about.github")}
       </button>
       <button type="button" onclick={() => void commands.reportProblem()}>
@@ -86,11 +89,20 @@
   </Card>
 
   <p class="legal">
-    <button type="button" class="link" onclick={() => void commands.openUrl("https://github.com/lbngoc/verso/blob/main/LICENSE")}>
+    <button
+      type="button"
+      class="link"
+      onclick={() => void commands.openUrl("https://github.com/lbngoc/verso/blob/main/LICENSE")}
+    >
       {$t("about.terms")}
     </button>
     ·
-    <button type="button" class="link" onclick={() => void commands.openUrl("https://github.com/lbngoc/verso/blob/main/THIRD_PARTY.md")}>
+    <button
+      type="button"
+      class="link"
+      onclick={() =>
+        void commands.openUrl("https://github.com/lbngoc/verso/blob/main/THIRD_PARTY.md")}
+    >
       {$t("about.licences")}
     </button>
   </p>

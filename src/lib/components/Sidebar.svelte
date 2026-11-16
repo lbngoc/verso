@@ -45,7 +45,12 @@
 
 <aside class="sidebar" class:collapsed>
   <div class="topbar">
-    <button class="collapse" type="button" onclick={ontoggle} title={collapsed ? $t("settings.expand_sidebar") : $t("settings.collapse_sidebar")}>
+    <button
+      class="collapse"
+      type="button"
+      onclick={ontoggle}
+      title={collapsed ? $t("settings.expand_sidebar") : $t("settings.collapse_sidebar")}
+    >
       <Icon name="sidebar" />
     </button>
   </div>

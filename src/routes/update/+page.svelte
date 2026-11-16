@@ -5,12 +5,7 @@
   import { setUiLanguage, t as translator } from "$lib/i18n";
   import { initAppearance } from "$lib/stores/appearance";
   import { initTheme } from "$lib/stores/theme";
-  import {
-    commands,
-    events,
-    type SettingsProfile,
-    type UpdateInfo,
-  } from "$lib/ipc";
+  import { commands, events, type SettingsProfile, type UpdateInfo } from "$lib/ipc";
 
   // macOS-style update dialog (spec 009, contracts/update-dialog.md).
   type Phase =
@@ -27,6 +22,7 @@
   let settings = $state<SettingsProfile | null>(null);
   let percent = $state(0);
   let failure = $state<"offline" | "verified" | "download">("download");
+  let current = $state("");
 
   async function check(): Promise<void> {
     phase = "checking";
@@ -94,6 +90,10 @@
     void (async () => {
       try {
         await initAppearance();
+        current = await commands
+          .appInfo()
+          .then((info) => info.version)
+          .catch(() => "");
         settings = await initTheme();
         if (!settings) settings = await commands.getSettings().catch(() => null);
         if (settings) setUiLanguage(settings.ui_language);
@@ -118,9 +118,7 @@
           await check();
         }
       } finally {
-        requestAnimationFrame(() =>
-          requestAnimationFrame(() => void events.emitPageReady()),
-        );
+        requestAnimationFrame(() => requestAnimationFrame(() => void events.emitPageReady()));
       }
     })();
 
@@ -142,10 +140,12 @@
         <h1>{$translator("update.checking")}</h1>
       {:else if phase === "up_to_date"}
         <h1>{$translator("update.up_to_date")}</h1>
-        <p>{$translator("update.up_to_date_body", { version: offer?.current ?? "" })}</p>
+        <p>{$translator("update.up_to_date_body", { version: offer?.current ?? current })}</p>
       {:else if phase === "available" && offer}
         <h1>{$translator("update.available_title")}</h1>
-        <p>{$translator("update.available_body", { version: offer.version, current: offer.current })}</p>
+        <p>
+          {$translator("update.available_body", { version: offer.version, current: offer.current })}
+        </p>
         {#if offer.skipped}
           <p class="skipped">{$translator("update.skipped_note")}</p>
         {/if}
@@ -178,7 +178,13 @@
   {/if}
 
   {#if phase === "downloading"}
-    <div class="progress" role="progressbar" aria-valuenow={percent} aria-valuemin="0" aria-valuemax="100">
+    <div
+      class="progress"
+      role="progressbar"
+      aria-valuenow={percent}
+      aria-valuemin="0"
+      aria-valuemax="100"
+    >
       <span style:width={`${percent}%`}></span>
     </div>
     <p class="percent">{percent}%</p>

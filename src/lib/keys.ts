@@ -75,10 +75,7 @@ export function modifiersFor(event: KeyEventLike, options: PlatformOptions): Mod
 }
 
 /** Builds the accelerator for a key event, or null when nothing usable was pressed. */
-export function acceleratorFromEvent(
-  event: KeyEventLike,
-  options: PlatformOptions,
-): string | null {
+export function acceleratorFromEvent(event: KeyEventLike, options: PlatformOptions): string | null {
   const key = keyFromCode(event.code);
   if (!key) return null;
   return [...modifiersFor(event, options), key].join("+");
@@ -167,7 +164,11 @@ export function displayAccelerator(accelerator: string, options: PlatformOptions
 }
 
 /** The default accelerators shown in the recorder, per platform. */
-export function defaultAccelerators(options: PlatformOptions): { translate: string; speak: string; quick: string } {
+export function defaultAccelerators(options: PlatformOptions): {
+  translate: string;
+  speak: string;
+  quick: string;
+} {
   return {
     translate: "Alt+Shift+T",
     speak: "Alt+Shift+S",

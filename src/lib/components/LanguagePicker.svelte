@@ -108,11 +108,7 @@
       <ul>
         {#if allowAuto}
           <li>
-            <button
-              type="button"
-              class:selected={value === "auto"}
-              onclick={() => choose("auto")}
-            >
+            <button type="button" class:selected={value === "auto"} onclick={() => choose("auto")}>
               <span dir="auto">{$translator("quick.auto_detect")}</span>
             </button>
           </li>

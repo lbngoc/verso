@@ -6,8 +6,7 @@ import { appearance, applyAccent, applyAppearance, setAccentPreference } from ".
 /** Applies the theme setting on top of the OS appearance (light/dark/system) and the accent. */
 export function applyTheme(theme: Theme): void {
   const current = get(appearance);
-  const resolved =
-    theme === "system" ? current.theme : theme === "dark" ? "dark" : "light";
+  const resolved = theme === "system" ? current.theme : theme === "dark" ? "dark" : "light";
   document.documentElement.dataset.theme = resolved;
   // The accent has a light and a dark value, so it follows the resolved theme.
   applyAccent();

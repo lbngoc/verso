@@ -4,7 +4,9 @@
 > Linux, bản ký số và winget sẽ đến trong các bản cập nhật thường kỳ. Homebrew đã có sẵn.
 
 Verso là ứng dụng dịch nhỏ sống trên thanh menu (macOS) hoặc khay hệ thống (Windows). Chọn văn bản ở bất kỳ
-ứng dụng nào và nhấn `Alt+Shift+T`: Verso dịch và hiện kết quả trong popup có thể sao chép hoặc đọc. Văn bản
+ứng dụng nào và nhấn `Alt+Shift+T`: một tooltip nhỏ hiện cạnh vùng chọn rồi lớn dần thành bản dịch, với
+**Sao chép** ở phím `c` và **Đọc** ở phím `s`. `Alt+Shift+S` đọc văn bản đã chọn mà không mở cửa sổ, còn
+`Alt+Shift+Cmd+T` (Windows: `Ctrl+Alt+Shift+T`) mở bảng dịch nhanh cho văn bản bạn tự nhập. Văn bản
 bạn tự gõ dùng bảng nhập nhanh.
 
 - **Engine**: Google Translate và Microsoft Translator (Bing), không cần tài khoản hay API key, tự động

@@ -30,3 +30,6 @@ references/
 .githooks/
 scripts/vm/
 scripts/cleanup.sh
+
+# Browser automation artefacts (Playwright MCP)
+.playwright-mcp/

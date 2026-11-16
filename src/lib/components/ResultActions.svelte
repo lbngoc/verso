@@ -28,7 +28,12 @@
 </script>
 
 <div class="actions">
-  <button class="icon-button" onclick={oncopy} disabled={!canCopy} title={$translator("popup.copy")}>
+  <button
+    class="icon-button"
+    onclick={oncopy}
+    disabled={!canCopy}
+    title={$translator("popup.copy")}
+  >
     <Icon name={copied ? "check" : "copy"} />
     <span>{copied ? $translator("popup.copied") : $translator("popup.copy")}</span>
   </button>

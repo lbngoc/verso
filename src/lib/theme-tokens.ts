@@ -154,10 +154,7 @@ function readableOn(background: string): string {
  * for each failing role (≥ 3:1 against the surface for rings/fills, ≥ 4.5:1 for text on accent and
  * accent-coloured text).
  */
-export function pickAccent(
-  systemAccent: string | null,
-  theme: "light" | "dark",
-): AccentTokens {
+export function pickAccent(systemAccent: string | null, theme: "light" | "dark"): AccentTokens {
   const app = APP_ACCENT[theme];
   if (!systemAccent) return app;
   const surface = SURFACE_OPAQUE[theme];

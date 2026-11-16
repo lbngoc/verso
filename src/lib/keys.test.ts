@@ -4,7 +4,11 @@ import { acceleratorFromEvent, displayAccelerator, keyFromCode } from "./keys";
 const mac = { mac: true } as const;
 const win = { mac: false } as const;
 
-function event(code: string, mods: Partial<Record<"meta" | "ctrl" | "alt" | "shift", boolean>> = {}, key = "") {
+function event(
+  code: string,
+  mods: Partial<Record<"meta" | "ctrl" | "alt" | "shift", boolean>> = {},
+  key = "",
+) {
   return {
     code,
     key,
@@ -17,7 +21,9 @@ function event(code: string, mods: Partial<Record<"meta" | "ctrl" | "alt" | "shi
 
 describe("acceleratorFromEvent", () => {
   it("maps letters, digits and punctuation by KeyboardEvent.code", () => {
-    expect(acceleratorFromEvent(event("KeyT", { alt: true, shift: true }), mac)).toBe("Alt+Shift+T");
+    expect(acceleratorFromEvent(event("KeyT", { alt: true, shift: true }), mac)).toBe(
+      "Alt+Shift+T",
+    );
     expect(acceleratorFromEvent(event("Digit1", { alt: true }), mac)).toBe("Alt+1");
     expect(acceleratorFromEvent(event("Minus", { meta: true }), mac)).toBe("Cmd+-");
     expect(acceleratorFromEvent(event("Equal", { ctrl: true }), mac)).toBe("Ctrl+=");
@@ -25,8 +31,12 @@ describe("acceleratorFromEvent", () => {
 
   it("maps function keys, space and arrows", () => {
     expect(acceleratorFromEvent(event("F5", { alt: true }), mac)).toBe("Alt+F5");
-    expect(acceleratorFromEvent(event("Space", { ctrl: true, alt: true }), mac)).toBe("Ctrl+Alt+Space");
-    expect(acceleratorFromEvent(event("ArrowUp", { alt: true, shift: true }), mac)).toBe("Alt+Shift+Up");
+    expect(acceleratorFromEvent(event("Space", { ctrl: true, alt: true }), mac)).toBe(
+      "Ctrl+Alt+Space",
+    );
+    expect(acceleratorFromEvent(event("ArrowUp", { alt: true, shift: true }), mac)).toBe(
+      "Alt+Shift+Up",
+    );
   });
 
   it("orders modifiers Cmd/Super, Ctrl, Alt, Shift", () => {

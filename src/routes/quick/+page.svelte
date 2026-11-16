@@ -291,9 +291,7 @@
 
       await tick();
       textarea?.focus();
-      requestAnimationFrame(() =>
-        requestAnimationFrame(() => events.emitSelfTestPainted()),
-      );
+      requestAnimationFrame(() => requestAnimationFrame(() => events.emitSelfTestPainted()));
     })();
 
     window.addEventListener("keydown", onKeydown, true);
@@ -463,7 +461,9 @@
 
   textarea:focus {
     outline: none;
-    box-shadow: var(--focus-ring), inset 0 0 0 1px var(--accent);
+    box-shadow:
+      var(--focus-ring),
+      inset 0 0 0 1px var(--accent);
   }
 
   .result-area {

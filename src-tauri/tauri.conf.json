@@ -55,11 +55,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": [
-      "app",
-      "dmg",
-      "nsis"
-    ],
+    "targets": ["app", "dmg", "nsis"],
     "publisher": "Ngoc Luong",
     "copyright": "© 2026 Ngoc Luong, trading as Verso Translate",
     "category": "Productivity",

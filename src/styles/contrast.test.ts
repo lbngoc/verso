@@ -46,10 +46,22 @@ describe("accent tokens (spec 009 FR-027/FR-028)", () => {
     for (const theme of ["light", "dark"] as const) {
       const tokens = APP_ACCENT[theme];
       const surface = surfaces[theme];
-      expect(contrastRatio(tokens.accent, surface.opaque), `${theme} accent on surface`).toBeGreaterThanOrEqual(3);
-      expect(contrastRatio(tokens.contrast, tokens.accent), `${theme} contrast on accent`).toBeGreaterThanOrEqual(4.5);
-      expect(contrastRatio(tokens.text, surface.opaque), `${theme} accent text on surface`).toBeGreaterThanOrEqual(4.5);
-      expect(contrastRatio(tokens.text, surface.raised), `${theme} accent text on raised`).toBeGreaterThanOrEqual(4.5);
+      expect(
+        contrastRatio(tokens.accent, surface.opaque),
+        `${theme} accent on surface`,
+      ).toBeGreaterThanOrEqual(3);
+      expect(
+        contrastRatio(tokens.contrast, tokens.accent),
+        `${theme} contrast on accent`,
+      ).toBeGreaterThanOrEqual(4.5);
+      expect(
+        contrastRatio(tokens.text, surface.opaque),
+        `${theme} accent text on surface`,
+      ).toBeGreaterThanOrEqual(4.5);
+      expect(
+        contrastRatio(tokens.text, surface.raised),
+        `${theme} accent text on raised`,
+      ).toBeGreaterThanOrEqual(4.5);
     }
   });
 

@@ -45,8 +45,7 @@ export interface TranslationResult {
 }
 
 export type TranslationOutcome =
-  | { ok: true; value: TranslationResult }
-  | { ok: false; error: EngineError };
+  { ok: true; value: TranslationResult } | { ok: false; error: EngineError };
 
 export interface Shortcuts {
   translate: string;
@@ -220,8 +219,7 @@ export const commands = {
   suspendShortcuts: (suspended: boolean) => invoke<void>("suspend_shortcuts", { suspended }),
   setShortcut: (action: ShortcutAction, accel: string) =>
     invoke<SettingsProfile>("set_shortcut", { action, accel }),
-  resetShortcut: (action: ShortcutAction) =>
-    invoke<SettingsProfile>("reset_shortcut", { action }),
+  resetShortcut: (action: ShortcutAction) => invoke<SettingsProfile>("reset_shortcut", { action }),
   stopSpeaking: () => invoke<void>("stop_speaking"),
   completeEngineChoice: (enginesDisabled: string[], engineOrder: string[]) =>
     invoke<SettingsProfile>("complete_engine_choice", {
@@ -245,11 +243,17 @@ export const events = {
   onPopupState: (handler: (payload: PopupState) => void): Promise<UnlistenFn> =>
     listen<PopupState>("popup-state", (event) => handler(event.payload)),
   onTranslationStarted: (
-    handler: (payload: { origin: Origin; truncated: boolean; original_length: number | null }) => void,
-  ): Promise<UnlistenFn> => listen("translation-started", (event) => handler(event.payload as never)),
+    handler: (payload: {
+      origin: Origin;
+      truncated: boolean;
+      original_length: number | null;
+    }) => void,
+  ): Promise<UnlistenFn> =>
+    listen("translation-started", (event) => handler(event.payload as never)),
   onTranslationFinished: (
     handler: (payload: TranslationResult | { error: EngineError }) => void,
-  ): Promise<UnlistenFn> => listen("translation-finished", (event) => handler(event.payload as never)),
+  ): Promise<UnlistenFn> =>
+    listen("translation-finished", (event) => handler(event.payload as never)),
   onEngineFallback: (
     handler: (payload: { from: string; to: string; reason: EngineError }) => void,
   ): Promise<UnlistenFn> => listen("engine-fallback", (event) => handler(event.payload as never)),
@@ -259,7 +263,8 @@ export const events = {
     listen<Appearance>("appearance-changed", (event) => handler(event.payload)),
   onPermissionChanged: (
     handler: (payload: { kind: string; status: string }) => void,
-  ): Promise<UnlistenFn> => listen("permission-changed", (event) => handler(event.payload as never)),
+  ): Promise<UnlistenFn> =>
+    listen("permission-changed", (event) => handler(event.payload as never)),
   onSettingsChanged: (handler: (payload: SettingsProfile) => void): Promise<UnlistenFn> =>
     listen<SettingsProfile>("settings-changed", (event) => handler(event.payload)),
   onQuickPrefill: (handler: (payload: { text: string }) => void): Promise<UnlistenFn> =>

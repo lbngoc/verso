@@ -36,7 +36,8 @@ right-clicking Verso in Applications and choosing **Open**.)
 ## The shortcut does nothing
 
 - Make sure Verso is running: the two-arrow mark is in the menu bar or the notification area.
-- The combination may belong to another app. Change it in **Settings › Shortcuts**; a conflict is reported
+- The combination may belong to another app or be reserved by the system. Change it in
+  **Settings › Shortcuts** (the recorder refuses those with a reason); a conflict is reported
   when you save.
 - On macOS, translating the selected text needs the **Accessibility** permission: **System Settings ›
   Privacy & Security › Accessibility** must list Verso and have it switched on. After replacing

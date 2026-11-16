@@ -82,16 +82,21 @@ Microsoft are both on by default; at least one must stay on), then grant the Acc
 macOS. The same step offers **Check for updates automatically**, pre-checked, with a line about the
 request; leave it on or turn it off. Everything can be changed later in **Settings** from the tray menu.
 
-Shortcuts can be changed in **Settings › Shortcuts**. On macOS, a global shortcut needs no permission
-beyond Accessibility; if another app already owns the combination, Verso says so and asks for another.
+Shortcuts can be changed in **Settings › Shortcuts**: click a field and type the combination (macOS shows
+`⌥⇧T`), ↺ restores the default and ⌫ clears it. The three actions are Translate selection, Speak selection
+and Quick panel. On macOS a global shortcut needs no permission beyond Accessibility; if another app owns
+the combination, Verso says so and asks for another. The same card has an off-by-default option to paste
+the clipboard into the panel when nothing is selected.
 
 ## Updates
 
-Verso updates itself. When the daily check (or **Check now** in **Settings › About**) finds a newer stable
-release, the tray shows **Update available** and the About card offers **Install and relaunch**. Pressing
-Install downloads the update, verifies its signature with the key built into the app, and replaces the
+Verso updates itself. When the daily check finds a newer stable release, the tray shows **Update
+available**; **Check for Updates…** in **Settings › About** opens the update dialog, which renders the
+release notes and offers **Install and Relaunch**, **Install on Quit** and **Skip This Version**. An
+install downloads the update, verifies its signature with the key built into the app and replaces the
 installed version; a download that does not verify is discarded and the current version keeps working.
-Pre-release builds are never offered, and the automatic check can be switched off in **Settings › About**.
+Pre-release builds are never offered, a skipped version stays hidden until a newer one appears, and the
+automatic check can be switched off in the dialog or in **Settings › About**.
 
 ## Where your data lives
 

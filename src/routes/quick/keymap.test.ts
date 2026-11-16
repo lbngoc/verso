@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { quickKey } from "./keymap";
 
-const key = (value: string, mods: { shiftKey?: boolean; metaKey?: boolean; ctrlKey?: boolean; altKey?: boolean } = {}) => ({
+const key = (
+  value: string,
+  mods: { shiftKey?: boolean; metaKey?: boolean; ctrlKey?: boolean; altKey?: boolean } = {},
+) => ({
   key: value,
   shiftKey: mods.shiftKey ?? false,
   metaKey: mods.metaKey ?? false,

@@ -121,48 +121,48 @@
     let unlisteners: Array<() => void> = [];
     void (async () => {
       try {
-      const appearance = await initAppearance();
-      isMac = appearance.os === "macos";
-      settings = await initTheme();
-      if (!settings) settings = await commands.getSettings().catch(() => null);
-      if (cancelled) return;
-      const profile = settings;
-      if (!profile) return;
-      setUiLanguage(profile.ui_language);
-      languages = await commands.listLanguages().catch(() => []);
-      modules = await commands.listModules().catch(() => []);
-      engines = await commands.listEngines().catch(() => []);
-      permission = await commands.checkPermissions("accessibility").catch(() => "denied");
+        const appearance = await initAppearance();
+        isMac = appearance.os === "macos";
+        settings = await initTheme();
+        if (!settings) settings = await commands.getSettings().catch(() => null);
+        if (cancelled) return;
+        const profile = settings;
+        if (!profile) return;
+        setUiLanguage(profile.ui_language);
+        languages = await commands.listLanguages().catch(() => []);
+        modules = await commands.listModules().catch(() => []);
+        engines = await commands.listEngines().catch(() => []);
+        permission = await commands.checkPermissions("accessibility").catch(() => "denied");
 
-      const requested = await commands.settingsSection().catch(() => null);
-      const hash = location.hash.replace("#", "");
-      const initial = requested ?? (hash || "languages");
-      section = allowed(initial) ? initial : "languages";
+        const requested = await commands.settingsSection().catch(() => null);
+        const hash = location.hash.replace("#", "");
+        const initial = requested ?? (hash || "languages");
+        section = allowed(initial) ? initial : "languages";
 
-      unlisteners = await Promise.all([
-        events.onSettingsChanged((next) => {
-          settings = next;
-          void commands.listEngines().then((list) => (engines = list)).catch(() => undefined);
-        }),
-        events.onShortcutConflict((payload) => {
-          conflict = payload.reason;
-        }),
-        events.onPermissionChanged((payload) => {
-          if (payload.status === "granted" || payload.status === "denied") {
-            permission = payload.status;
-          }
-        }),
-        events.onSettingsSection((next) => select(next)),
-      ]);
-
+        unlisteners = await Promise.all([
+          events.onSettingsChanged((next) => {
+            settings = next;
+            void commands
+              .listEngines()
+              .then((list) => (engines = list))
+              .catch(() => undefined);
+          }),
+          events.onShortcutConflict((payload) => {
+            conflict = payload.reason;
+          }),
+          events.onPermissionChanged((payload) => {
+            if (payload.status === "granted" || payload.status === "denied") {
+              permission = payload.status;
+            }
+          }),
+          events.onSettingsSection((next) => select(next)),
+        ]);
       } catch (error) {
         console.error("settings could not load", error);
       } finally {
         // The window is created hidden and shown on this event (R13): paint once, then reveal.
         await tick();
-        requestAnimationFrame(() =>
-          requestAnimationFrame(() => void events.emitPageReady()),
-        );
+        requestAnimationFrame(() => requestAnimationFrame(() => void events.emitPageReady()));
       }
     })();
 
@@ -269,5 +269,4 @@
   .loading {
     color: var(--text-secondary);
   }
-
 </style>

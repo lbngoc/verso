@@ -11,10 +11,7 @@ export function languageLabel(code: string, languages: Language[]): string {
 }
 
 /** Notices shown with a result (popup-ui-contract § States). */
-export function buildNotices(
-  result: TranslationResult,
-  extra: NoticeItem[] = [],
-): NoticeItem[] {
+export function buildNotices(result: TranslationResult, extra: NoticeItem[] = []): NoticeItem[] {
   const notices: NoticeItem[] = [];
   if (result.truncated && result.original_length) {
     const shown = result.text ? result.text.length : 1000;
@@ -62,12 +59,14 @@ export function engineName(engineId: string): string {
 export function terminalModifier(app?: string | null): "option" | "shift" | null {
   if (!app) return null;
   const name = app.toLowerCase();
-  if (name.includes("iterm2") || name.includes("com.apple.terminal") || name.includes("terminal.app")) {
+  if (
+    name.includes("iterm2") ||
+    name.includes("com.apple.terminal") ||
+    name.includes("terminal.app")
+  ) {
     return "option";
   }
-  if (
-    ["wezterm", "kitty", "ghostty", "kaku"].some((known) => name.includes(known))
-  ) {
+  if (["wezterm", "kitty", "ghostty", "kaku"].some((known) => name.includes(known))) {
     return "shift";
   }
   return null;

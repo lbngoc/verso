@@ -14,11 +14,7 @@ export function setUiLanguage(language: string): void {
   uiLanguage.set(language === "vi" ? "vi" : "en");
 }
 
-export function translate(
-  language: Language,
-  key: string,
-  params: Params = {},
-): string {
+export function translate(language: Language, key: string, params: Params = {}): string {
   const template = catalogs[language][key] ?? catalogs.en[key] ?? key;
   return template.replace(/\{(\w+)\}/g, (_, name: string) =>
     params[name] !== undefined ? String(params[name]) : `{${name}}`,

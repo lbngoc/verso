@@ -12,7 +12,8 @@
 
   const speakCollided = $derived(
     settings.shortcuts.speak === "" &&
-      (settings.shortcuts.translate === "Alt+Shift+S" || settings.shortcuts.quick === "Alt+Shift+S") &&
+      (settings.shortcuts.translate === "Alt+Shift+S" ||
+        settings.shortcuts.quick === "Alt+Shift+S") &&
       !settings.notes_seen.includes("speak-unbound"),
   );
 

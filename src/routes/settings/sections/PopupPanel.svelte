@@ -29,7 +29,10 @@
     step = Math.min(4, Math.max(-2, next));
     if (saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
-      void commands.setTextSizeStep(step).then(onchange).catch(() => undefined);
+      void commands
+        .setTextSizeStep(step)
+        .then(onchange)
+        .catch(() => undefined);
     }, 400);
   }
 
@@ -43,10 +46,18 @@
     <div class="row">
       <span>{$t("settings.card_text_size")}</span>
       <div class="sizer">
-        <button type="button" aria-label={$t("popup.text_smaller")} onclick={() => setStep(step - 1)}>−</button>
+        <button
+          type="button"
+          aria-label={$t("popup.text_smaller")}
+          onclick={() => setStep(step - 1)}>−</button
+        >
         <span class="value">{step > 0 ? `+${step}` : step}</span>
-        <button type="button" aria-label={$t("popup.text_larger")} onclick={() => setStep(step + 1)}>+</button>
-        <button type="button" class="reset" onclick={() => setStep(0)}>{$t("settings.text_size_reset")}</button>
+        <button type="button" aria-label={$t("popup.text_larger")} onclick={() => setStep(step + 1)}
+          >+</button
+        >
+        <button type="button" class="reset" onclick={() => setStep(0)}
+          >{$t("settings.text_size_reset")}</button
+        >
       </div>
     </div>
     <div class="row preview" style:font-size={`${previewSize}px`}>
@@ -58,7 +69,12 @@
     <div class="keys">
       <span><Keycap label="c" /> {$t("popup.copy")}</span>
       <span><Keycap label="s" /> {$t("popup.speak")}</span>
-      <span><Keycap label="−" /> <Keycap label="=" /> <Keycap label="0" /> {$t("settings.card_text_size")}</span>
+      <span
+        ><Keycap label="−" />
+        <Keycap label="=" />
+        <Keycap label="0" />
+        {$t("settings.card_text_size")}</span
+      >
       <span><Keycap label="Tab" /> {$t("quick.swap")}</span>
       <span><Keycap label="Esc" /> {$t("popup.close")}</span>
     </div>

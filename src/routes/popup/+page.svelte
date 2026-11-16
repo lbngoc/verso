@@ -60,7 +60,10 @@
       }
     }
     if (capture?.clipboard === "partially_restored") {
-      items.push({ key: "notice.partial_restore", params: { formats: capture.skipped_formats.join(", ") } });
+      items.push({
+        key: "notice.partial_restore",
+        params: { formats: capture.skipped_formats.join(", ") },
+      });
     }
     if (capture?.clipboard === "not_restored") {
       items.push({ key: "notice.not_restored" });
@@ -87,9 +90,7 @@
     return `${base + (isMac ? 1 : 0)}px`;
   });
 
-  const isMac = $derived(
-    typeof navigator !== "undefined" && navigator.userAgent.includes("Mac"),
-  );
+  const isMac = $derived(typeof navigator !== "undefined" && navigator.userAgent.includes("Mac"));
 
   async function refreshVoice(): Promise<void> {
     if (!result || !settings || !languages.length) return;
@@ -247,9 +248,7 @@
               error = null;
               clearSlowTimer();
             }
-            requestAnimationFrame(() =>
-              requestAnimationFrame(() => events.emitSelfTestPainted()),
-            );
+            requestAnimationFrame(() => requestAnimationFrame(() => events.emitSelfTestPainted()));
           } else {
             clearSlowTimer();
           }
@@ -311,7 +310,11 @@
     <div class="pill" aria-live="polite">
       {#if statusKind === "translating"}
         <span class="spinner" aria-hidden="true"></span>
-        <span>{stillTranslating ? $translator("popup.still_translating") : $translator("popup.translating")}</span>
+        <span
+          >{stillTranslating
+            ? $translator("popup.still_translating")
+            : $translator("popup.translating")}</span
+        >
       {:else}
         <span>{$translator("popup.nothing_selected")}</span>
       {/if}

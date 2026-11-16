@@ -3,12 +3,7 @@
   import Keycap from "./Keycap.svelte";
   import { t } from "$lib/i18n";
   import { acceleratorFromEvent, displayAccelerator } from "$lib/keys";
-  import {
-    commands,
-    type BindingError,
-    type SettingsProfile,
-    type ShortcutAction,
-  } from "$lib/ipc";
+  import { commands, type BindingError, type SettingsProfile, type ShortcutAction } from "$lib/ipc";
 
   // Recorder for one global shortcut (spec 009, contracts/shortcuts.md).
   let {
@@ -134,10 +129,22 @@
       <span class="unset">{$t("shortcut.not_set")}</span>
     {/if}
   </button>
-  <button class="mini" type="button" title={$t("shortcut.reset")} aria-label={$t("shortcut.reset")} onclick={() => void reset()}>
+  <button
+    class="mini"
+    type="button"
+    title={$t("shortcut.reset")}
+    aria-label={$t("shortcut.reset")}
+    onclick={() => void reset()}
+  >
     <Icon name="swap" />
   </button>
-  <button class="mini" type="button" title={$t("shortcut.clear")} aria-label={$t("shortcut.clear")} onclick={() => void clear()}>
+  <button
+    class="mini"
+    type="button"
+    title={$t("shortcut.clear")}
+    aria-label={$t("shortcut.clear")}
+    onclick={() => void clear()}
+  >
     <Icon name="close" />
   </button>
   {#if refused}
@@ -170,7 +177,9 @@
   }
 
   .field.recording {
-    box-shadow: var(--focus-ring), inset 0 0 0 1px var(--accent);
+    box-shadow:
+      var(--focus-ring),
+      inset 0 0 0 1px var(--accent);
     background: var(--accent-soft);
   }
 
@@ -206,7 +215,9 @@
     padding: 4px 8px;
     border-radius: 6px;
     background: var(--surface-opaque);
-    box-shadow: inset 0 0 0 1px var(--stroke), var(--shadow-menu);
+    box-shadow:
+      inset 0 0 0 1px var(--stroke),
+      var(--shadow-menu);
     font-size: 11px;
     color: var(--danger);
     white-space: nowrap;

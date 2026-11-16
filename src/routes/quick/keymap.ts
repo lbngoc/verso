@@ -18,14 +18,25 @@ export type QuickAction =
   | { type: "type"; text: string };
 
 /** Whether a key inserts text (letters, digits, punctuation) rather than acting on the panel. */
-function isPrintable(event: { key: string; metaKey?: boolean; ctrlKey?: boolean; altKey?: boolean }): boolean {
+function isPrintable(event: {
+  key: string;
+  metaKey?: boolean;
+  ctrlKey?: boolean;
+  altKey?: boolean;
+}): boolean {
   if (event.metaKey || event.ctrlKey || event.altKey) return false;
   return event.key.length === 1;
 }
 
 export function quickKey(
   focus: QuickFocus,
-  event: { key: string; shiftKey?: boolean; metaKey?: boolean; ctrlKey?: boolean; altKey?: boolean },
+  event: {
+    key: string;
+    shiftKey?: boolean;
+    metaKey?: boolean;
+    ctrlKey?: boolean;
+    altKey?: boolean;
+  },
   hasResult: boolean,
 ): QuickAction {
   const key = event.key;

@@ -30,7 +30,13 @@ describe("parseMarkdown", () => {
     const [paragraph] = parseMarkdown("**bold** *italic* `code`");
     expect(paragraph.type).toBe("paragraph");
     if (paragraph.type !== "paragraph") return;
-    expect(paragraph.spans.map((span) => span.type)).toEqual(["strong", "text", "em", "text", "code"]);
+    expect(paragraph.spans.map((span) => span.type)).toEqual([
+      "strong",
+      "text",
+      "em",
+      "text",
+      "code",
+    ]);
   });
 
   it("keeps http(s) links and drops other schemes to text", () => {
