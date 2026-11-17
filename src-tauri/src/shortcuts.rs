@@ -285,15 +285,16 @@ pub fn set_binding(app: &AppHandle, action: &str, accel: &str) -> Result<(), Bin
     .collect::<Vec<_>>();
 
     let normalised = validate_binding(action.id(), accel, &others)?;
-    let field = match action {
-        Action::Translate => "shortcuts.translate",
-        Action::Speak => "shortcuts.speak",
-        Action::Quick => "shortcuts.quick",
+    // The store merges a JSON object literally: the patch must nest under `shortcuts`, not use a
+    // dotted key (which would become an unknown field and change nothing).
+    let nested = |value: &str| match action {
+        Action::Translate => serde_json::json!({ "shortcuts": { "translate": value } }),
+        Action::Speak => serde_json::json!({ "shortcuts": { "speak": value } }),
+        Action::Quick => serde_json::json!({ "shortcuts": { "quick": value } }),
     };
-    let patch = serde_json::json!({ field: normalised });
     state
         .settings
-        .update(&patch)
+        .update(&nested(&normalised))
         .map_err(|error| BindingError::Taken {
             detail: error.to_string(),
         })?;
@@ -304,7 +305,7 @@ pub fn set_binding(app: &AppHandle, action: &str, accel: &str) -> Result<(), Bin
             Action::Speak => profile.shortcuts.speak.clone(),
             Action::Quick => profile.shortcuts.quick.clone(),
         };
-        let _ = state.settings.update(&serde_json::json!({ field: previous }));
+        let _ = state.settings.update(&nested(&previous));
         let _ = register_all(app);
         return Err(BindingError::Taken { detail: error });
     }

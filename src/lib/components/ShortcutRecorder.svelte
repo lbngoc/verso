@@ -1,5 +1,5 @@
 <script lang="ts">
-  import Icon from "./Icon.svelte";
+  import { onDestroy } from "svelte";
   import Keycap from "./Keycap.svelte";
   import { t } from "$lib/i18n";
   import { acceleratorFromEvent, displayAccelerator } from "$lib/keys";
@@ -22,6 +22,11 @@
   let recording = $state(false);
   let refused = $state<string>("");
   let refuseTimer: ReturnType<typeof setTimeout> | null = null;
+  // Not reactive: the listener lives outside Svelte's rendering.
+  let listening = false;
+  // The window listener and the button share one handler; the same event must count once.
+  let lastEvent: KeyboardEvent | null = null;
+  let field: HTMLButtonElement | undefined = $state();
 
   const shown = $derived(displayAccelerator(value, { mac }));
 
@@ -46,19 +51,32 @@
     refuseTimer = setTimeout(() => (refused = ""), 4000);
   }
 
+  function attach(): void {
+    if (listening) return;
+    listening = true;
+    window.addEventListener("keydown", onKeydown, true);
+  }
+
+  function detach(): void {
+    if (!listening) return;
+    listening = false;
+    window.removeEventListener("keydown", onKeydown, true);
+  }
+
   async function startRecording(): Promise<void> {
     if (recording) return;
     recording = true;
     refused = "";
+    // Listen first: the suspend call is async and the user may type immediately.
+    attach();
     // Pressing the current binding must not fire the action while recording.
     await commands.suspendShortcuts(true).catch(() => undefined);
-    window.addEventListener("keydown", onKeydown, true);
   }
 
   async function stopRecording(resume = true): Promise<void> {
     if (!recording) return;
     recording = false;
-    window.removeEventListener("keydown", onKeydown, true);
+    detach();
     if (resume) await commands.suspendShortcuts(false).catch(() => undefined);
   }
 
@@ -73,19 +91,27 @@
   }
 
   function onKeydown(event: KeyboardEvent): void {
+    if (event === lastEvent) return;
+    lastEvent = event;
     if (!recording) return;
+    // Modifier-only keys keep the recorder listening.
+    const accel = acceleratorFromEvent(event, { mac });
+    if (!accel && event.key !== "Escape") {
+      return;
+    }
     event.preventDefault();
     event.stopPropagation();
     if (event.key === "Escape") {
       void stopRecording(true);
       return;
     }
-    const accel = acceleratorFromEvent(event, { mac });
-    if (!accel) return; // a bare modifier: keep listening
-    void save(accel);
+    void save(accel!);
   }
 
-  function onBlur(): void {
+  function onFocusOut(event: FocusEvent): void {
+    // Leaving the field cancels, but moving focus inside the recorder must not.
+    const next = event.relatedTarget as Node | null;
+    if (next && field?.parentElement?.contains(next)) return;
     if (recording) void stopRecording(true);
   }
 
@@ -102,12 +128,10 @@
     }
   }
 
-  $effect(() => () => {
-    if (recording) {
-      window.removeEventListener("keydown", onKeydown, true);
-      void commands.suspendShortcuts(false).catch(() => undefined);
-    }
+  onDestroy(() => {
+    detach();
     if (refuseTimer) clearTimeout(refuseTimer);
+    if (recording) void commands.suspendShortcuts(false).catch(() => undefined);
   });
 </script>
 
@@ -116,8 +140,10 @@
     class="field"
     class:recording
     type="button"
+    bind:this={field}
     onclick={() => void startRecording()}
-    onblur={onBlur}
+    onkeydown={onKeydown}
+    onfocusout={onFocusOut}
     aria-label={label}
     title={label}
   >
@@ -136,7 +162,7 @@
     aria-label={$t("shortcut.reset")}
     onclick={() => void reset()}
   >
-    <Icon name="swap" />
+    ↺
   </button>
   <button
     class="mini"
@@ -145,7 +171,7 @@
     aria-label={$t("shortcut.clear")}
     onclick={() => void clear()}
   >
-    <Icon name="close" />
+    ⌫
   </button>
   {#if refused}
     <p class="error" role="alert">{refused}</p>
@@ -199,6 +225,7 @@
     border-radius: 5px;
     background: transparent;
     color: var(--text-tertiary);
+    font-size: 12px;
   }
 
   .mini:hover {

@@ -34,10 +34,12 @@ class Grid:
     a: float       # arrowhead depth = half its height (45° wings)
 
 
-# Hand-tuned per size. Even stroke widths sit on whole-pixel centres, odd ones on half pixels.
+# Hand-tuned per size. The 16 and 18 px glyphs are deliberately small (about 12 and 14 px wide) so they sit
+# with the same breathing room as the Input Source and Control Center items next to them.
+# Even stroke widths sit on whole-pixel centres, odd ones on half pixels.
 GRIDS = [
-    Grid(16, 2, (4, 8, 12), 2, 14, (6.5, 9.5), 2),
-    Grid(18, 2, (4, 9, 14), 2, 16, (7.5, 10.5), 3),
+    Grid(16, 2, (5, 8, 11), 3, 13, (6.5, 9.5), 2),
+    Grid(18, 2, (6, 9, 12), 3, 15, (7.5, 10.5), 2),
     Grid(22, 2, (6, 11, 16), 3, 19, (9.5, 12.5), 3),
     Grid(32, 3, (7.5, 15.5, 23.5), 4, 28, (13, 19), 5),
 ]
