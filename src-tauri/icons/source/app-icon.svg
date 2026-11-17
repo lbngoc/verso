@@ -1,4 +1,6 @@
-<!-- Verso app icon (spec 008 FR-011): the mark in white on the brand tile. Render to app-icon.png, then `npx tauri icon`. -->
+<!-- Verso app icon (logo "E"): "Vs" between two opposite arrows on the brand tile. Letters are drawn as paths, so no font is needed.
+     Render to src-tauri/icons/app-icon.png (1024 px), then `npx tauri icon src-tauri/icons/app-icon.png`.
+     NOTE: `tauri icon` rewrites this file when given it directly, so always pass the PNG, never this SVG. -->
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
   <defs>
     <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
@@ -7,7 +9,16 @@
     </linearGradient>
   </defs>
   <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#tile)"/>
-  <g transform="translate(176 176) scale(28)">
-    <path d="M3 7H21M17.5 3.5L21 7L17.5 10.5M9 12H15M21 17H3M6.5 13.5L3 17L6.5 20.5" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- content drawn on a 200-unit grid whose 12..188 square is the tile -->
+  <g transform="translate(43.8 43.8) scale(4.682)">
+    <g fill="none" stroke="#8cf0e2" stroke-width="9" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M46 50H154M141 37L154 50L141 63"/>
+      <path d="M154 158H46M59 145L46 158L59 171"/>
+    </g>
+    <g transform="translate(-1.5 0)">
+      <polygon fill="#fff" points="48,72 62,72 78,110.7 94,72 108,72 82,135 74,135"/>
+      <path fill="none" stroke="#fff" stroke-width="11" stroke-linecap="butt"
+            d="M147 103C147 97 141 92.5 132 92.5C123 92.5 117.5 96.5 117.5 102C117.5 108.5 124 110 132 111.5C141 113.2 148.5 115.5 148.5 121.5C148.5 127 141.5 129.5 132 129.5C123 129.5 116 127 116 121.5"/>
+    </g>
   </g>
 </svg>
