@@ -2,6 +2,7 @@
    refine typography and radii. Body text contrast is checked in src/styles/contrast.test.ts. */
 
 :root {
+  --control-height: 28px;
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -194,6 +195,11 @@ textarea {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+/* The native glass already tints the window; a CSS fill over it shows as a light rim. */
+[data-material="glass"] .material-surface {
+  background: transparent;
 }
 
 [data-material="opaque"] .material-surface {

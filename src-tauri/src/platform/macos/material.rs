@@ -18,6 +18,10 @@ use tauri::WebviewWindow;
 
 use crate::platform::{Appearance, Material};
 
+/// Corner radii shared with `--radius-large` in `src/styles/macos.css` (glass 22, others 16).
+const GLASS_RADIUS: f64 = 22.0;
+const PANEL_RADIUS: f64 = 16.0;
+
 const AUTORESIZING: usize = 2 | 16; // NSViewWidthSizable | NSViewHeightSizable
 
 fn remove_material_views(content: &NSView) {
@@ -50,8 +54,8 @@ pub fn apply(window: &WebviewWindow, appearance: &Appearance) {
         Material::Glass => {
             let view = NSGlassEffectView::new(mtm);
             view.setStyle(NSGlassEffectViewStyle::Regular);
-            view.setCornerRadius(22.0);
-            install(&content, &view, 22.0);
+            view.setCornerRadius(GLASS_RADIUS);
+            install(&content, &view, GLASS_RADIUS);
             debug!("installed NSGlassEffectView");
         }
         Material::Vibrancy => {
@@ -65,15 +69,16 @@ pub fn apply(window: &WebviewWindow, appearance: &Appearance) {
             view.setMaterial(material);
             view.setBlendingMode(NSVisualEffectBlendingMode::BehindWindow);
             view.setState(NSVisualEffectState::Active);
-            install(&content, &view, 16.0);
+            install(&content, &view, PANEL_RADIUS);
             debug!("installed NSVisualEffectView ({material:?}) forced active");
         }
         Material::Opaque | Material::Acrylic => {
-            // Nothing behind the webview: tokens.css paints the opaque surface.
-            let color = NSColor::windowBackgroundColor();
+            // Nothing behind the webview: tokens.css paints the opaque surface. The window stays
+            // non-opaque and clear so the rounded corners show no square window background.
+            let color = NSColor::clearColor();
             ns_window.setBackgroundColor(Some(&color));
-            ns_window.setOpaque(true);
-            round_content(&content, 16.0);
+            ns_window.setOpaque(false);
+            round_content(&content, PANEL_RADIUS);
             debug!("opaque surface (webview background)");
         }
     }
