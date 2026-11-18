@@ -54,7 +54,7 @@ pub fn run() {
         }
     };
 
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .manage(state)
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
             window_manager::show_settings(app);
@@ -66,7 +66,11 @@ pub fn run() {
         ))
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
-        .plugin(core::logging::plugin())
+        .plugin(core::logging::plugin());
+    // The popup becomes a real non-activating NSPanel so it can take keys without activating Verso.
+    #[cfg(target_os = "macos")]
+    let builder = builder.plugin(tauri_nspanel::init());
+    builder
         .setup(|app| {
             let handle = app.handle().clone();
 
