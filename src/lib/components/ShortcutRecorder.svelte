@@ -189,7 +189,7 @@
 
   .field {
     min-width: 96px;
-    height: 26px;
+    height: var(--control-height);
     padding: 0 8px;
     border: none;
     border-radius: 6px;

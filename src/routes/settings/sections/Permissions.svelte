@@ -1,5 +1,6 @@
 <script lang="ts">
   import Card from "$lib/components/Card.svelte";
+  import SettingRow from "$lib/components/SettingRow.svelte";
   import { t } from "$lib/i18n";
   import { commands } from "$lib/ipc";
 
@@ -19,33 +20,21 @@
 </script>
 
 <Card title={$t("settings.permission")}>
-  <div class="row">
-    <span class:ok={permission === "granted"}>
-      {permission === "granted"
-        ? $t("settings.permission_granted")
-        : $t("settings.permission_missing")}
-    </span>
+  <SettingRow
+    label={permission === "granted"
+      ? $t("settings.permission_granted")
+      : $t("settings.permission_missing")}
+  >
     <button type="button" onclick={() => void fix()}>{$t("settings.permission_fix")}</button>
-  </div>
+  </SettingRow>
 </Card>
 
 <style>
-  .row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    font-size: 13px;
-  }
-
-  .ok {
-    color: var(--success);
-  }
-
   button {
     border: none;
     border-radius: 6px;
-    padding: 4px 12px;
+    height: var(--control-height);
+    padding: 0 12px;
     background: var(--accent);
     color: var(--accent-contrast);
     font-size: 12px;

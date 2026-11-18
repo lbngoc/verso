@@ -1,5 +1,6 @@
 <script lang="ts">
   import Card from "$lib/components/Card.svelte";
+  import Switch from "$lib/components/Switch.svelte";
   import { t } from "$lib/i18n";
   import type { EngineInfo } from "$lib/ipc";
 
@@ -65,15 +66,9 @@
       {@const engine = byId.get(id)}
       {#if engine}
         <article class="engine" class:off={!isOn(id)}>
-          <label class="switch">
-            <input
-              type="checkbox"
-              checked={isOn(id)}
-              onchange={() => toggle(id)}
-              aria-label={serviceName(id)}
-            />
-            <span class="track" aria-hidden="true"></span>
-          </label>
+          <div class="switch-slot">
+            <Switch checked={isOn(id)} label={serviceName(id)} onchange={() => toggle(id)} />
+          </div>
           <div class="meta">
             <strong>{serviceName(id)}</strong>
             <span class="receives">
@@ -168,48 +163,9 @@
     line-height: 1.4;
   }
 
-  .switch {
-    position: relative;
-    display: inline-flex;
-    width: 32px;
-    height: 18px;
-    flex: none;
+  .switch-slot {
     margin-top: 2px;
-  }
-
-  .switch input {
-    opacity: 0;
-    width: 0;
-    height: 0;
-  }
-
-  .track {
-    position: absolute;
-    inset: 0;
-    border-radius: 9px;
-    background: var(--separator);
-    transition: background 0.15s ease;
-  }
-
-  .track::after {
-    content: "";
-    position: absolute;
-    width: 14px;
-    height: 14px;
-    top: 2px;
-    left: 2px;
-    border-radius: 50%;
-    background: var(--accent-contrast);
-    box-shadow: var(--shadow-control);
-    transition: transform 0.15s ease;
-  }
-
-  .switch input:checked + .track {
-    background: var(--accent);
-  }
-
-  .switch input:checked + .track::after {
-    transform: translateX(14px);
+    flex: none;
   }
 
   .engines {

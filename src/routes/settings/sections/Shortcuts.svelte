@@ -1,5 +1,7 @@
 <script lang="ts">
   import Card from "$lib/components/Card.svelte";
+  import SettingRow from "$lib/components/SettingRow.svelte";
+  import Switch from "$lib/components/Switch.svelte";
   import ShortcutRecorder from "$lib/components/ShortcutRecorder.svelte";
   import { t } from "$lib/i18n";
   import { commands, type SettingsProfile } from "$lib/ipc";
@@ -33,33 +35,30 @@
 
 <div class="section">
   <Card title={$t("settings.card_global_shortcuts")}>
-    <div class="row">
-      <span class="label">{$t("shortcut.translate")}</span>
+    <SettingRow label={$t("shortcut.translate")}>
       <ShortcutRecorder
         action="translate"
         label={$t("shortcut.translate")}
         value={settings.shortcuts.translate}
         {onchange}
       />
-    </div>
-    <div class="row">
-      <span class="label">{$t("shortcut.speak")}</span>
+    </SettingRow>
+    <SettingRow label={$t("shortcut.speak")}>
       <ShortcutRecorder
         action="speak"
         label={$t("shortcut.speak")}
         value={settings.shortcuts.speak}
         {onchange}
       />
-    </div>
-    <div class="row">
-      <span class="label">{$t("shortcut.quick")}</span>
+    </SettingRow>
+    <SettingRow label={$t("shortcut.quick")}>
       <ShortcutRecorder
         action="quick"
         label={$t("shortcut.quick")}
         value={settings.shortcuts.quick}
         {onchange}
       />
-    </div>
+    </SettingRow>
   </Card>
 
   {#if speakCollided}
@@ -70,14 +69,13 @@
   {/if}
 
   <Card title={$t("settings.card_quick_panel")}>
-    <label class="row check">
-      <input
-        type="checkbox"
+    <SettingRow label={$t("shortcut.paste_clipboard")}>
+      <Switch
         checked={settings.quick_paste_clipboard}
-        onchange={(event) => void setClipboardPrefill(event.currentTarget.checked)}
+        label={$t("shortcut.paste_clipboard")}
+        onchange={(checked) => void setClipboardPrefill(checked)}
       />
-      <span class="label">{$t("shortcut.paste_clipboard")}</span>
-    </label>
+    </SettingRow>
   </Card>
 </div>
 
@@ -86,31 +84,6 @@
     display: flex;
     flex-direction: column;
     gap: 16px;
-  }
-
-  .row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    min-height: 36px;
-  }
-
-  .row + .row {
-    border-top: 1px solid var(--separator);
-  }
-
-  .check {
-    cursor: pointer;
-  }
-
-  .label {
-    font-size: 13px;
-    color: var(--text);
-  }
-
-  .check .label {
-    font-size: 12px;
-    color: var(--text-secondary);
   }
 
   .note {

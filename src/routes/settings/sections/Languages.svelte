@@ -1,5 +1,6 @@
 <script lang="ts">
   import Card from "$lib/components/Card.svelte";
+  import SettingRow from "$lib/components/SettingRow.svelte";
   import { t } from "$lib/i18n";
   import type { Language, SettingsProfile } from "$lib/ipc";
 
@@ -15,9 +16,9 @@
 </script>
 
 <Card title={$t("settings.card_languages")} helper={$t("settings.secondary_hint")}>
-  <label class="row">
-    <span>{$t("settings.target_language")}</span>
+  <SettingRow label={$t("settings.target_language")}>
     <select
+      aria-label={$t("settings.target_language")}
       value={settings.target_lang}
       onchange={(event) => void onupdate({ target_lang: event.currentTarget.value })}
     >
@@ -25,10 +26,10 @@
         <option value={language.code}>{language.name_en}</option>
       {/each}
     </select>
-  </label>
-  <label class="row">
-    <span>{$t("settings.secondary_language")}</span>
+  </SettingRow>
+  <SettingRow label={$t("settings.secondary_language")}>
     <select
+      aria-label={$t("settings.secondary_language")}
       value={settings.secondary_lang}
       onchange={(event) => void onupdate({ secondary_lang: event.currentTarget.value })}
     >
@@ -36,10 +37,10 @@
         <option value={language.code}>{language.name_en}</option>
       {/each}
     </select>
-  </label>
-  <label class="row">
-    <span>{$t("settings.source_language")}</span>
+  </SettingRow>
+  <SettingRow label={$t("settings.source_language")}>
     <select
+      aria-label={$t("settings.source_language")}
       value={settings.source_lang}
       onchange={(event) => void onupdate({ source_lang: event.currentTarget.value })}
     >
@@ -48,19 +49,12 @@
         <option value={language.code}>{language.name_en}</option>
       {/each}
     </select>
-  </label>
+  </SettingRow>
 </Card>
 
 <style>
-  .row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    font-size: 13px;
-  }
-
   select {
     min-width: 200px;
+    height: var(--control-height);
   }
 </style>

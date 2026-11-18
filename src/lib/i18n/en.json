@@ -81,7 +81,9 @@
   "popup.speak": "Speak",
   "popup.speaking": "Speaking…",
   "popup.still_translating": "still translating…",
+  "popup.text_larger_to": "Larger text ({size}) — =",
   "popup.text_larger": "Larger text (=)",
+  "popup.text_smaller_to": "Smaller text ({size}) — -",
   "popup.text_smaller": "Smaller text (-)",
   "popup.translating": "Translating…",
   "popup.unpin": "Stop keeping open",
@@ -195,5 +197,13 @@
   "update.skipped_note": "You skipped this version.",
   "update.up_to_date": "You're up to date!",
   "update.up_to_date_body": "Verso {version} is the newest version.",
-  "update.whats_new": "What's New"
+  "update.whats_new": "What's New",
+  "settings.text_size_row": "Popup and panel text",
+  "settings.keys_popup_and_panel": "In the popup and panel",
+  "settings.keys_panel_only": "In the panel only",
+  "settings.keys_text_size": "Text size (smaller, larger, reset)",
+  "settings.keys_translate_now": "Translate now",
+  "settings.keys_close_from_input": "Close the panel",
+  "onboarding.indicator_services": "Services",
+  "onboarding.indicator_permission": "Permission"
 }

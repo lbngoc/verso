@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import appIcon from "$lib/assets/app-icon.png";
   import Markdown from "$lib/components/Markdown.svelte";
+  import Switch from "$lib/components/Switch.svelte";
   import { setUiLanguage, t as translator } from "$lib/i18n";
   import { initAppearance } from "$lib/stores/appearance";
   import { initTheme } from "$lib/stores/theme";
@@ -191,14 +192,14 @@
   {/if}
 
   {#if settings}
-    <label class="auto">
-      <input
-        type="checkbox"
+    <div class="auto">
+      <Switch
         checked={settings.check_updates}
-        onchange={(event) => void setAutoCheck(event.currentTarget.checked)}
+        label={$translator("about.automatic")}
+        onchange={(checked) => void setAutoCheck(checked)}
       />
       <span>{$translator("about.automatic")}</span>
-    </label>
+    </div>
   {/if}
 
   <footer class="actions">

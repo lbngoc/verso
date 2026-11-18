@@ -2,6 +2,8 @@
   import { onMount } from "svelte";
   import appIcon from "$lib/assets/app-icon.png";
   import Card from "$lib/components/Card.svelte";
+  import SettingRow from "$lib/components/SettingRow.svelte";
+  import Switch from "$lib/components/Switch.svelte";
   import { t } from "$lib/i18n";
   import { commands, type AppInfo, type SettingsProfile } from "$lib/ipc";
 
@@ -71,14 +73,13 @@
   </Card>
 
   <Card title={$t("about.updates")}>
-    <label class="row check">
-      <input
-        type="checkbox"
+    <SettingRow label={$t("about.automatic")}>
+      <Switch
         checked={settings.check_updates}
-        onchange={(event) => void onupdate({ check_updates: event.currentTarget.checked })}
+        label={$t("about.automatic")}
+        onchange={(checked) => void onupdate({ check_updates: checked })}
       />
-      <span>{$t("about.automatic")}</span>
-    </label>
+    </SettingRow>
     <div class="row">
       <button type="button" onclick={() => void openUpdates()}>{$t("about.check_updates")}</button>
       {#if lastChecked}
@@ -152,11 +153,6 @@
     padding-top: 12px;
   }
 
-  .check {
-    cursor: pointer;
-    min-height: 36px;
-  }
-
   .row {
     min-height: 36px;
   }
@@ -164,7 +160,8 @@
   button {
     border: none;
     border-radius: 6px;
-    padding: 5px 12px;
+    height: var(--control-height);
+    padding: 0 12px;
     background: var(--surface-opaque);
     box-shadow: inset 0 0 0 1px var(--stroke);
     color: var(--text);

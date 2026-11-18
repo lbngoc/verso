@@ -1,5 +1,6 @@
 <script lang="ts">
   import Card from "$lib/components/Card.svelte";
+  import SettingRow from "$lib/components/SettingRow.svelte";
   import { t } from "$lib/i18n";
   import type { SettingsProfile } from "$lib/ipc";
 
@@ -15,9 +16,9 @@
 
 <div class="stack">
   <Card title={$t("settings.card_theme")}>
-    <label class="row">
-      <span>{$t("settings.theme")}</span>
+    <SettingRow label={$t("settings.theme")}>
       <select
+        aria-label={$t("settings.theme")}
         value={settings.theme}
         onchange={(event) => void onupdate({ theme: event.currentTarget.value })}
       >
@@ -25,7 +26,7 @@
         <option value="light">{$t("settings.theme_light")}</option>
         <option value="dark">{$t("settings.theme_dark")}</option>
       </select>
-    </label>
+    </SettingRow>
   </Card>
 
   <Card title={$t("settings.card_accent")} helper={$t("settings.accent_hint")}>
@@ -73,6 +74,7 @@
 
   select {
     min-width: 160px;
+    height: var(--control-height);
   }
 
   .accents {

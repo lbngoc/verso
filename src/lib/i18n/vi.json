@@ -81,7 +81,9 @@
   "popup.speak": "Đọc",
   "popup.speaking": "Đang đọc…",
   "popup.still_translating": "vẫn đang dịch…",
+  "popup.text_larger_to": "Chữ lớn hơn ({size}) — =",
   "popup.text_larger": "Chữ lớn hơn (=)",
+  "popup.text_smaller_to": "Chữ nhỏ hơn ({size}) — -",
   "popup.text_smaller": "Chữ nhỏ hơn (-)",
   "popup.translating": "Đang dịch…",
   "popup.unpin": "Bỏ ghim",
@@ -195,5 +197,13 @@
   "update.skipped_note": "Bạn đã bỏ qua phiên bản này.",
   "update.up_to_date": "Bạn đang dùng bản mới nhất!",
   "update.up_to_date_body": "Verso {version} là phiên bản mới nhất.",
-  "update.whats_new": "Có gì mới"
+  "update.whats_new": "Có gì mới",
+  "settings.text_size_row": "Cỡ chữ của popup và panel",
+  "settings.keys_popup_and_panel": "Trong popup và panel",
+  "settings.keys_panel_only": "Chỉ trong panel",
+  "settings.keys_text_size": "Cỡ chữ (nhỏ hơn, lớn hơn, đặt lại)",
+  "settings.keys_translate_now": "Dịch ngay",
+  "settings.keys_close_from_input": "Đóng panel",
+  "onboarding.indicator_services": "Dịch vụ",
+  "onboarding.indicator_permission": "Quyền truy cập"
 }

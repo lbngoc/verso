@@ -1,10 +1,13 @@
 <script lang="ts">
   import Card from "$lib/components/Card.svelte";
   import Keycap from "$lib/components/Keycap.svelte";
+  import SettingRow from "$lib/components/SettingRow.svelte";
+  import Stepper from "$lib/components/Stepper.svelte";
   import { t } from "$lib/i18n";
   import { commands, type SettingsProfile } from "$lib/ipc";
+  import { canEnlarge, canShrink, clampStep, fontPx, label } from "$lib/textSize";
 
-  // Settings → Input → Popup & panel: shared text size and the key reference (FR-005).
+  // Settings → Input → Popup & panel: shared text size and the key reference (FR-038, FR-039).
   let {
     settings,
     onchange,
@@ -18,15 +21,11 @@
     step = settings.text_size_step ?? 0;
   });
 
-  // Result font: 13/14/16/18/20/22/24 px, one point larger on macOS (R11).
   const mac = typeof navigator !== "undefined" && navigator.userAgent.includes("Mac");
-  const previewSize = $derived.by(() => {
-    const sizes = [13, 14, 16, 18, 20, 22, 24];
-    return sizes[Math.min(Math.max(step + 2, 0), sizes.length - 1)] + (mac ? 1 : 0);
-  });
+  const previewSize = $derived(fontPx(step, mac));
 
   function setStep(next: number): void {
-    step = Math.min(4, Math.max(-2, next));
+    step = clampStep(next);
     if (saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
       void commands
@@ -43,41 +42,50 @@
 
 <div class="stack">
   <Card title={$t("settings.card_text_size")}>
-    <div class="row">
-      <span>{$t("settings.card_text_size")}</span>
-      <div class="sizer">
-        <button
-          type="button"
-          aria-label={$t("popup.text_smaller")}
-          onclick={() => setStep(step - 1)}>−</button
-        >
-        <span class="value">{step > 0 ? `+${step}` : step}</span>
-        <button type="button" aria-label={$t("popup.text_larger")} onclick={() => setStep(step + 1)}
-          >+</button
-        >
-        <button type="button" class="reset" onclick={() => setStep(0)}
-          >{$t("settings.text_size_reset")}</button
-        >
-      </div>
-    </div>
-    <div class="row preview" style:font-size={`${previewSize}px`}>
+    <SettingRow label={$t("settings.text_size_row")}>
+      <Stepper
+        value={label(step)}
+        canShrink={canShrink(step)}
+        canEnlarge={canEnlarge(step)}
+        onshrink={() => setStep(step - 1)}
+        onenlarge={() => setStep(step + 1)}
+        onreset={() => setStep(0)}
+        smallerLabel={$t("popup.text_smaller")}
+        largerLabel={$t("popup.text_larger")}
+        resetLabel={$t("settings.text_size_reset")}
+      />
+    </SettingRow>
+    <div class="preview" style:font-size={`${previewSize}px`}>
       {$t("settings.text_size_preview")}
     </div>
   </Card>
 
   <Card title={$t("settings.card_keys")}>
-    <div class="keys">
-      <span><Keycap label="c" /> {$t("popup.copy")}</span>
-      <span><Keycap label="s" /> {$t("popup.speak")}</span>
-      <span
-        ><Keycap label="−" />
+    <dl class="keys">
+      <dt class="group">{$t("settings.keys_popup_and_panel")}</dt>
+      <dd class="group-gap"></dd>
+      <dt><Keycap label="c" /></dt>
+      <dd>{$t("popup.copy")}</dd>
+      <dt><Keycap label="s" /></dt>
+      <dd>{$t("popup.speak")}</dd>
+      <dt>
+        <Keycap label="−" />
         <Keycap label="=" />
         <Keycap label="0" />
-        {$t("settings.card_text_size")}</span
-      >
-      <span><Keycap label="Tab" /> {$t("quick.swap")}</span>
-      <span><Keycap label="Esc" /> {$t("popup.close")}</span>
-    </div>
+      </dt>
+      <dd>{$t("settings.keys_text_size")}</dd>
+      <dt><Keycap label="Esc" /></dt>
+      <dd>{$t("popup.close")}</dd>
+
+      <dt class="group">{$t("settings.keys_panel_only")}</dt>
+      <dd class="group-gap"></dd>
+      <dt><Keycap label="Tab" /></dt>
+      <dd>{$t("quick.swap")}</dd>
+      <dt><Keycap label="Enter" /></dt>
+      <dd>{$t("settings.keys_translate_now")}</dd>
+      <dt><Keycap label="Esc" /></dt>
+      <dd>{$t("settings.keys_close_from_input")}</dd>
+    </dl>
   </Card>
 </div>
 
@@ -88,61 +96,47 @@
     gap: 16px;
   }
 
-  .row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    font-size: 13px;
-  }
-
-  .sizer {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .sizer button {
-    width: 26px;
-    height: 26px;
-    border: none;
-    border-radius: 6px;
-    background: var(--surface-opaque);
-    box-shadow: inset 0 0 0 1px var(--stroke);
-    color: var(--text);
-  }
-
-  .sizer .reset {
-    width: auto;
-    padding: 0 8px;
-    font-size: 11px;
-    color: var(--text-secondary);
-  }
-
-  .value {
-    min-width: 24px;
-    text-align: center;
-    color: var(--text-secondary);
-    font-variant-numeric: tabular-nums;
-  }
-
   .preview {
-    justify-content: flex-start;
+    display: block;
+    padding: 8px 0;
     color: var(--text);
   }
 
-  .keys {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px 18px;
+  .stack .keys {
+    display: grid;
+    min-height: 0;
+    border-top: none;
+    grid-template-columns: 96px 1fr;
+    align-items: center;
+    gap: 6px 12px;
+    margin: 0;
     padding: 8px 0;
     font-size: 12px;
     color: var(--text-secondary);
   }
 
-  .keys span {
-    display: inline-flex;
+  /* The Card turns direct children into rows; this grid is one child, its cells are plain. */
+  dt,
+  dd {
+    margin: 0;
+    display: flex;
     align-items: center;
     gap: 4px;
+    min-height: 0;
+    border: none;
+  }
+
+  dt.group {
+    grid-column: 1 / -1;
+    margin-top: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text);
+  }
+
+  dd.group-gap {
+    display: none;
   }
 </style>

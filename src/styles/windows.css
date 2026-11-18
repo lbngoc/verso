@@ -5,6 +5,10 @@
   --font-ui: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
   --radius-large: 8px;
   --radius-small: 4px;
+  --control-height: 32px;
+  --switch-width: 40px;
+  --switch-height: 20px;
+  --switch-thumb: 12px;
   --font-size-result: 16px;
 }
 
