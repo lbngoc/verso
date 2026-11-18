@@ -1,12 +1,14 @@
 <script lang="ts">
   import Icon from "./Icon.svelte";
   import { t } from "$lib/i18n";
+  import { canEnlarge, canShrink, clampStep, label } from "$lib/textSize";
 
   // Header of the result popup: direction on the left, engine, then pin / text size / close.
   let {
     direction,
     engine = "",
     pinned = false,
+    step = 0,
     onpin,
     onsize,
     onclose,
@@ -14,10 +16,22 @@
     direction: string;
     engine?: string;
     pinned?: boolean;
+    step?: number;
     onpin: (pinned: boolean) => void;
     onsize: (delta: number) => void;
     onclose: () => void;
   } = $props();
+
+  const smallerTip = $derived(
+    canShrink(step)
+      ? $t("popup.text_smaller_to", { size: label(clampStep(step - 1)) })
+      : $t("popup.text_smaller"),
+  );
+  const largerTip = $derived(
+    canEnlarge(step)
+      ? $t("popup.text_larger_to", { size: label(clampStep(step + 1)) })
+      : $t("popup.text_larger"),
+  );
 </script>
 
 <header class="popup-header">
@@ -38,8 +52,9 @@
   <button
     class="icon"
     type="button"
-    title={$t("popup.text_smaller")}
+    title={smallerTip}
     aria-label={$t("popup.text_smaller")}
+    disabled={!canShrink(step)}
     onclick={() => onsize(-1)}
   >
     <Icon name="minus" />
@@ -47,8 +62,9 @@
   <button
     class="icon"
     type="button"
-    title={$t("popup.text_larger")}
+    title={largerTip}
     aria-label={$t("popup.text_larger")}
+    disabled={!canEnlarge(step)}
     onclick={() => onsize(1)}
   >
     <Icon name="plus" />
@@ -106,6 +122,11 @@
   .icon:hover {
     background: var(--hover);
     color: var(--text);
+  }
+
+  .icon:disabled {
+    opacity: 0.35;
+    pointer-events: none;
   }
 
   .icon.pinned {

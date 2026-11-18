@@ -7,6 +7,7 @@
   import { setUiLanguage, t as translator } from "$lib/i18n";
   import { initAppearance } from "$lib/stores/appearance";
   import { initTheme } from "$lib/stores/theme";
+  import { clampStep, fontPx } from "$lib/textSize";
   import { buildNotices, isRtl, terminalModifier, type NoticeItem } from "$lib/notices";
   import {
     commands,
@@ -30,6 +31,8 @@
   let speaking = $state(false);
   let pinned = $state(false);
   let step = $state(0);
+  // Chosen once per result from the text length; the text size never changes it (FR-033).
+  let resultWidth = $state(380);
   let stillTranslating = $state(false);
   let voiceAvailable = $state<boolean | null>(null);
   let root = $state<HTMLElement | null>(null);
@@ -83,14 +86,8 @@
 
   const rtl = $derived(result ? isRtl(result.direction_used.target, languages) : false);
 
-  // Result font: 13/14/16/18/20/22/24 px, one point larger on macOS (R11).
-  const resultFontSize = $derived.by(() => {
-    const sizes = [13, 14, 16, 18, 20, 22, 24];
-    const base = sizes[Math.min(Math.max(step + 2, 0), sizes.length - 1)];
-    return `${base + (isMac ? 1 : 0)}px`;
-  });
-
   const isMac = $derived(typeof navigator !== "undefined" && navigator.userAgent.includes("Mac"));
+  const resultFontSize = $derived(`${fontPx(step, isMac)}px`);
 
   async function refreshVoice(): Promise<void> {
     if (!result || !settings || !languages.length) return;
@@ -136,7 +133,7 @@
   }
 
   function setStep(next: number): void {
-    step = Math.min(4, Math.max(-2, next));
+    step = clampStep(next);
     if (saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
       void commands.setTextSizeStep(step).catch(() => undefined);
@@ -168,8 +165,7 @@
           await commands.setPopupSize(200, 36).catch(() => undefined);
           return;
         }
-        const long = (result?.text.length ?? 0) > 240 || step > 1;
-        const width = long ? 560 : 380;
+        const width = resultWidth;
         // Round up: a fractional content height used to clip the footer's last line.
         const height = Math.min(420, Math.max(96, Math.ceil(root.getBoundingClientRect().height)));
         await commands.setPopupSize(width, height).catch(() => undefined);
@@ -241,6 +237,7 @@
               result = null;
               error = null;
               copied = false;
+              resultWidth = 380;
               clearSlowTimer();
               slowTimer = setTimeout(() => (stillTranslating = true), 3000);
             } else {
@@ -269,11 +266,15 @@
           if ("error" in payload) {
             error = payload.error;
             result = null;
+            resultWidth = 380;
           } else {
             result = payload;
             error = null;
+            resultWidth = payload.text.length > 240 ? 560 : 380;
             void refreshVoice();
           }
+          // Keys work as soon as the result shows, with no mouse move (FR-032).
+          void commands.focusPopup().catch(() => undefined);
           requestSize();
         }),
       );
@@ -340,6 +341,7 @@
       engine={result?.engine_id ?? ""}
       {pinned}
       onpin={(value) => void setPinned(value)}
+      {step}
       onsize={(delta) => setStep(step + delta)}
       onclose={() => commands.hidePopup()}
     />

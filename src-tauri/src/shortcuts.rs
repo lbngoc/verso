@@ -249,7 +249,20 @@ fn register_one(app: &AppHandle, value: &str, action: Action) -> Result<(), Stri
         .map_err(|error| format!("'{value}' is already taken: {error}"))
 }
 
+/// Translate and Speak do nothing while the quick panel is open on screen; a panel parked
+/// off-screen by the pre-warm does not count (FR-035). Never applied to Quick.
+pub fn should_ignore_trigger(quick_visible: bool, quick_offscreen: bool) -> bool {
+    quick_visible && !quick_offscreen
+}
+
 pub fn trigger_translate(app: &AppHandle) {
+    if should_ignore_trigger(
+        window_manager::quick_is_visible(app),
+        window_manager::quick_is_offscreen(app),
+    ) {
+        log::debug!("translate ignored: the quick panel is open");
+        return;
+    }
     let handle = app.clone();
     tauri::async_runtime::spawn(async move {
         tray::set_busy(&handle, true);
@@ -261,6 +274,13 @@ pub fn trigger_translate(app: &AppHandle) {
 }
 
 pub fn trigger_speak(app: &AppHandle) {
+    if should_ignore_trigger(
+        window_manager::quick_is_visible(app),
+        window_manager::quick_is_offscreen(app),
+    ) {
+        log::debug!("speak ignored: the quick panel is open");
+        return;
+    }
     let handle = app.clone();
     tauri::async_runtime::spawn(async move {
         let state = handle.state::<AppState>();
@@ -377,6 +397,13 @@ mod tests {
             validate_binding("quick", "Shift+Alt+Meta+T", &[]),
             Ok(expected.into())
         );
+    }
+
+    #[test]
+    fn translate_and_speak_are_ignored_only_while_the_panel_is_on_screen() {
+        assert!(!should_ignore_trigger(false, false));
+        assert!(should_ignore_trigger(true, false));
+        assert!(!should_ignore_trigger(true, true));
     }
 
     #[test]

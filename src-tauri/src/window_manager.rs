@@ -88,12 +88,42 @@ pub fn clamp_popup_size(width: f64, height: f64) -> Size {
     }
 }
 
+/// Height-only resize of a locked popup frame: `x`, `y` and the width never change; the height
+/// is clamped to the space below the top edge and to the popup limits (R20).
+pub fn locked_resize(frame: Rect, requested_height: f64, work_area: Rect) -> Size {
+    let room = work_area.bottom() - frame.y - EDGE_MARGIN;
+    let max = POPUP_MAX_HEIGHT.min(room).max(POPUP_MIN_HEIGHT);
+    Size {
+        width: frame.width,
+        height: requested_height.clamp(POPUP_MIN_HEIGHT, max),
+    }
+}
+
 pub fn popup_window(app: &AppHandle) -> Option<WebviewWindow> {
     app.get_webview_window("popup")
 }
 
 pub fn quick_window(app: &AppHandle) -> Option<WebviewWindow> {
     app.get_webview_window("quick")
+}
+
+pub fn quick_is_visible(app: &AppHandle) -> bool {
+    quick_window(app)
+        .map(|window| window.is_visible().unwrap_or(false))
+        .unwrap_or(false)
+}
+
+/// True while the pre-warm still parks the panel at its off-screen position.
+pub fn quick_is_offscreen(app: &AppHandle) -> bool {
+    quick_window(app)
+        .and_then(|window| window.outer_position().ok())
+        .map(|position| position.x <= -5_000 || position.y <= -5_000)
+        .unwrap_or(false)
+}
+
+/// Whether the quick panel is open for the user (visible and not parked off-screen).
+pub fn quick_is_open(app: &AppHandle) -> bool {
+    quick_is_visible(app) && !quick_is_offscreen(app)
 }
 
 /// Shows each transient window once off-screen so the webview is warm (SC-002).
@@ -123,6 +153,20 @@ pub fn prewarm(app: &AppHandle) {
 /// The cursor point the popup was placed at; content growth re-runs placement from it (R2/R3).
 static POPUP_ANCHOR: parking_lot::Mutex<Option<Point>> = parking_lot::Mutex::new(None);
 
+/// The frame of a result popup once placed; later resizes only change the height (R20).
+static POPUP_LOCKED: parking_lot::Mutex<Option<Rect>> = parking_lot::Mutex::new(None);
+
+/// Set when the quick panel was hidden, so a tray click that caused that blur does not reopen it.
+static QUICK_HIDDEN_AT: parking_lot::Mutex<Option<std::time::Instant>> =
+    parking_lot::Mutex::new(None);
+
+/// True when the panel was hidden less than 300 ms ago (the blur caused by the tray click itself).
+pub fn quick_just_hidden() -> bool {
+    (*QUICK_HIDDEN_AT.lock())
+        .map(|at| at.elapsed() < std::time::Duration::from_millis(300))
+        .unwrap_or(false)
+}
+
 /// Pin state (memory only): a pinned popup ignores blur and outside clicks; every show resets it.
 pub static POPUP_PINNED: AtomicBool = AtomicBool::new(false);
 
@@ -144,6 +188,7 @@ pub fn show_popup(app: &AppHandle) -> tauri::Result<()> {
     });
 
     *POPUP_ANCHOR.lock() = Some(cursor);
+    *POPUP_LOCKED.lock() = None;
     POPUP_PINNED.store(false, Ordering::SeqCst);
     platform::services().remember_capture_target();
     window.set_size(LogicalSize::new(size.width, size.height))?;
@@ -181,6 +226,21 @@ pub fn resize_popup_to(app: &AppHandle, width: f64, height: f64) {
     };
     let size = clamp_popup_size(width, height);
     let services = platform::services();
+    let is_pill = size.width <= POPUP_PILL_WIDTH;
+    let locked = *POPUP_LOCKED.lock();
+    if let (false, Some(frame)) = (is_pill, locked) {
+        let work_area = services.monitor_work_area(Point {
+            x: frame.x,
+            y: frame.y,
+        });
+        let resized = locked_resize(frame, size.height, work_area);
+        let _ = window.set_size(LogicalSize::new(resized.width, resized.height));
+        *POPUP_LOCKED.lock() = Some(Rect {
+            height: resized.height,
+            ..frame
+        });
+        return;
+    }
     let cursor = POPUP_ANCHOR.lock().unwrap_or_else(|| services.cursor_position());
     let work_area = services.monitor_work_area(cursor);
     let position = place_popup(&PlacementInput {
@@ -192,6 +252,14 @@ pub fn resize_popup_to(app: &AppHandle, width: f64, height: f64) {
     });
     let _ = window.set_size(LogicalSize::new(size.width, size.height));
     let _ = window.set_position(LogicalPosition::new(position.x, position.y));
+    if !is_pill {
+        *POPUP_LOCKED.lock() = Some(Rect {
+            x: position.x,
+            y: position.y,
+            width: size.width,
+            height: size.height,
+        });
+    }
 }
 
 pub fn hide_popup(app: &AppHandle) {
@@ -205,8 +273,10 @@ pub fn hide_popup(app: &AppHandle) {
         let _ = &monitor_handle;
         platform::services().stop_outside_click_monitor();
     });
-    platform::services().restore_capture_target();    POPUP_PINNED.store(false, Ordering::SeqCst);
+    platform::services().restore_capture_target();
+    POPUP_PINNED.store(false, Ordering::SeqCst);
     *POPUP_ANCHOR.lock() = None;
+    *POPUP_LOCKED.lock() = None;
     unregister_escape(app);
     let _ = app.emit("popup-state", PopupState::Hidden);
 }
@@ -240,6 +310,9 @@ pub fn show_quick(app: &AppHandle) -> tauri::Result<()> {
 
 pub fn hide_quick(app: &AppHandle) {
     if let Some(window) = quick_window(app) {
+        if window.is_visible().unwrap_or(false) {
+            *QUICK_HIDDEN_AT.lock() = Some(std::time::Instant::now());
+        }
         let _ = window.hide();
     }
     // Escape belongs to the popup: hiding the panel must not unregister it.
@@ -248,7 +321,7 @@ pub fn hide_quick(app: &AppHandle) {
 pub fn toggle_quick(app: &AppHandle) {
     if let Some(window) = quick_window(app) {
         if window.is_visible().unwrap_or(false) {
-            let _ = window.hide();
+            hide_quick(app);
         } else {
             let _ = show_quick(app);
         }
@@ -540,6 +613,35 @@ mod tests {
             width: 1440.0,
             height: 900.0,
         }
+    }
+
+    #[test]
+    fn a_locked_popup_keeps_its_corner_and_width() {
+        let frame = Rect {
+            x: 300.0,
+            y: 200.0,
+            width: 380.0,
+            height: 140.0,
+        };
+        let size = locked_resize(frame, 300.0, work_area());
+        assert_eq!(size.width, 380.0);
+        assert_eq!(size.height, 300.0);
+    }
+
+    #[test]
+    fn a_locked_popup_height_is_clamped_to_the_space_below_and_the_limits() {
+        let area = work_area();
+        let low = Rect {
+            x: 10.0,
+            y: 700.0,
+            width: 380.0,
+            height: 140.0,
+        };
+        let size = locked_resize(low, 400.0, area);
+        assert_eq!(size.height, area.bottom() - 700.0 - EDGE_MARGIN);
+        let top = Rect { y: 20.0, ..low };
+        assert_eq!(locked_resize(top, 5_000.0, area).height, POPUP_MAX_HEIGHT);
+        assert_eq!(locked_resize(top, 10.0, area).height, POPUP_MIN_HEIGHT);
     }
 
     #[test]

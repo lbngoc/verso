@@ -273,7 +273,7 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
                 ..
             } = event
             {
-                shortcuts::trigger_translate(tray.app_handle());
+                crate::commands::open_quick_from_tray(tray.app_handle());
             }
         })
         .build(app)?;

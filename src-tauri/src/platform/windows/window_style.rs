@@ -64,7 +64,9 @@ pub fn focus_popup(window: &WebviewWindow) {
         return;
     };
     unsafe {
-        let _ = set_foreground_window_compat(hwnd);
+        if !set_foreground_window_compat(hwnd) {
+            log::warn!("SetForegroundWindow refused for the popup; hover or click will focus it");
+        }
     }
 }
 

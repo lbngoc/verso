@@ -128,14 +128,7 @@ pub async fn translate_selection(
         window_manager::hide_popup(&app);
         let _ = window_manager::show_quick(&app);
         let _ = app.emit("popup-state", crate::core::capture::PopupState::Hidden);
-        // Clipboard prefill (FR-011): only on this path, only when the user opted in, and the read is
-        // guarded before it happens (R9).
-        let prefill = prefill_text(state.settings.get().quick_paste_clipboard, || {
-            platform::services().read_clipboard_text()
-        });
-        if let Some(text) = prefill {
-            let _ = app.emit("quick-prefill", json!({ "text": text }));
-        }
+        emit_quick_prefill(&app, state.settings.get().quick_paste_clipboard);
         return Ok(None);
     }
 
@@ -309,6 +302,33 @@ pub fn open_url(app: AppHandle, url: String) -> Result<(), String> {
 #[tauri::command]
 pub fn detect_language(text: String) -> Option<String> {
     langdetect::detect_language(&text)
+}
+
+/// Clipboard prefill (FR-011): only when the user opted in, and the read is guarded before it
+/// happens (R9). Shared by the no-selection path and the tray click.
+fn emit_quick_prefill(app: &AppHandle, enabled: bool) {
+    let prefill = prefill_text(enabled, || platform::services().read_clipboard_text());
+    if let Some(text) = prefill {
+        let _ = app.emit("quick-prefill", json!({ "text": text }));
+    }
+}
+
+/// Tray left click: toggles the quick panel, prefilled from the clipboard when the option is on
+/// (FR-034). A click that arrives right after the panel hid (its own blur) just closes it.
+pub fn open_quick_from_tray(app: &AppHandle) {
+    if window_manager::quick_just_hidden() {
+        return;
+    }
+    if window_manager::quick_is_open(app) {
+        window_manager::hide_quick(app);
+        return;
+    }
+    window_manager::hide_popup(app);
+    if window_manager::show_quick(app).is_err() {
+        return;
+    }
+    let enabled = app.state::<AppState>().settings.get().quick_paste_clipboard;
+    emit_quick_prefill(app, enabled);
 }
 
 /// Panel prefill helper (FR-011): reads the clipboard only when the option is on.

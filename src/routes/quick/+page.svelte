@@ -7,6 +7,7 @@
   import { setUiLanguage, t as translator } from "$lib/i18n";
   import { initAppearance } from "$lib/stores/appearance";
   import { initTheme } from "$lib/stores/theme";
+  import { fontPx } from "$lib/textSize";
   import { isRtl, type NoticeItem } from "$lib/notices";
   import { buildNotices } from "$lib/notices";
   import { quickKey, type QuickFocus } from "./keymap";
@@ -59,10 +60,7 @@
   );
   const detectedLabel = $derived(detected ? detected.toUpperCase() : "");
   const mac = typeof navigator !== "undefined" && navigator.userAgent.includes("Mac");
-  const resultFontSize = $derived.by(() => {
-    const sizes = [13, 14, 16, 18, 20, 22, 24];
-    return sizes[Math.min(Math.max(step + 2, 0), sizes.length - 1)] + (mac ? 1 : 0);
-  });
+  const resultFontSize = $derived(fontPx(step, mac));
   const noticeText = $derived(
     notices.length ? $translator(notices[0].key, notices[0].params ?? {}) : "",
   );
