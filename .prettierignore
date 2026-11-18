@@ -9,3 +9,4 @@ references/
 specs/
 package-lock.json
 *.md
+src-tauri/gen/

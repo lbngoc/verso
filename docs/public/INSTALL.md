@@ -79,7 +79,7 @@ To remove Verso, use **Settings › Apps › Installed apps › Verso › Uninst
 
 The first launch shows a two-step introduction: choose which services may receive your text (Google and
 Microsoft are both on by default; at least one must stay on), then grant the Accessibility permission on
-macOS. The same step offers **Check for updates automatically**, pre-checked, with a line about the
+macOS (a step indicator shows 1 Services · 2 Permission). The second step offers **Check for updates automatically**, pre-checked, with a line about the
 request; leave it on or turn it off. Everything can be changed later in **Settings** from the tray menu.
 
 Shortcuts can be changed in **Settings › Shortcuts**: click a field and type the combination (macOS shows

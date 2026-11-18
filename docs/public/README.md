@@ -9,11 +9,14 @@ Verso is a small translator that lives in the menu bar (macOS) or the notificati
 text in any app and press `Alt+Shift+T`: a small tooltip appears next to the selection and grows into the
 translation, with **Copy** on `c` and **Speak** on `s`. `Alt+Shift+S` reads the selection aloud without a
 window, and `Alt+Shift+Cmd+T` (Windows: `Ctrl+Alt+Shift+T`) opens the quick panel for text you type.
+Clicking the tray mark also opens the panel (and pastes the clipboard into it when that option is on);
+clicking it again closes it. While the panel is open, Translate and Speak do nothing.
 
 - **Engines**: Google Translate and Microsoft Translator (Bing), no account or API key needed, with
   automatic fallback when one fails.
 - **Automatic source language**, dozens of target languages, English or Vietnamese interface.
-- **Keyboard-first**: `c` copy, `s` speak, `-`/`=`/`0` text size, `Tab` swaps languages in the panel.
+- **Keyboard-first**: the popup takes keys as soon as the translation shows: `c` copy, `s` speak,
+  `-`/`=`/`0` text size (80–150 %), `Tab` swaps languages in the panel.
 - **Light and dark themes** and one accent colour (Verso teal, or the system accent); the tray mark
   follows the system.
 - **Updates itself** once you agree to the daily check, with a signed, verified download.
