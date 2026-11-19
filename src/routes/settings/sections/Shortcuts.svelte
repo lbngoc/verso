@@ -19,6 +19,15 @@
       !settings.notes_seen.includes("speak-unbound"),
   );
 
+  // Revision 2: a missing Quick binding took the new default `Alt+Shift+T`, which an old saved
+  // Translate (or Speak) binding already uses, so Quick was left unbound.
+  const quickCollided = $derived(
+    settings.shortcuts.quick === "" &&
+      (settings.shortcuts.translate === "Alt+Shift+T" ||
+        settings.shortcuts.speak === "Alt+Shift+T") &&
+      !settings.notes_seen.includes("quick-unbound"),
+  );
+
   async function setClipboardPrefill(enabled: boolean): Promise<void> {
     const profile = await commands
       .updateSettings({ quick_paste_clipboard: enabled })
@@ -26,8 +35,8 @@
     if (profile) onchange(profile);
   }
 
-  async function dismissSpeakNote(): Promise<void> {
-    const notes = [...settings.notes_seen, "speak-unbound"];
+  async function dismissNote(note: "speak-unbound" | "quick-unbound"): Promise<void> {
+    const notes = [...settings.notes_seen, note];
     const profile = await commands.updateSettings({ notes_seen: notes }).catch(() => null);
     if (profile) onchange(profile);
   }
@@ -64,7 +73,18 @@
   {#if speakCollided}
     <div class="note" role="status">
       <p>{$t("shortcut.note.speak_unbound")}</p>
-      <button type="button" onclick={() => void dismissSpeakNote()}>{$t("update.ok")}</button>
+      <button type="button" onclick={() => void dismissNote("speak-unbound")}
+        >{$t("update.ok")}</button
+      >
+    </div>
+  {/if}
+
+  {#if quickCollided}
+    <div class="note" role="status">
+      <p>{$t("shortcut.note.quick_unbound")}</p>
+      <button type="button" onclick={() => void dismissNote("quick-unbound")}
+        >{$t("update.ok")}</button
+      >
     </div>
   {/if}
 

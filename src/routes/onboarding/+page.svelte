@@ -199,7 +199,7 @@
 
       <p class="hint">
         {$translator("onboarding.shortcut_hint", {
-          shortcut: settings?.shortcuts.translate ?? "Alt+Shift+T",
+          shortcut: settings?.shortcuts.translate ?? "Alt+Shift+Z",
         })}
       </p>
 

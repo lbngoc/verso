@@ -205,5 +205,6 @@
   "settings.keys_translate_now": "Translate now",
   "settings.keys_close_from_input": "Close the panel",
   "onboarding.indicator_services": "Services",
-  "onboarding.indicator_permission": "Permission"
+  "onboarding.indicator_permission": "Permission",
+  "shortcut.note.quick_unbound": "The quick panel had to be left without a shortcut because its new default is already in use. Choose one here."
 }

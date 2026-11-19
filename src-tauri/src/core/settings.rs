@@ -63,19 +63,17 @@ pub struct Shortcuts {
 impl Default for Shortcuts {
     fn default() -> Self {
         Self {
-            translate: "Alt+Shift+T".into(),
+            translate: "Alt+Shift+Z".into(),
             quick: default_quick_shortcut().into(),
             speak: "Alt+Shift+S".into(),
         }
     }
 }
 
+/// The quick-panel default (spec 009 Revision 2): the same on both platforms. It replaces
+/// `Alt+Shift+Cmd+T` / `Ctrl+Alt+Shift+T`, which stay only for users who saved them.
 pub fn default_quick_shortcut() -> &'static str {
-    if cfg!(target_os = "macos") {
-        "Alt+Shift+Cmd+T"
-    } else {
-        "Ctrl+Alt+Shift+T"
-    }
+    "Alt+Shift+T"
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -226,6 +224,15 @@ impl SettingsProfile {
         self.shortcuts.translate = self.shortcuts.translate.trim().to_string();
         self.shortcuts.quick = self.shortcuts.quick.trim().to_string();
         self.shortcuts.speak = self.shortcuts.speak.trim().to_string();
+        // Revision 2: a `quick` missing from an old file takes the new default, which may equal a
+        // binding the user saved (their old Translate `Alt+Shift+T`). Saved values win: leave the
+        // new default unbound; Settings shows the one-time note (`quick-unbound`).
+        if !self.shortcuts.quick.is_empty()
+            && (self.shortcuts.quick == self.shortcuts.translate
+                || self.shortcuts.quick == self.shortcuts.speak)
+        {
+            self.shortcuts.quick.clear();
+        }
         // R7: an added `speak` default may collide with a binding the user already had. Leave it
         // unbound; Settings shows the one-time note (the UI records `speak-unbound` when dismissed).
         if !self.shortcuts.speak.is_empty()
@@ -415,7 +422,9 @@ mod tests {
         assert_eq!(profile.schema, 1);
         assert_eq!(profile.engine_order, vec!["http-google", "http-bing"]);
         assert!(profile.engines_disabled.is_empty());
-        assert_eq!(profile.shortcuts.translate, "Alt+Shift+T");
+        assert_eq!(profile.shortcuts.translate, "Alt+Shift+Z");
+        assert_eq!(profile.shortcuts.speak, "Alt+Shift+S");
+        assert_eq!(profile.shortcuts.quick, "Alt+Shift+T");
     }
 
     #[test]
@@ -465,10 +474,34 @@ mod tests {
     }
 
     #[test]
-    fn a_file_without_speak_gains_its_default() {
-        let (profile, _dir) = load_json(r#"{"shortcuts":{"translate":"Alt+Shift+T"}}"#);
-        assert_eq!(profile.shortcuts.speak, "Alt+Shift+S");
+    fn a_profile_saved_with_the_old_shortcuts_is_kept_unchanged() {
+        let (profile, _dir) = load_json(
+            r#"{"shortcuts":{"translate":"Alt+Shift+T","quick":"Alt+Shift+Cmd+T","speak":"Alt+Shift+S"}}"#,
+        );
         assert_eq!(profile.shortcuts.translate, "Alt+Shift+T");
+        assert_eq!(profile.shortcuts.quick, "Alt+Shift+Cmd+T");
+        assert_eq!(profile.shortcuts.speak, "Alt+Shift+S");
+    }
+
+    #[test]
+    fn a_file_without_speak_gains_its_default() {
+        let (profile, _dir) = load_json(r#"{"shortcuts":{"translate":"Alt+Shift+Z"}}"#);
+        assert_eq!(profile.shortcuts.speak, "Alt+Shift+S");
+        assert_eq!(profile.shortcuts.translate, "Alt+Shift+Z");
+    }
+
+    #[test]
+    fn a_missing_quick_whose_default_collides_is_left_unbound_without_a_note_yet() {
+        let (profile, _dir) = load_json(r#"{"shortcuts":{"translate":"Alt+Shift+T"}}"#);
+        assert_eq!(profile.shortcuts.translate, "Alt+Shift+T");
+        assert_eq!(profile.shortcuts.quick, "");
+        assert!(!profile.notes_seen.iter().any(|note| note == "quick-unbound"));
+    }
+
+    #[test]
+    fn a_missing_quick_without_a_collision_gains_its_default() {
+        let (profile, _dir) = load_json(r#"{"shortcuts":{"translate":"Alt+Shift+Y"}}"#);
+        assert_eq!(profile.shortcuts.quick, "Alt+Shift+T");
     }
 
     #[test]

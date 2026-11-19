@@ -27,7 +27,7 @@ impl Action {
 
     pub fn default_accel(self) -> &'static str {
         match self {
-            Action::Translate => "Alt+Shift+T",
+            Action::Translate => "Alt+Shift+Z",
             Action::Speak => "Alt+Shift+S",
             Action::Quick => crate::core::settings::default_quick_shortcut(),
         }
@@ -255,12 +255,30 @@ pub fn should_ignore_trigger(quick_visible: bool, quick_offscreen: bool) -> bool
     quick_visible && !quick_offscreen
 }
 
+/// What the Translate shortcut does first: with the quick panel open on screen it closes the
+/// panel and reads nothing (FR-035, Revision 2); otherwise it runs the usual capture.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TranslateAction {
+    Close,
+    Run,
+}
+
+pub fn translate_action(quick_visible: bool, quick_offscreen: bool) -> TranslateAction {
+    if should_ignore_trigger(quick_visible, quick_offscreen) {
+        TranslateAction::Close
+    } else {
+        TranslateAction::Run
+    }
+}
+
 pub fn trigger_translate(app: &AppHandle) {
-    if should_ignore_trigger(
+    if translate_action(
         window_manager::quick_is_visible(app),
         window_manager::quick_is_offscreen(app),
-    ) {
-        log::debug!("translate ignored: the quick panel is open");
+    ) == TranslateAction::Close
+    {
+        log::debug!("translate closes the open quick panel");
+        window_manager::hide_quick(app);
         return;
     }
     let handle = app.clone();
@@ -404,6 +422,13 @@ mod tests {
         assert!(!should_ignore_trigger(false, false));
         assert!(should_ignore_trigger(true, false));
         assert!(!should_ignore_trigger(true, true));
+    }
+
+    #[test]
+    fn translate_closes_the_panel_only_while_it_is_on_screen() {
+        assert_eq!(translate_action(false, false), TranslateAction::Run);
+        assert_eq!(translate_action(true, false), TranslateAction::Close);
+        assert_eq!(translate_action(true, true), TranslateAction::Run);
     }
 
     #[test]

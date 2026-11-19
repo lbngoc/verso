@@ -205,5 +205,6 @@
   "settings.keys_translate_now": "Dịch ngay",
   "settings.keys_close_from_input": "Đóng panel",
   "onboarding.indicator_services": "Dịch vụ",
-  "onboarding.indicator_permission": "Quyền truy cập"
+  "onboarding.indicator_permission": "Quyền truy cập",
+  "shortcut.note.quick_unbound": "Bảng dịch nhanh chưa có phím tắt vì phím mặc định mới đã được dùng. Hãy chọn phím khác ở đây."
 }

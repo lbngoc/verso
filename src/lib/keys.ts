@@ -164,14 +164,14 @@ export function displayAccelerator(accelerator: string, options: PlatformOptions
 }
 
 /** The default accelerators shown in the recorder, per platform. */
-export function defaultAccelerators(options: PlatformOptions): {
+export function defaultAccelerators(): {
   translate: string;
   speak: string;
   quick: string;
 } {
   return {
-    translate: "Alt+Shift+T",
+    translate: "Alt+Shift+Z",
     speak: "Alt+Shift+S",
-    quick: options.mac ? "Alt+Shift+Cmd+T" : "Ctrl+Alt+Shift+T",
+    quick: "Alt+Shift+T",
   };
 }
