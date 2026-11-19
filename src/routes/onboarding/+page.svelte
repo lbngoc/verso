@@ -152,11 +152,7 @@
       {#if isMac}
         <p class="muted">{$translator("onboarding.permission_body")}</p>
         <Card>
-          <SettingRow
-            label={permission === "granted"
-              ? $translator("settings.permission_granted")
-              : $translator("settings.permission_missing")}
-          >
+          <SettingRow label={$translator("settings.permission")}>
             <button
               class="secondary"
               type="button"
@@ -179,8 +175,11 @@
         <p class="status" class:ok={permission === "granted"}>
           {permission === "granted"
             ? $translator("settings.permission_granted")
-            : $translator("capture.stale_hint")}
+            : $translator("settings.permission_missing")}
         </p>
+        {#if permission !== "granted"}
+          <p class="hint">{$translator("capture.stale_hint")}</p>
+        {/if}
       {:else}
         <p class="muted">{$translator("onboarding.permission_windows")}</p>
       {/if}

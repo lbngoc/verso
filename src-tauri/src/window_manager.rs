@@ -225,6 +225,7 @@ pub fn resize_popup_to(app: &AppHandle, width: f64, height: f64) {
         return;
     };
     let size = clamp_popup_size(width, height);
+    log::debug!("popup resize requested {width}x{height} -> {}x{}", size.width, size.height);
     let services = platform::services();
     let is_pill = size.width <= POPUP_PILL_WIDTH;
     let locked = *POPUP_LOCKED.lock();
