@@ -22,7 +22,9 @@ fn defaults_match_the_data_model() {
     assert_eq!(profile.target_lang, "vi");
     assert_eq!(profile.secondary_lang, "en");
     assert_eq!(profile.source_lang, "auto");
-    assert_eq!(profile.shortcuts.translate, "Alt+Shift+T");
+    assert_eq!(profile.shortcuts.translate, "Alt+Shift+Z");
+    assert_eq!(profile.shortcuts.quick, "Alt+Shift+T");
+    assert_eq!(profile.shortcuts.speak, "Alt+Shift+S");
     assert!(matches!(profile.theme, Theme::System));
     assert!(profile.first_run_engine_choice_at.is_none());
     assert!(!profile.telemetry_opt_in);
