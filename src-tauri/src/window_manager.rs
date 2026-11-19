@@ -274,7 +274,12 @@ pub fn hide_popup(app: &AppHandle) {
         let _ = &monitor_handle;
         platform::services().stop_outside_click_monitor();
     });
-    platform::services().restore_capture_target();
+    // The popup page also asks to hide itself when the capture found nothing, and that request can
+    // arrive after the quick panel was opened for the same press; handing the foreground back to
+    // the source window then would steal the panel's focus and close it (seen on Windows).
+    if !quick_is_open(app) {
+        platform::services().restore_capture_target();
+    }
     POPUP_PINNED.store(false, Ordering::SeqCst);
     *POPUP_ANCHOR.lock() = None;
     *POPUP_LOCKED.lock() = None;
