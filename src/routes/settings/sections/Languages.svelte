@@ -55,6 +55,5 @@
 <style>
   select {
     min-width: 200px;
-    height: var(--control-height);
   }
 </style>

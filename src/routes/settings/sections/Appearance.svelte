@@ -74,7 +74,6 @@
 
   select {
     min-width: 160px;
-    height: var(--control-height);
   }
 
   .accents {

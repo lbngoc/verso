@@ -169,6 +169,15 @@ textarea {
   padding: var(--space-2);
 }
 
+/* A select sizes to the shared control height; vertical padding would leave too little room for the
+   text (WebView2 clipped it at 32 px). */
+select {
+  box-sizing: border-box;
+  height: var(--control-height);
+  padding-block: 0;
+  line-height: normal;
+}
+
 .separator {
   height: 1px;
   background: var(--separator);
