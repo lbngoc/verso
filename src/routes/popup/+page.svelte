@@ -234,6 +234,15 @@
         step = settings.text_size_step ?? 0;
       }
 
+      // Settings changed elsewhere (the language and size apply without reopening the window).
+      unlisteners.push(
+        await events.onSettingsChanged((next) => {
+          settings = next;
+          setUiLanguage(next.ui_language);
+          step = next.text_size_step ?? 0;
+        }),
+      );
+
       unlisteners.push(
         await events.onPopupState((payload) => {
           popupState = payload;

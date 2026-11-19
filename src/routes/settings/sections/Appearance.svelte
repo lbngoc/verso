@@ -106,8 +106,14 @@
     box-shadow: inset 0 0 0 1px var(--hairline-strong);
   }
 
+  /* The swatch shows the app's own colour, so it must not follow --accent (which becomes the system
+     colour once "System" is chosen). Values mirror APP_ACCENT in theme-tokens.ts. */
   .chip.app {
-    background: var(--accent);
+    background: #1b6f62;
+  }
+
+  :global([data-theme="dark"]) .chip.app {
+    background: #3fb8a3;
   }
 
   .chip.system {
