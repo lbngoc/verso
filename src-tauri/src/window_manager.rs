@@ -265,8 +265,14 @@ pub fn resize_popup_to(app: &AppHandle, width: f64, height: f64) {
 
 pub fn hide_popup(app: &AppHandle) {
     if let Some(window) = popup_window(app) {
-        let _ = window.hide();
-        platform::services().hide_window(&window);
+        // AppKit's `orderOut` must run on the main thread (macOS 26 traps otherwise, seen with
+        // `--self-test` and any capture that finishes on a worker); queueing keeps the order
+        // relative to a later `show_popup`, which is queued the same way.
+        let hide_window = window.clone();
+        let _ = app.run_on_main_thread(move || {
+            let _ = hide_window.hide();
+            platform::services().hide_window(&hide_window);
+        });
     }
     // Monitors live on the main run loop (macOS NSEvent); hide_popup can run on a worker thread.
     let monitor_handle = app.clone();
