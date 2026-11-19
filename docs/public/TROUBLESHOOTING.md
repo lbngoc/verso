@@ -43,7 +43,7 @@ right-clicking Verso in Applications and choosing **Open**.)
   Privacy & Security › Accessibility** must list Verso and have it switched on. After replacing
   `Verso.app` with a new build, macOS may keep the old entry switched on while the new build is not
   trusted: remove the entry with minus, add the new app with plus, and switch it on.
-- The quick panel (`Alt+Shift+Cmd+T` on macOS, `Ctrl+Alt+Shift+T` on Windows) works without Accessibility;
+- The quick panel (`Alt+Shift+T` by default; check **Settings › Shortcuts** if you saved another key) works without Accessibility;
   use it to check the engines while the selection path is being fixed.
 
 ## Nothing is captured, or the popup says no text was selected

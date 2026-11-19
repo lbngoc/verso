@@ -1,7 +1,7 @@
 # Verso
 
 Verso is a small menu-bar (macOS) / notification-area (Windows) translator. Select text in any app and
-press `Alt+Shift+T`: Verso translates it with Google or Microsoft (Bing) and shows the result in a popup
+press `Alt+Shift+Z`: Verso translates it with Google or Microsoft (Bing) and shows the result in a popup
 that can copy or speak it. Text you type yourself goes through the quick panel.
 
 - Google Translate and Microsoft Translator (Bing), no account or API key, with automatic fallback.

@@ -3,6 +3,15 @@
 All notable changes to Verso are listed here. The release pipeline publishes the section that matches
 the release tag, so a tag needs its section before it is pushed.
 
+## Unreleased
+
+### Changed
+
+- New installs use `Alt+Shift+Z` (Translate), `Alt+Shift+S` (Speak) and `Alt+Shift+T` (quick panel; it was
+  `Alt+Shift+Cmd+T` on macOS and `Ctrl+Alt+Shift+T` on Windows). Updates never change a shortcut you saved;
+  **Settings › Shortcuts** has a reset to the new defaults.
+- Pressing Translate while the quick panel is open now closes the panel instead of doing nothing.
+
 ## 0.1.3 — 2026-11-13
 
 The permission step also opens for upgrades from 0.1.0 and 0.1.1.

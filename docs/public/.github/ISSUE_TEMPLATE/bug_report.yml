@@ -40,7 +40,7 @@ body:
       description: The shortest steps that show the problem.
       placeholder: |
         1. Select a sentence in Safari
-        2. Press Alt+Shift+T
+        2. Press Alt+Shift+Z
         3. ...
     validations:
       required: true

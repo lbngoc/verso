@@ -57,7 +57,7 @@ quarantine flag, and Accessibility is asked for as in step 3.
    **System Settings › Privacy & Security › Accessibility** (switch Verso on; the first time, confirm with
    your password). Without it, translating a selection cannot read the text; the quick panel still works.
 4. Start Verso. The mark (two arrows) appears in the menu bar. Select some text in another app and press
-   `Alt+Shift+T`; the result appears next to the selection. `Alt+Shift+Cmd+T` opens the quick panel.
+   `Alt+Shift+Z`; the result appears next to the selection. `Alt+Shift+T` opens the quick panel.
 
 Verso starts with the system at login only if **Launch at login** is enabled in Settings.
 
@@ -69,8 +69,8 @@ Verso starts with the system at login only if **Launch at login** is enabled in 
    user.
 3. Start **Verso** from the Start menu. The mark (two arrows) appears in the notification area; if it is
    hidden, open the overflow arrow next to the clock.
-4. Select some text in another app and press `Alt+Shift+T`; the result appears next to the selection.
-   `Ctrl+Alt+Shift+T` opens the quick panel.
+4. Select some text in another app and press `Alt+Shift+Z`; the result appears next to the selection.
+   `Alt+Shift+T` opens the quick panel.
 
 To remove Verso, use **Settings › Apps › Installed apps › Verso › Uninstall** (or `uninstall.exe` in
 `%LOCALAPPDATA%\Verso`).
@@ -83,7 +83,7 @@ macOS (a step indicator shows 1 Services · 2 Permission). The second step offer
 request; leave it on or turn it off. Everything can be changed later in **Settings** from the tray menu.
 
 Shortcuts can be changed in **Settings › Shortcuts**: click a field and type the combination (macOS shows
-`⌥⇧T`), ↺ restores the default and ⌫ clears it. The three actions are Translate selection, Speak selection
+`⌥⇧Z`), ↺ restores the default (the new defaults: Translate `⌥⇧Z`, Speak `⌥⇧S`, panel `⌥⇧T`; saved keys are never changed by an update) and ⌫ clears it. The three actions are Translate selection, Speak selection
 and Quick panel. On macOS a global shortcut needs no permission beyond Accessibility; if another app owns
 the combination, Verso says so and asks for another. The same card has an off-by-default option to paste
 the clipboard into the panel when nothing is selected.
