@@ -33,8 +33,6 @@
   let step = $state(0);
   // Chosen once per result from the text length; the text size never changes it (FR-033).
   let resultWidth = $state(380);
-  // The width the native window already has; 0 while it is still the status pill.
-  let appliedWidth = 0;
   let stillTranslating = $state(false);
   let voiceAvailable = $state<boolean | null>(null);
   let root = $state<HTMLElement | null>(null);
@@ -164,24 +162,18 @@
         await tick();
         if (!root) return;
         if (phase === "status") {
-          appliedWidth = 0;
           await commands.setPopupSize(200, 36).catch(() => undefined);
           return;
         }
         const width = resultWidth;
-        if (appliedWidth !== width) {
-          // Widen the window first and let the page reflow, so the height is measured at the width
-          // the text will be shown in (measured at pill width it wraps into too many lines).
-          await commands.setPopupSize(width, 96).catch(() => undefined);
-          appliedWidth = width;
-          const deadline = performance.now() + 400;
-          while (window.innerWidth < width - 1 && performance.now() < deadline) {
-            await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
-          }
-          await tick();
-        }
-        // Round up: a fractional content height used to clip the footer's last line.
-        const height = Math.min(420, Math.max(96, Math.ceil(root.getBoundingClientRect().height)));
+        // The window may still be pill-wide here, so measure at the width the text will be shown in
+        // by forcing it on the element for the measurement only (no native resize, which would also
+        // lock the placement to a wrong height). Round up: a fractional height clipped the footer.
+        const previousWidth = root.style.width;
+        root.style.width = `${width}px`;
+        const measured = Math.ceil(root.getBoundingClientRect().height);
+        root.style.width = previousWidth;
+        const height = Math.min(420, Math.max(96, measured));
         await commands.setPopupSize(width, height).catch(() => undefined);
       })();
     }, 16);
