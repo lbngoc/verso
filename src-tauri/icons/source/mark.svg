@@ -1,4 +1,13 @@
-<!-- Verso mark, "two-way lines" (spec 008 FR-012). 24-unit master; small tray sizes are drawn per size in scripts/gen-tray-icon.py. -->
-<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-  <path d="M3 7H21M17.5 3.5L21 7L17.5 10.5M9 12H15M21 17H3M6.5 13.5L3 17L6.5 20.5" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<!-- Verso mark, "S-flow": a V wrapped by a wide S whose ends are opposite arrows. 36-unit master, the same
+     geometry scripts/gen-tray-icon.py draws for the tray. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36">
+  <defs>
+    <mask id="clear-of-v" maskUnits="userSpaceOnUse">
+      <rect width="36" height="36" fill="#fff"/>
+      <polygon points="12.6,11 15.9,11 18,19.4 20.1,11 23.4,11 19.7,25.6 16.3,25.6" stroke="#000" stroke-width="2" stroke-linejoin="round"/>
+    </mask>
+  </defs>
+  <path mask="url(#clear-of-v)" d="M31.5 8H10A5 5 0 0 0 10 18H26A5 5 0 0 1 26 28H4.5M29.1 5.6L31.5 8L29.1 10.4M6.9 25.6L4.5 28L6.9 30.4"
+        fill="none" stroke="#000" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <polygon points="12.6,11 15.9,11 18,19.4 20.1,11 23.4,11 19.7,25.6 16.3,25.6"/>
 </svg>

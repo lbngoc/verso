@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Generate the Verso tray marks with rsvg-convert: "Vs" between two opposite arrows (logo "E").
+"""Generate the Verso tray marks with rsvg-convert: a V wrapped by a wide S whose ends are opposite arrows
+(logo "S-flow", the same drawing as src-tauri/icons/source/mark.svg).
 
 The glyph is drawn once on a 36-unit grid (the @2x pixel grid of the 18 pt macOS status item) and the same
 geometry is rendered at every size, so the artwork is identical on both platforms. Only the @2x files are
@@ -8,11 +9,11 @@ embedded (src-tauri/src/tray.rs); the 1x files are the same drawing at half size
 Outputs, in src-tauri/icons/tray/:
   tray-{S}.png, tray-{S}@2x.png              black glyph (macOS template image, light Windows taskbar)
   tray-{S}-light.png, tray-{S}-light@2x.png  white glyph for dark Windows taskbars
-  tray-{S}-busy*.png                         the translating state: the arrows alone, shortened and passing each other
+  tray-{S}-busy*.png                         the translating state: the S-arrow alone, without the V
 with S = 18 (macOS, 36 px @2x) and 16 (Windows, 32 px @2x).
 
-The glyph is about 28 units wide and tall, leaving about 4 units of padding inside the 36 canvas, so it
-sits with the same breathing room as the Input Source and Control Center items beside it.
+The glyph spans about 4..32 units across and 5.6..30.4 down, leaving about 4 units of padding inside the
+36 canvas, so it sits with the same breathing room as the Input Source and Control Center items beside it.
 """
 
 from __future__ import annotations
@@ -26,48 +27,42 @@ ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "src-tauri" / "icons" / "tray"
 
 GRID = 36
-ARROW_W = 2.4
-LETTER_W = 2.4
-S_W = 2.0
+S_W = 2.4  # stroke of the S-arrow
+GAP = 1.0  # clearance cut out of the S around the V
 # Nominal size -> pixels at @2x.
 SIZES = {18: 36, 16: 32}
 
 HEAD = 2.4
-TOP_Y, BOT_Y = 7.5, 28.5
-X0, X1 = 5, 31
+TOP_Y, MID_Y, BOT_Y = 8, 18, 28
+R = (MID_Y - TOP_Y) / 2
+ARC_L, ARC_R = 10, 26  # centres of the two bowls
+TIP_R, TIP_L = 31.5, 4.5
 
+V = "12.6,11 15.9,11 18,19.4 20.1,11 23.4,11 19.7,25.6 16.3,25.6"
 
-def arrows(busy: bool) -> str:
-    if busy:
-        span = (X1 - X0) * 0.55
-        top = f"M{X1 - span} {TOP_Y}H{X1}"
-        bot = f"M{X0 + span} {BOT_Y}H{X0}"
-    else:
-        top = f"M{X0} {TOP_Y}H{X1}"
-        bot = f"M{X1} {BOT_Y}H{X0}"
-    top_head = f"M{X1 - HEAD} {TOP_Y - HEAD}L{X1} {TOP_Y}L{X1 - HEAD} {TOP_Y + HEAD}"
-    bot_head = f"M{X0 + HEAD} {BOT_Y - HEAD}L{X0} {BOT_Y}L{X0 + HEAD} {BOT_Y + HEAD}"
-    return (
-        f'<path d="{top}{top_head}{bot}{bot_head}" fill="none" stroke-width="{ARROW_W}" '
-        f'stroke-linecap="round" stroke-linejoin="round"/>'
-    )
-
-
-# "Vs", drawn as strokes: a capital V and a lower-case s, centred on the canvas.
-LETTERS = (
-    '<g transform="translate(-0.85 0)" fill="none" stroke-linecap="round" stroke-linejoin="round">'
-    f'<path d="M9.2 13.3L14.8 22.7L20.4 13.3" stroke-width="{LETTER_W}"/>'
-    f'<path d="M28.2 17C27.8 15.8 26.6 15.2 25.8 15.2C24.2 15.2 23.2 16.1 23.2 17C23.2 18.3 24.6 18.7 26 19'
-    f'C27.4 19.3 28.8 19.8 28.8 21C28.8 22 27.6 22.6 26 22.6C24.6 22.6 23.4 22 23.1 20.9" stroke-width="{S_W}"/>'
-    "</g>"
+S_PATH = (
+    f"M{TIP_R} {TOP_Y}H{ARC_L}A{R} {R} 0 0 0 {ARC_L} {MID_Y}H{ARC_R}A{R} {R} 0 0 1 {ARC_R} {BOT_Y}H{TIP_L}"
+    f"M{TIP_R - HEAD} {TOP_Y - HEAD}L{TIP_R} {TOP_Y}L{TIP_R - HEAD} {TOP_Y + HEAD}"
+    f"M{TIP_L + HEAD} {BOT_Y - HEAD}L{TIP_L} {BOT_Y}L{TIP_L + HEAD} {BOT_Y + HEAD}"
 )
 
 
 def svg(px: int, colour: str, busy: bool) -> str:
-    body = arrows(busy) + ("" if busy else LETTERS)
+    if busy:
+        defs, mask, letter = "", "", ""
+    else:
+        defs = (
+            '<defs><mask id="v" maskUnits="userSpaceOnUse">'
+            f'<rect width="{GRID}" height="{GRID}" fill="#fff"/>'
+            f'<polygon points="{V}" stroke="#000" stroke-width="{2 * GAP}" stroke-linejoin="round"/>'
+            "</mask></defs>"
+        )
+        mask = ' mask="url(#v)"'
+        letter = f'<polygon points="{V}" fill="{colour}"/>'
     return (
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="{px}" height="{px}" viewBox="0 0 {GRID} {GRID}">'
-        f'<g stroke="{colour}">{body}</g></svg>'
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{px}" height="{px}" viewBox="0 0 {GRID} {GRID}">{defs}'
+        f'<path{mask} d="{S_PATH}" fill="none" stroke="{colour}" stroke-width="{S_W}" '
+        f'stroke-linecap="round" stroke-linejoin="round"/>{letter}</svg>'
     )
 
 
