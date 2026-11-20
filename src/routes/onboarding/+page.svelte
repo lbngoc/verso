@@ -2,12 +2,20 @@
   import { onMount } from "svelte";
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import Card from "$lib/components/Card.svelte";
+  import Icon from "$lib/components/Icon.svelte";
+  import StatusBadge from "$lib/components/StatusBadge.svelte";
   import SettingRow from "$lib/components/SettingRow.svelte";
   import Switch from "$lib/components/Switch.svelte";
   import { setUiLanguage, t as translator } from "$lib/i18n";
   import { initAppearance } from "$lib/stores/appearance";
-  import { initTheme } from "$lib/stores/theme";
-  import { commands, events, type SettingsProfile } from "$lib/ipc";
+  import { applyTheme, initTheme } from "$lib/stores/theme";
+  import { commands, events, type SettingsProfile, type Theme } from "$lib/ipc";
+
+  const THEMES: Array<{ id: Theme; label: string }> = [
+    { id: "system", label: "settings.theme_system" },
+    { id: "light", label: "settings.theme_light" },
+    { id: "dark", label: "settings.theme_dark" },
+  ];
 
   const SERVICES = [
     { id: "http-google", name: "Google", receives: "onboarding.engine_google_receives" },
@@ -24,6 +32,14 @@
   // Pre-checked consent (FR-016): saved when onboarding finishes, changeable in Settings.
   let checkUpdates = $state(true);
   let startButton = $state<HTMLButtonElement | null>(null);
+  let theme = $state<Theme>("system");
+
+  // Applies at once and is saved with the rest of the profile; Settings › Appearance shows the same value.
+  async function chooseTheme(next: Theme): Promise<void> {
+    theme = next;
+    applyTheme(next);
+    await commands.updateSettings({ theme: next }).catch(() => undefined);
+  }
 
   // Once Accessibility is granted the next action is the only thing left: focus it (FR-041).
   $effect(() => {
@@ -76,6 +92,7 @@
       setUiLanguage(settings.ui_language);
       disabled = settings.engines_disabled;
       order = settings.engine_order;
+      theme = settings.theme;
     }
     step = (await commands.onboardingStep().catch(() => 0)) === 1 ? 1 : 0;
     if (isMac) {
@@ -138,12 +155,31 @@
         {/each}
       </Card>
 
+      <Card>
+        <SettingRow label={$translator("onboarding.appearance_title")}>
+          <div class="segmented" role="radiogroup" aria-label={$translator("settings.theme")}>
+            {#each THEMES as option (option.id)}
+              <button
+                type="button"
+                role="radio"
+                aria-checked={theme === option.id}
+                class:on={theme === option.id}
+                onclick={() => void chooseTheme(option.id)}
+              >
+                {$translator(option.label)}
+              </button>
+            {/each}
+          </div>
+        </SettingRow>
+      </Card>
+
       {#if warning}
         <p class="warning" role="alert">{$translator("onboarding.at_least_one")}</p>
       {/if}
 
-      <button class="primary" type="button" onclick={continueFromEngines}>
-        {$translator("onboarding.continue")}
+      <button class="primary go" type="button" onclick={continueFromEngines}>
+        <span>{$translator("onboarding.continue")}</span>
+        <Icon name="arrow-right" size={14} />
       </button>
     </section>
   {:else}
@@ -172,11 +208,12 @@
             </button>
           </SettingRow>
         </Card>
-        <p class="status" class:ok={permission === "granted"}>
-          {permission === "granted"
+        <StatusBadge
+          kind={permission === "granted" ? "ok" : "warn"}
+          text={permission === "granted"
             ? $translator("settings.permission_granted")
             : $translator("settings.permission_missing")}
-        </p>
+        />
         {#if permission !== "granted"}
           <p class="hint">{$translator("capture.stale_hint")}</p>
         {/if}
@@ -203,26 +240,31 @@
         })}
       </p>
 
-      <button class="primary wide" type="button" bind:this={startButton} onclick={finish}>
-        {$translator("onboarding.finish")}
+      <button class="primary wide go" type="button" bind:this={startButton} onclick={finish}>
+        <span>{$translator("onboarding.finish")}</span>
+        <Icon name="arrow-right" size={16} />
       </button>
     </section>
   {/if}
 </main>
 
 <style>
+  /* The window is a fixed size: the page fills it and pins the action to the bottom, so no step needs a
+     scrollbar (FR-042). */
   .onboarding {
+    box-sizing: border-box;
+    height: 100vh;
     max-width: 480px;
     margin: 0 auto;
-    padding: 28px 24px;
+    padding: 20px 24px 22px;
     display: flex;
     flex-direction: column;
-    gap: 18px;
+    gap: 12px;
   }
 
   h1 {
-    font-size: 22px;
-    margin: 0 0 6px;
+    font-size: 20px;
+    margin: 0 0 4px;
   }
 
   h2 {
@@ -231,9 +273,15 @@
   }
 
   .step-body {
+    flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
+  }
+
+  .step-body > .primary {
+    margin-top: auto;
   }
 
   .step-body p {
@@ -290,15 +338,6 @@
     color: var(--text-tertiary);
   }
 
-  .status {
-    font-size: 12px;
-    color: var(--text-secondary);
-  }
-
-  .status.ok {
-    color: var(--success);
-  }
-
   .warning {
     font-size: 12px;
     color: var(--danger);
@@ -313,6 +352,58 @@
     color: var(--accent-contrast);
     font-weight: 600;
     padding: 0 18px;
+  }
+
+  /* The arrow slides right on hover and focus; reduced motion keeps it still. */
+  .primary.go {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .primary.go :global(.icon) {
+    transition: transform 160ms ease;
+  }
+
+  .primary.go:hover :global(.icon),
+  .primary.go:focus-visible :global(.icon) {
+    transform: translateX(4px);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .primary.go :global(.icon) {
+      transition: none;
+    }
+
+    .primary.go:hover :global(.icon),
+    .primary.go:focus-visible :global(.icon) {
+      transform: none;
+    }
+  }
+
+  .segmented {
+    display: inline-flex;
+    padding: 2px;
+    border-radius: 8px;
+    background: var(--hover);
+  }
+
+  .segmented button {
+    height: 24px;
+    padding: 0 10px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 12px;
+  }
+
+  .segmented button.on {
+    background: var(--surface-opaque);
+    color: var(--accent-text);
+    font-weight: 600;
+    box-shadow: inset 0 0 0 1px var(--stroke);
   }
 
   .primary.wide {

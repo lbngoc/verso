@@ -168,14 +168,6 @@ export type PopupState =
   | { state: "error"; error: EngineError }
   | { state: "capture_failed"; failure: CaptureFailure };
 
-export interface ModuleInfo {
-  id: string;
-  name: string;
-  available: boolean;
-  enabled: boolean;
-  planned_in: string;
-}
-
 /** The panel becomes key only when the user clicks or types into it (FR-002, research P5). */
 export async function focusCurrentWindow(): Promise<void> {
   try {
@@ -203,7 +195,6 @@ export const commands = {
     invoke<"granted" | "denied" | "not_determined">("request_permission", { kind }),
   detectLanguage: (text: string) => invoke<string | null>("detect_language", { text }),
   listLanguages: () => invoke<Language[]>("list_languages"),
-  listModules: () => invoke<ModuleInfo[]>("list_modules"),
   getAppearance: () => invoke<Appearance>("get_appearance"),
   hidePopup: () => invoke<void>("hide_popup"),
   showQuick: () => invoke<void>("show_quick"),

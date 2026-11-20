@@ -544,7 +544,7 @@ pub fn show_onboarding(app: &AppHandle) {
         tauri::WebviewUrl::App("onboarding.html".into()),
     )
     .title("Welcome to Verso")
-    .inner_size(560.0, 560.0)
+    .inner_size(560.0, 620.0)
     .resizable(false)
     .visible(false)
     .build()

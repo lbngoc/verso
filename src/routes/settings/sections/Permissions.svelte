@@ -1,6 +1,7 @@
 <script lang="ts">
   import Card from "$lib/components/Card.svelte";
   import SettingRow from "$lib/components/SettingRow.svelte";
+  import StatusBadge from "$lib/components/StatusBadge.svelte";
   import { t } from "$lib/i18n";
   import { commands } from "$lib/ipc";
 
@@ -20,16 +21,24 @@
 </script>
 
 <Card title={$t("settings.permission")}>
-  <SettingRow
-    label={permission === "granted"
-      ? $t("settings.permission_granted")
-      : $t("settings.permission_missing")}
-  >
+  <SettingRow label={$t("settings.permission")}>
     <button type="button" onclick={() => void fix()}>{$t("settings.permission_fix")}</button>
   </SettingRow>
 </Card>
+<div class="status">
+  <StatusBadge
+    kind={permission === "granted" ? "ok" : "warn"}
+    text={permission === "granted"
+      ? $t("settings.permission_granted")
+      : $t("settings.permission_missing")}
+  />
+</div>
 
 <style>
+  .status {
+    margin-top: 12px;
+  }
+
   button {
     border: none;
     border-radius: 6px;

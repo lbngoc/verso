@@ -24,6 +24,13 @@ describe("quickKey", () => {
     expect(quickKey("input", key("Escape"), false)).toEqual({ type: "close" });
   });
 
+  it("Cmd+, and Ctrl+, open Settings from either focus", () => {
+    expect(quickKey("input", key(",", { metaKey: true }), false)).toEqual({ type: "settings" });
+    expect(quickKey("result", key(",", { ctrlKey: true }), true)).toEqual({ type: "settings" });
+    expect(quickKey("input", key(","), false)).toEqual({ type: "none" });
+    expect(quickKey("result", key(","), true)).toEqual({ type: "type", text: "," });
+  });
+
   it("letters in the input are text", () => {
     expect(quickKey("input", key("a"), true)).toEqual({ type: "none" });
     expect(quickKey("input", key("-"), true)).toEqual({ type: "none" });

@@ -14,6 +14,8 @@ export type QuickAction =
   | { type: "speak" }
   | { type: "text-size"; delta: number }
   | { type: "reset-size" }
+  /** Cmd+, (Ctrl+, on Windows): open the Settings window. */
+  | { type: "settings" }
   /** Return focus to the input and insert this text (a printable key pressed on the result). */
   | { type: "type"; text: string };
 
@@ -42,6 +44,9 @@ export function quickKey(
   const key = event.key;
 
   if (key === "Tab") return { type: "swap" };
+  if (key === "," && (event.metaKey || event.ctrlKey) && !event.altKey) {
+    return { type: "settings" };
+  }
 
   if (focus === "input") {
     if (key === "Escape") return hasResult ? { type: "focus-result" } : { type: "close" };

@@ -41,6 +41,7 @@
   let copied = $state(false);
   let speaking = $state(false);
   let step = $state(0);
+  let isMac = $state(true);
   let focus = $state<QuickFocus>("input");
   let captureFailure = $state<CaptureFailure | null>(null);
   let lastTranslated = "";
@@ -50,6 +51,21 @@
   let throttleTimer: ReturnType<typeof setTimeout> | null = null;
   let slowTimer: ReturnType<typeof setTimeout> | null = null;
   let unlisteners: Array<() => void> = [];
+
+  // The keys that work right now are tinted; the others stay quiet (FR-048).
+  const footerKeys = $derived([
+    { label: "↵", text: $translator("quick.key_translate"), active: focus === "input" },
+    {
+      label: "Esc",
+      text:
+        focus === "input" && result
+          ? $translator("quick.key_back")
+          : $translator("quick.key_close"),
+      active: true,
+    },
+    { label: "⇥", text: $translator("quick.key_swap"), active: false },
+    { label: isMac ? "⌘," : "Ctrl+,", text: $translator("quick.key_settings"), active: false },
+  ]);
 
   const notices = $derived(result ? buildNotices(result) : ([] as NoticeItem[]));
   const rtl = $derived(result ? isRtl(result.direction_used.target, languages) : false);
@@ -230,6 +246,10 @@
         event.preventDefault();
         void speakResult();
         break;
+      case "settings":
+        event.preventDefault();
+        void commands.openSettings().then(() => commands.hideQuick());
+        break;
       case "text-size":
         event.preventDefault();
         setStep(step + action.delta);
@@ -255,7 +275,7 @@
   onMount(() => {
     let cancelled = false;
     void (async () => {
-      await initAppearance();
+      isMac = (await initAppearance()).os === "macos";
       settings = await initTheme();
       if (!settings) settings = await commands.getSettings().catch(() => null);
       languages = await commands.listLanguages().catch(() => []);
@@ -412,7 +432,8 @@
     {speaking}
     canSpeak={Boolean(result)}
     notice={noticeText}
-    hint={$translator("quick.hint")}
+    keys={footerKeys}
+    keysActive={focus === "result" && Boolean(result)}
     oncopy={() => void copyResult()}
     onspeak={() => void speakResult()}
   />
@@ -422,16 +443,16 @@
   .quick {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
     height: 100vh;
     box-sizing: border-box;
-    padding: 12px 14px 0;
+    padding: 14px 16px 0;
   }
 
   .quick-header {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     flex: none;
   }
 
@@ -453,13 +474,13 @@
   textarea {
     width: 100%;
     resize: none;
-    min-height: 64px;
-    max-height: 96px;
+    min-height: 72px;
+    max-height: 104px;
     border: none;
     border-radius: 10px;
     background: var(--surface-raised);
     box-shadow: inset 0 0 0 1px var(--stroke);
-    padding: 10px;
+    padding: 10px 12px;
     font: inherit;
     color: var(--text);
     user-select: text;
@@ -475,11 +496,11 @@
 
   .result-area {
     flex: 1;
-    min-height: 72px;
+    min-height: 80px;
     overflow: auto;
     user-select: text;
     border-radius: 8px;
-    padding: 4px 6px;
+    padding: 6px 4px;
   }
 
   .result-area.focused {
@@ -490,7 +511,7 @@
     display: flex;
     align-items: baseline;
     gap: 8px;
-    margin-bottom: 4px;
+    margin-bottom: 6px;
   }
 
   .direction {

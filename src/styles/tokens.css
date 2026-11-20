@@ -43,6 +43,7 @@
   --stroke: rgba(0, 0, 0, 0.14);
   --hover: rgba(0, 0, 0, 0.06);
   --danger: #c4271f;
+  --warning: #a35200;
   --success: #1d7a3a;
 }
 
@@ -57,6 +58,7 @@
   --stroke: rgba(255, 255, 255, 0.18);
   --hover: rgba(255, 255, 255, 0.08);
   --danger: #ff6961;
+  --warning: #ffb340;
   --success: #4cd964;
   --hairline-strong: rgba(255, 255, 255, 0.16);
   --accent: #3fb8a3;

@@ -10,12 +10,15 @@
     groups,
     current,
     collapsed,
+    trafficLights = false,
     onselect,
     ontoggle,
   }: {
     groups: SidebarGroup[];
     current: string;
     collapsed: boolean;
+    /** macOS draws the window buttons over the top-left corner of the sidebar (overlay title bar). */
+    trafficLights?: boolean;
     onselect: (id: string) => void;
     ontoggle: () => void;
   } = $props();
@@ -43,7 +46,7 @@
   }
 </script>
 
-<aside class="sidebar" class:collapsed>
+<aside class="sidebar" class:collapsed class:lights={trafficLights}>
   <div class="topbar">
     <button
       class="collapse"
@@ -96,6 +99,13 @@
 
   .sidebar.collapsed .topbar {
     justify-content: center;
+  }
+
+  /* Collapsed, the sidebar is only as wide as the window buttons, so the toggle moves below them
+     instead of sitting under the red, yellow and green dots. */
+  .sidebar.lights.collapsed .topbar {
+    height: 52px;
+    align-items: flex-end;
   }
 
   .collapse {

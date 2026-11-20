@@ -185,6 +185,14 @@
       commands.hidePopup();
       return;
     }
+    if ((event.metaKey || event.ctrlKey) && !event.altKey && event.key === ",") {
+      event.preventDefault();
+      // A pinned popup stays where the user put it.
+      void commands.openSettings().then(() => {
+        if (!pinned) void commands.hidePopup();
+      });
+      return;
+    }
     if (event.metaKey || event.ctrlKey) {
       if (event.key.toLowerCase() === "c") {
         // Native copy of a selection; otherwise the whole translation.
@@ -376,6 +384,7 @@
       {speaking}
       canSpeak={voiceAvailable !== false}
       notice={noticeText}
+      keys={[{ label: "Esc", text: $translator("quick.key_close"), active: true }]}
       oncopy={() => void copyResult()}
       onspeak={() => void speakResult()}
     />

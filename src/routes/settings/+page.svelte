@@ -12,21 +12,12 @@
   import Appearance from "./sections/Appearance.svelte";
   import PopupPanel from "./sections/PopupPanel.svelte";
   import Permissions from "./sections/Permissions.svelte";
-  import Modules from "./sections/Modules.svelte";
   import About from "./sections/About.svelte";
-  import {
-    commands,
-    events,
-    type EngineInfo,
-    type Language,
-    type ModuleInfo,
-    type SettingsProfile,
-  } from "$lib/ipc";
+  import { commands, events, type EngineInfo, type Language, type SettingsProfile } from "$lib/ipc";
 
   let settings = $state<SettingsProfile | null>(null);
   let engines = $state<EngineInfo[]>([]);
   let languages = $state<Language[]>([]);
-  let modules = $state<ModuleInfo[]>([]);
   let permission = $state<"granted" | "denied" | "not_determined">("denied");
   let saving = $state(false);
   let saved = $state(false);
@@ -45,13 +36,6 @@
         id: "permissions",
         label: $translator("settings.section_permissions"),
         icon: "shield",
-      });
-    }
-    if (modules.length) {
-      appItems.push({
-        id: "modules",
-        label: $translator("settings.section_modules"),
-        icon: "puzzle",
       });
     }
     return [
@@ -130,7 +114,6 @@
         if (!profile) return;
         setUiLanguage(profile.ui_language);
         languages = await commands.listLanguages().catch(() => []);
-        modules = await commands.listModules().catch(() => []);
         engines = await commands.listEngines().catch(() => []);
         permission = await commands.checkPermissions("accessibility").catch(() => "denied");
 
@@ -180,6 +163,7 @@
     {groups}
     current={section}
     {collapsed}
+    trafficLights={isMac}
     onselect={select}
     ontoggle={() => (collapsed = !collapsed)}
   />
@@ -213,8 +197,6 @@
         <Appearance {settings} onupdate={update} />
       {:else if section === "permissions"}
         <Permissions {permission} ongranted={(status) => (permission = status)} />
-      {:else if section === "modules"}
-        <Modules {modules} />
       {:else if section === "about"}
         <About {settings} onupdate={update} />
       {/if}
