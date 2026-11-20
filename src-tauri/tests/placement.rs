@@ -2,8 +2,8 @@
 
 use verso_lib::platform::{Point, Rect, Size};
 use verso_lib::window_manager::{
-    place_popup, PlacementInput, EDGE_MARGIN, PLACEMENT_GAP, POPUP_MAX_HEIGHT, POPUP_MAX_WIDTH,
-    POPUP_RESULT_HEIGHT, POPUP_WIDTH,
+    place_popup, PlacementInput, EDGE_MARGIN, PLACEMENT_GAP, POPUP_MAX_WIDTH, POPUP_RESULT_HEIGHT,
+    POPUP_WIDTH,
 };
 
 fn work_area() -> Rect {

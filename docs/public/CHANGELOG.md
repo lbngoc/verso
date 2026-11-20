@@ -5,12 +5,36 @@ the release tag, so a tag needs its section before it is pushed.
 
 ## Unreleased
 
+## 0.1.4 — 2026-11-20
+
+A refreshed interface: a new logo, a settings window, and a faster way to translate and listen.
+
+### Added
+
+- A settings window with a grouped sidebar and cards, a shortcut recorder, and an **About** section.
+- A small status tooltip and a result popup that appear next to the selection; **Speak** reads the selection
+  aloud, and the quick panel can prefill from the clipboard.
+- A colour choice in **Settings › Appearance**: the Verso teal or your system accent.
+- An update window that shows the release notes and lets you skip or install.
+- The tray icon opens the quick panel on a click; the menu (with Settings) is on a right click.
+- A stepped first run that walks through the permission and the shortcuts.
+
 ### Changed
 
+- A new Verso logo for the app and the tray.
 - New installs use `Alt+Shift+Z` (Translate), `Alt+Shift+S` (Speak) and `Alt+Shift+T` (quick panel; it was
   `Alt+Shift+Cmd+T` on macOS and `Ctrl+Alt+Shift+T` on Windows). Updates never change a shortcut you saved;
   **Settings › Shortcuts** has a reset to the new defaults.
 - Pressing Translate while the quick panel is open now closes the panel instead of doing nothing.
+- The Homebrew cask is installed by its full name, `brew install --cask lbngoc/verso/verso`.
+
+### Fixed
+
+- The result popup now takes keys on macOS without taking focus away from the app you are reading.
+- Closing the popup no longer crashes on macOS 26.
+- On Windows the quick panel stays open when Translate finds no selection, and the selects in Settings no
+  longer clip their text.
+- Language and text size changes apply at once in the popup and the panel.
 
 ## 0.1.3 — 2026-11-13
 
