@@ -313,6 +313,20 @@ jobs:
           # SHA256SUMS covers the installers only; the updater bundles are checked by signature.
           sha256sum Verso_*_aarch64.dmg Verso_*_x64.dmg Verso_*_x64-setup.exe > SHA256SUMS.txt
           cat SHA256SUMS.txt
+      - name: Add the version-less download names
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd dist
+          # The README links releases/latest/download/<name>, which needs a name that does not change from
+          # one release to the next. These copies come after SHA256SUMS, so the checksums still list only
+          # the versioned installers; package managers and the updater keep using those.
+          for suffix in aarch64.dmg x64.dmg x64-setup.exe; do
+            files=(Verso_*_"$suffix")
+            [ "${#files[@]}" -eq 1 ] || { echo "::error::expected one Verso_*_$suffix, found ${#files[@]}"; exit 1; }
+            cp "${files[0]}" "Verso_$suffix"
+          done
+          ls -la
       - name: Detect the macOS signature
         id: signing
         shell: bash
