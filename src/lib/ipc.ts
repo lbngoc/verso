@@ -226,6 +226,8 @@ export const commands = {
   appInfo: () => invoke<AppInfo>("app_info"),
   hideUpdateWindow: () => invoke<void>("hide_update_window"),
   openUrl: (url: string) => invoke<void>("open_url", { url }),
+  /** The quick page has its listeners; the backend may show it and send a queued prefill. */
+  quickReady: () => invoke<void>("quick_ready"),
   /** About links; the URLs live in `src-tauri/src/links.rs`. */
   openPublicPage: (page: "home" | "terms" | "privacy" | "licences") =>
     invoke<void>("open_public_page", { page }),

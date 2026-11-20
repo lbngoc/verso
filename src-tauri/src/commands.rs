@@ -319,7 +319,7 @@ pub fn detect_language(text: String) -> Option<String> {
 fn emit_quick_prefill(app: &AppHandle, enabled: bool) {
     let prefill = prefill_text(enabled, || platform::services().read_clipboard_text());
     if let Some(text) = prefill {
-        let _ = app.emit("quick-prefill", json!({ "text": text }));
+        window_manager::send_quick_prefill(app, text);
     }
 }
 
@@ -436,9 +436,17 @@ pub fn hide_popup(app: AppHandle) {
     window_manager::hide_popup(&app);
 }
 
+// Async on purpose: the first open builds the quick webview, and building one inside a synchronous
+// command deadlocks WebView2 on Windows.
 #[tauri::command]
-pub fn show_quick(app: AppHandle) {
+pub async fn show_quick(app: AppHandle) {
     let _ = window_manager::show_quick(&app);
+}
+
+/// The quick page mounted its listeners: a queued show or prefill can go now (T122).
+#[tauri::command]
+pub fn quick_ready(app: AppHandle) {
+    window_manager::quick_page_ready(&app);
 }
 
 #[tauri::command]

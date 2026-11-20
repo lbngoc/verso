@@ -119,3 +119,15 @@ impl PlatformServices for MacosServices {
         material::apply_settings(window, appearance);
     }
 }
+
+/// Makes Verso the active app after it became a regular app, so the menu bar (and its key equivalents
+/// such as Cmd+C, Cmd+V, Cmd+Q) is Verso's. Opening Settings from the non-activating quick panel left
+/// the previous app's menu bar in place without it (spec 009 FR-053, S30). Main thread only.
+pub fn activate_app() {
+    let Some(mtm) = objc2::MainThreadMarker::new() else {
+        return;
+    };
+    let app = objc2_app_kit::NSApplication::sharedApplication(mtm);
+    #[allow(deprecated)]
+    app.activateIgnoringOtherApps(true);
+}

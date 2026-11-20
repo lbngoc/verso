@@ -19,7 +19,6 @@ use crate::window_manager;
 
 const TRAY_ID: &str = "main";
 const TOOLTIP_IDLE: &str = "Verso";
-const TOOLTIP_BUSY: &str = "Verso — translating…";
 
 // The macOS status item scales its image to an 18 pt height, so the 18 px grid at @2x is drawn 1:1
 // on Retina and halves cleanly on 1x screens.
@@ -231,7 +230,9 @@ fn apply(app: &AppHandle) {
         }
         Err(error) => log::warn!("tray icon could not be decoded: {error}"),
     }
-    let _ = tray.set_tooltip(Some(if busy { TOOLTIP_BUSY } else { TOOLTIP_IDLE }));
+    // The busy tooltip follows the UI language (FR-019, T135); the idle one is the app name.
+    let busy_text = crate::ui_text::current(app, crate::ui_text::Text::TooltipBusy);
+    let _ = tray.set_tooltip(Some(if busy { busy_text } else { TOOLTIP_IDLE }));
 }
 
 /// Marks a translation as started (`true`) or finished, whether it succeeded or failed (`false`).

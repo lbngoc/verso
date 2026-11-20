@@ -101,41 +101,9 @@ pub fn run() {
                     }));
             }
 
-            #[cfg(target_os = "macos")]
-            {
-                for label in ["popup", "quick"] {
-                    if let Some(window) = handle.get_webview_window(label) {
-                        platform::macos::panel::prepare(&window);
-                    }
-                }
-            }
-            #[cfg(windows)]
-            {
-                for label in ["popup", "quick"] {
-                    if let Some(window) = handle.get_webview_window(label) {
-                        platform::windows::window_style::prepare(&window);
-                    }
-                }
-            }
-
-            for label in ["popup", "quick"] {
-                if let Some(window) = handle.get_webview_window(label) {
-                    let handle = handle.clone();
-                    let is_popup = label == "popup";
-                    window.on_window_event(move |event| {
-                        if let tauri::WindowEvent::Focused(false) = event {
-                            // A pinned popup stays until Esc or × (spec 009, R5).
-                            if is_popup && window_manager::POPUP_PINNED.load(std::sync::atomic::Ordering::SeqCst) {
-                                return;
-                            }
-                            if is_popup {
-                                window_manager::hide_popup(&handle);
-                            } else {
-                                window_manager::hide_quick(&handle);
-                            }
-                        }
-                    });
-                }
+            // The quick panel is created on first use (T122); only the popup exists at start.
+            if let Some(window) = handle.get_webview_window("popup") {
+                window_manager::prepare_transient(&handle, &window);
             }
 
             window_manager::prewarm(&handle);
@@ -234,6 +202,7 @@ pub fn run() {
             commands::get_appearance,
             commands::hide_popup,
             commands::show_quick,
+            commands::quick_ready,
             commands::hide_quick,
             commands::open_settings,
             commands::open_onboarding,

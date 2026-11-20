@@ -30,23 +30,6 @@
         "minimizable": false,
         "shadow": true,
         "acceptFirstMouse": true
-      },
-      {
-        "label": "quick",
-        "url": "quick.html",
-        "title": "Verso",
-        "width": 560,
-        "height": 320,
-        "visible": false,
-        "decorations": false,
-        "transparent": true,
-        "alwaysOnTop": true,
-        "skipTaskbar": true,
-        "focus": true,
-        "resizable": false,
-        "maximizable": false,
-        "minimizable": false,
-        "shadow": true
       }
     ],
     "security": {

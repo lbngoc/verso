@@ -10,6 +10,7 @@
   import { initAppearance } from "$lib/stores/appearance";
   import { applyTheme, initTheme } from "$lib/stores/theme";
   import { commands, events, type SettingsProfile, type Theme } from "$lib/ipc";
+  import { displayAccelerator } from "$lib/keys";
 
   const THEMES: Array<{ id: Theme; label: string }> = [
     { id: "system", label: "settings.theme_system" },
@@ -237,7 +238,9 @@
 
       <p class="hint">
         {$translator("onboarding.shortcut_hint", {
-          shortcut: settings?.shortcuts.translate ?? "Alt+Shift+Z",
+          shortcut: displayAccelerator(settings?.shortcuts.translate ?? "Alt+Shift+Z", {
+            mac: isMac,
+          }),
         })}
       </p>
 

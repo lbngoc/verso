@@ -318,6 +318,10 @@
 
       await tick();
       textarea?.focus();
+      // Created on first use (T122): the listeners are in place, so the backend may show the panel
+      // and send a queued prefill. Not inside requestAnimationFrame: WebKit pauses it while the
+      // window is hidden, which it is until this call.
+      void commands.quickReady().catch(() => undefined);
       requestAnimationFrame(() => requestAnimationFrame(() => events.emitSelfTestPainted()));
     })();
 

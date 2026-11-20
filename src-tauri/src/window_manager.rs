@@ -1,4 +1,5 @@
-//! Window creation, pre-warming, placement and non-activating show (popup-ui-contract.md).
+//! Window creation, the popup pre-warm, the lazy quick panel, placement and non-activating show
+//! (popup-ui-contract.md).
 
 use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::Arc;
@@ -8,6 +9,7 @@ use tauri::{AppHandle, Emitter, Listener, LogicalPosition, LogicalSize, Manager,
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 
 use crate::core::capture::PopupState;
+use crate::core::quick_queue::QuickQueue;
 use crate::platform::{self, Point, Rect, Size};
 
 pub const POPUP_PILL_WIDTH: f64 = 200.0;
@@ -113,41 +115,134 @@ pub fn quick_is_visible(app: &AppHandle) -> bool {
         .unwrap_or(false)
 }
 
-/// True while the pre-warm still parks the panel at its off-screen position.
-pub fn quick_is_offscreen(app: &AppHandle) -> bool {
-    quick_window(app)
-        .and_then(|window| window.outer_position().ok())
-        .map(|position| position.x <= -5_000 || position.y <= -5_000)
-        .unwrap_or(false)
-}
-
-/// Whether the quick panel is open for the user (visible and not parked off-screen).
+/// Whether the quick panel is open for the user. It is never pre-warmed (T122), so a visible panel is
+/// one the user opened.
 pub fn quick_is_open(app: &AppHandle) -> bool {
-    quick_is_visible(app) && !quick_is_offscreen(app)
+    quick_is_visible(app)
 }
 
-/// Shows each transient window once off-screen so the webview is warm (SC-002).
-pub fn prewarm(app: &AppHandle) {
-    for (label, size) in [
-        ("popup", popup_pill_size()),
-        (
-            "quick",
-            Size {
-                width: QUICK_WIDTH,
-                height: QUICK_HEIGHT,
-            },
-        ),
-    ] {
-        if let Some(window) = app.get_webview_window(label) {
-            let _ = window.set_size(LogicalSize::new(size.width, size.height));
-            let _ = window.set_position(LogicalPosition::new(-10_000.0, -10_000.0));
-            if let Err(error) = window.show() {
-                warn!("could not pre-warm {label}: {error}");
+/// Panel style and the blur rule for the popup and the quick panel: on macOS a non-activating
+/// panel, on Windows a tool window; losing focus hides it (a pinned popup stays, R5).
+pub fn prepare_transient(app: &AppHandle, window: &WebviewWindow) {
+    #[cfg(target_os = "macos")]
+    platform::macos::panel::prepare(window);
+    #[cfg(windows)]
+    platform::windows::window_style::prepare(window);
+
+    let handle = app.clone();
+    let is_popup = window.label() == "popup";
+    let watched = window.clone();
+    window.on_window_event(move |event| {
+        if let tauri::WindowEvent::Focused(false) = event {
+            let visible = watched.is_visible().unwrap_or(false);
+            if !is_popup {
+                // A loading panel keeps its queued show; only a panel on screen closes (T134).
+                if QUICK.lock().blur(visible) {
+                    hide_quick(&handle);
+                }
+                return;
             }
-            let _ = window.hide();
-            let _ = window.set_position(LogicalPosition::new(0.0, 0.0));
+            if !visible {
+                return;
+            }
+            if POPUP_PINNED.load(Ordering::SeqCst) {
+                return;
+            }
+            hide_popup(&handle);
+        }
+    });
+}
+
+/// Until the quick page has mounted its listeners (`quick_ready`), a show and a prefill wait here
+/// and are replayed (T122; rules in `core::quick_queue`, T134).
+static QUICK: parking_lot::Mutex<QuickQueue> = parking_lot::Mutex::new(QuickQueue::new());
+
+/// The quick panel is built on its first open and then only hidden, so it costs no memory until
+/// the user wants it (T122, Constitution I). The popup stays pre-warmed for the 150 ms rule.
+fn ensure_quick(app: &AppHandle) -> Option<WebviewWindow> {
+    if let Some(window) = quick_window(app) {
+        return Some(window);
+    }
+    QUICK.lock().created();
+    let builder =
+        tauri::WebviewWindowBuilder::new(app, "quick", tauri::WebviewUrl::App("quick.html".into()))
+            .title("Verso")
+            .inner_size(QUICK_WIDTH, QUICK_HEIGHT)
+            .visible(false)
+            .decorations(false)
+            .transparent(true)
+            .always_on_top(true)
+            .skip_taskbar(true)
+            .focused(false)
+            .resizable(false)
+            .maximizable(false)
+            .minimizable(false)
+            .shadow(true);
+    match builder.build() {
+        Ok(window) => {
+            // The first open may come from an async command; AppKit and Win32 styling must run on
+            // the main thread. The page loads meanwhile, and the panel shows only after `quick_ready`.
+            let handle = app.clone();
+            let styled = window.clone();
+            let _ = app.run_on_main_thread(move || {
+                prepare_transient(&handle, &styled);
+                let appearance = crate::appearance::current(&handle);
+                platform::services().apply_window_material(&styled, &appearance);
+            });
+            info!("quick panel created on first use");
+            // Safety net: if the page never reports ready (a script error), show it anyway.
+            let late = app.clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(std::time::Duration::from_secs(3));
+                if !QUICK.lock().is_ready() {
+                    warn!("quick page did not report ready in 3 s; showing it anyway");
+                    quick_page_ready(&late);
+                }
+            });
+            Some(window)
+        }
+        Err(error) => {
+            warn!("could not create the quick panel: {error}");
+            None
         }
     }
+}
+
+/// The quick page reports that its listeners are in place: replay what waited for it.
+pub fn quick_page_ready(app: &AppHandle) {
+    let replay = QUICK.lock().page_ready();
+    info!("quick page ready (queued show: {})", replay.present);
+    if replay.present {
+        if let Some(window) = quick_window(app) {
+            let _ = present_quick(&window);
+        }
+    }
+    if let Some(text) = replay.prefill {
+        let _ = app.emit("quick-prefill", serde_json::json!({ "text": text }));
+    }
+}
+
+/// Sends the clipboard prefill to the panel, or keeps it until the panel's page is ready.
+pub fn send_quick_prefill(app: &AppHandle, text: String) {
+    let now = QUICK.lock().prefill(text);
+    if let Some(text) = now {
+        let _ = app.emit("quick-prefill", serde_json::json!({ "text": text }));
+    }
+}
+
+/// Shows the popup once off-screen so its webview is warm (SC-002).
+pub fn prewarm(app: &AppHandle) {
+    let Some(window) = popup_window(app) else {
+        return;
+    };
+    let size = popup_pill_size();
+    let _ = window.set_size(LogicalSize::new(size.width, size.height));
+    let _ = window.set_position(LogicalPosition::new(-10_000.0, -10_000.0));
+    if let Err(error) = window.show() {
+        warn!("could not pre-warm the popup: {error}");
+    }
+    let _ = window.hide();
+    let _ = window.set_position(LogicalPosition::new(0.0, 0.0));
 }
 
 /// The cursor point the popup was placed at; content growth re-runs placement from it (R2/R3).
@@ -304,9 +399,18 @@ pub fn show_quick(app: &AppHandle) -> tauri::Result<()> {
     if focus_setup_if_open(app) {
         return Ok(());
     }
-    let Some(window) = quick_window(app) else {
+    let Some(window) = ensure_quick(app) else {
         return Ok(());
     };
+    // A new panel shows once its page is ready, never as a blank frame.
+    let now = QUICK.lock().request_show();
+    if !now {
+        return Ok(());
+    }
+    present_quick(&window)
+}
+
+fn present_quick(window: &WebviewWindow) -> tauri::Result<()> {
     let services = platform::services();
     let cursor = services.cursor_position();
     let work_area = services.monitor_work_area(cursor);
@@ -325,11 +429,13 @@ pub fn show_quick(app: &AppHandle) -> tauri::Result<()> {
     window.set_position(LogicalPosition::new(position.x, position.y))?;
     window.show()?;
     window.set_focus()?;
+    nudge_layout(window);
     // The focused panel handles Escape itself; only the popup needs the global registration (T056).
     Ok(())
 }
 
 pub fn hide_quick(app: &AppHandle) {
+    QUICK.lock().hide();
     if let Some(window) = quick_window(app) {
         if window.is_visible().unwrap_or(false) {
             *QUICK_HIDDEN_AT.lock() = Some(std::time::Instant::now());
@@ -340,12 +446,11 @@ pub fn hide_quick(app: &AppHandle) {
 }
 
 pub fn toggle_quick(app: &AppHandle) {
-    if let Some(window) = quick_window(app) {
-        if window.is_visible().unwrap_or(false) {
-            hide_quick(app);
-        } else {
-            let _ = show_quick(app);
-        }
+    let pending = QUICK.lock().show_pending();
+    if quick_is_visible(app) || pending {
+        hide_quick(app);
+    } else {
+        let _ = show_quick(app);
     }
 }
 
@@ -492,11 +597,6 @@ pub fn retitle_main_windows(app: &AppHandle) {
 /// Setup, Settings and the update dialog: the windows that give Verso a Dock icon (FR-053).
 const MAIN_WINDOWS: [&str; 3] = ["onboarding", "settings", "update"];
 
-fn is_shown(app: &AppHandle, label: &str) -> bool {
-    app.get_webview_window(label)
-        .is_some_and(|window| window.is_visible().unwrap_or(false))
-}
-
 /// While Setup is open nothing else opens: it comes to the front instead (FR-052).
 pub fn focus_setup_if_open(app: &AppHandle) -> bool {
     let Some(window) = app.get_webview_window("onboarding") else {
@@ -522,9 +622,11 @@ fn track_main_window(app: &AppHandle, window: &WebviewWindow) {
     let label = window.label().to_string();
     window.on_window_event(move |event| {
         if matches!(event, tauri::WindowEvent::Destroyed) {
+            // Main windows are destroyed when closed, so one that exists is open or about to show
+            // (Setup closing Settings is created hidden until its page is ready, T136).
             let others = MAIN_WINDOWS
                 .iter()
-                .any(|other| *other != label && is_shown(&handle, other));
+                .any(|other| *other != label && handle.get_webview_window(other).is_some());
             if !others {
                 set_dock_icon(&handle, false);
             }
@@ -546,6 +648,9 @@ fn set_dock_icon(app: &AppHandle, visible: bool) {
         };
         if let Err(error) = app.set_activation_policy(policy) {
             warn!("could not change the activation policy: {error}");
+        }
+        if visible {
+            let _ = app.run_on_main_thread(platform::macos::activate_app);
         }
     }
 }
@@ -579,14 +684,19 @@ fn show_ready_window(app: &AppHandle, window: &WebviewWindow) {
         }
         let _ = window.show();
         let _ = window.set_focus();
-        // 1-pt nudge: forces a layout pass on a webview that painted before being shown (R13).
-        if let Ok(size) = window.inner_size() {
-            let scale = window.scale_factor().unwrap_or(1.0);
-            let logical = size.to_logical::<f64>(scale);
-            let _ = window.set_size(LogicalSize::new(logical.width, logical.height - 1.0));
-            let _ = window.set_size(LogicalSize::new(logical.width, logical.height));
-        }
+        nudge_layout(&window);
     });
+}
+
+/// 1-pt nudge: forces a layout pass on a webview that painted before being shown, so its first
+/// frame is never blank (R13). Used by the main windows and the quick panel (T137).
+fn nudge_layout(window: &WebviewWindow) {
+    if let Ok(size) = window.inner_size() {
+        let scale = window.scale_factor().unwrap_or(1.0);
+        let logical = size.to_logical::<f64>(scale);
+        let _ = window.set_size(LogicalSize::new(logical.width, logical.height - 1.0));
+        let _ = window.set_size(LogicalSize::new(logical.width, logical.height));
+    }
 }
 
 /// Escape is registered globally only while a transient window is open, so it closes the popup

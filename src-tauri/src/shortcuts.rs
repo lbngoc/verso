@@ -257,10 +257,9 @@ fn register_one(app: &AppHandle, value: &str, action: Action) -> Result<(), Stri
         .map_err(|error| format!("'{value}' is already taken: {error}"))
 }
 
-/// Translate and Speak do nothing while the quick panel is open on screen; a panel parked
-/// off-screen by the pre-warm does not count (FR-035). Never applied to Quick.
-pub fn should_ignore_trigger(quick_visible: bool, quick_offscreen: bool) -> bool {
-    quick_visible && !quick_offscreen
+/// Translate and Speak do nothing while the quick panel is open (FR-035). Never applied to Quick.
+pub fn should_ignore_trigger(quick_open: bool) -> bool {
+    quick_open
 }
 
 /// What the Translate shortcut does first: with the quick panel open on screen it closes the
@@ -271,8 +270,8 @@ pub enum TranslateAction {
     Run,
 }
 
-pub fn translate_action(quick_visible: bool, quick_offscreen: bool) -> TranslateAction {
-    if should_ignore_trigger(quick_visible, quick_offscreen) {
+pub fn translate_action(quick_open: bool) -> TranslateAction {
+    if should_ignore_trigger(quick_open) {
         TranslateAction::Close
     } else {
         TranslateAction::Run
@@ -284,11 +283,7 @@ pub fn trigger_translate(app: &AppHandle) {
     if window_manager::focus_setup_if_open(app) {
         return;
     }
-    if translate_action(
-        window_manager::quick_is_visible(app),
-        window_manager::quick_is_offscreen(app),
-    ) == TranslateAction::Close
-    {
+    if translate_action(window_manager::quick_is_open(app)) == TranslateAction::Close {
         log::debug!("translate closes the open quick panel");
         window_manager::hide_quick(app);
         return;
@@ -304,10 +299,7 @@ pub fn trigger_translate(app: &AppHandle) {
 }
 
 pub fn trigger_speak(app: &AppHandle) {
-    if should_ignore_trigger(
-        window_manager::quick_is_visible(app),
-        window_manager::quick_is_offscreen(app),
-    ) {
+    if should_ignore_trigger(window_manager::quick_is_open(app)) {
         log::debug!("speak ignored: the quick panel is open");
         return;
     }
@@ -433,17 +425,15 @@ mod tests {
     }
 
     #[test]
-    fn translate_and_speak_are_ignored_only_while_the_panel_is_on_screen() {
-        assert!(!should_ignore_trigger(false, false));
-        assert!(should_ignore_trigger(true, false));
-        assert!(!should_ignore_trigger(true, true));
+    fn translate_and_speak_are_ignored_only_while_the_panel_is_open() {
+        assert!(!should_ignore_trigger(false));
+        assert!(should_ignore_trigger(true));
     }
 
     #[test]
-    fn translate_closes_the_panel_only_while_it_is_on_screen() {
-        assert_eq!(translate_action(false, false), TranslateAction::Run);
-        assert_eq!(translate_action(true, false), TranslateAction::Close);
-        assert_eq!(translate_action(true, true), TranslateAction::Run);
+    fn translate_closes_the_panel_only_while_it_is_open() {
+        assert_eq!(translate_action(false), TranslateAction::Run);
+        assert_eq!(translate_action(true), TranslateAction::Close);
     }
 
     #[test]
