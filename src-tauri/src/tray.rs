@@ -88,13 +88,7 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
         true,
         accel(translate_accel),
     )?;
-    let speak = MenuItem::with_id(
-        app,
-        "speak",
-        "Speak Selection",
-        true,
-        accel(speak_accel),
-    )?;
+    let speak = MenuItem::with_id(app, "speak", "Speak Selection", true, accel(speak_accel))?;
     let quick = MenuItem::with_id(app, "quick", "Quick Input…", true, accel(quick_accel))?;
     let settings_item = MenuItem::with_id(app, "settings", "Settings…", true, None::<&str>)?;
     let about = MenuItem::with_id(app, "about", "About Verso", true, None::<&str>)?;

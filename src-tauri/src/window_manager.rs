@@ -225,7 +225,11 @@ pub fn resize_popup_to(app: &AppHandle, width: f64, height: f64) {
         return;
     };
     let size = clamp_popup_size(width, height);
-    log::debug!("popup resize requested {width}x{height} -> {}x{}", size.width, size.height);
+    log::debug!(
+        "popup resize requested {width}x{height} -> {}x{}",
+        size.width,
+        size.height
+    );
     let services = platform::services();
     let is_pill = size.width <= POPUP_PILL_WIDTH;
     let locked = *POPUP_LOCKED.lock();
@@ -242,7 +246,9 @@ pub fn resize_popup_to(app: &AppHandle, width: f64, height: f64) {
         });
         return;
     }
-    let cursor = POPUP_ANCHOR.lock().unwrap_or_else(|| services.cursor_position());
+    let cursor = POPUP_ANCHOR
+        .lock()
+        .unwrap_or_else(|| services.cursor_position());
     let work_area = services.monitor_work_area(cursor);
     let position = place_popup(&PlacementInput {
         cursor,
@@ -375,12 +381,13 @@ pub fn take_settings_section() -> Option<String> {
 static SETTINGS_SECTION: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
 
 fn open_settings(app: &AppHandle, url: &str) {
-    let builder = tauri::WebviewWindowBuilder::new(app, "settings", tauri::WebviewUrl::App(url.into()))
-        .title("Verso Settings")
-        .inner_size(780.0, 560.0)
-        .min_inner_size(640.0, 460.0)
-        .resizable(true)
-        .visible(false);
+    let builder =
+        tauri::WebviewWindowBuilder::new(app, "settings", tauri::WebviewUrl::App(url.into()))
+            .title("Verso Settings")
+            .inner_size(780.0, 560.0)
+            .min_inner_size(640.0, 460.0)
+            .resizable(true)
+            .visible(false);
     #[cfg(target_os = "macos")]
     let builder = builder
         .title_bar_style(tauri::TitleBarStyle::Overlay)
@@ -690,7 +697,10 @@ mod tests {
         let area = work_area();
         let size = popup_result_size(400, 0);
         for cursor in [
-            Point { x: 1430.0, y: 890.0 },
+            Point {
+                x: 1430.0,
+                y: 890.0,
+            },
             Point { x: 1430.0, y: 20.0 },
             Point { x: 20.0, y: 890.0 },
             Point { x: 700.0, y: 450.0 },

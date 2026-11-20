@@ -495,7 +495,10 @@ mod tests {
         let (profile, _dir) = load_json(r#"{"shortcuts":{"translate":"Alt+Shift+T"}}"#);
         assert_eq!(profile.shortcuts.translate, "Alt+Shift+T");
         assert_eq!(profile.shortcuts.quick, "");
-        assert!(!profile.notes_seen.iter().any(|note| note == "quick-unbound"));
+        assert!(!profile
+            .notes_seen
+            .iter()
+            .any(|note| note == "quick-unbound"));
     }
 
     #[test]
@@ -509,14 +512,15 @@ mod tests {
         let (profile, _dir) = load_json(r#"{"shortcuts":{"translate":"Alt+Shift+S"}}"#);
         assert_eq!(profile.shortcuts.speak, "");
         // The note is queued for the UI, not silently consumed by the migration.
-        assert!(!profile.notes_seen.iter().any(|note| note == "speak-unbound"));
+        assert!(!profile
+            .notes_seen
+            .iter()
+            .any(|note| note == "speak-unbound"));
     }
 
     #[test]
     fn an_empty_binding_means_unbound() {
-        let (profile, _dir) = load_json(
-            r#"{"shortcuts":{"translate":"","quick":"","speak":""}}"#,
-        );
+        let (profile, _dir) = load_json(r#"{"shortcuts":{"translate":"","quick":"","speak":""}}"#);
         assert_eq!(profile.shortcuts.translate, "");
         assert_eq!(profile.shortcuts.quick, "");
         assert_eq!(profile.shortcuts.speak, "");

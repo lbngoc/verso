@@ -255,7 +255,11 @@ fn build_date(seconds: u64) -> String {
     let mp = (5 * doy + 2) / 153;
     let day = doy - (153 * mp + 2) / 5 + 1;
     let month = if mp < 10 { mp + 3 } else { mp - 9 };
-    let year = if month <= 2 { yoe + era * 400 + 1 } else { yoe + era * 400 };
+    let year = if month <= 2 {
+        yoe + era * 400 + 1
+    } else {
+        yoe + era * 400
+    };
     format!("{year:04}-{month:02}-{day:02}")
 }
 
@@ -346,7 +350,12 @@ where
     if trimmed.is_empty() {
         return None;
     }
-    Some(trimmed.chars().take(crate::core::pipeline::MAX_INPUT_CHARS).collect())
+    Some(
+        trimmed
+            .chars()
+            .take(crate::core::pipeline::MAX_INPUT_CHARS)
+            .collect(),
+    )
 }
 
 /// Speaks the selection in its detected language; a second press stops (R8, FR-009).
@@ -647,7 +656,10 @@ mod tests {
             Some("bonjour".into())
         });
         assert_eq!(text, None);
-        assert!(!called.get(), "the clipboard must not be read when the option is off");
+        assert!(
+            !called.get(),
+            "the clipboard must not be read when the option is off"
+        );
     }
 
     #[test]

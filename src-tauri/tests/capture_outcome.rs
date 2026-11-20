@@ -33,7 +33,12 @@ fn accessibility_never_touches_the_clipboard() {
     let plan = outcome_to_popup_state(&outcome);
     assert_eq!(plan.clipboard, ClipboardState::Untouched);
     assert!(plan.notice.is_none());
-    assert_eq!(plan.popup, PopupState::Status { kind: StatusKind::Translating });
+    assert_eq!(
+        plan.popup,
+        PopupState::Status {
+            kind: StatusKind::Translating
+        }
+    );
 }
 
 #[test]

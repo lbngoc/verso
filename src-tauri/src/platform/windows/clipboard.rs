@@ -268,4 +268,3 @@ pub fn write_text(text: &str) -> Result<(), String> {
         result
     }
 }
-

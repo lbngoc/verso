@@ -72,7 +72,11 @@ pub fn apply_settings(window: &WebviewWindow, appearance: &Appearance) {
         return;
     };
     let build = build_number();
-    let dark: i32 = if appearance.theme == UiTheme::Dark { 1 } else { 0 };
+    let dark: i32 = if appearance.theme == UiTheme::Dark {
+        1
+    } else {
+        0
+    };
     set_attribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &dark.to_ne_bytes());
 
     if build >= 22_621 && !appearance.high_contrast && !appearance.reduce_transparency {

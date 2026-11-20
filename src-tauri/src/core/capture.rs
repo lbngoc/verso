@@ -13,10 +13,16 @@ use crate::platform::{CaptureFailure, CaptureMethod, CaptureOutcome, ClipboardSt
 pub enum PopupState {
     Hidden,
     /// The compact pill shown while translating, or after a Speak with nothing selected.
-    Status { kind: StatusKind },
+    Status {
+        kind: StatusKind,
+    },
     Result,
-    Error { error: EngineError },
-    CaptureFailed { failure: CaptureFailure },
+    Error {
+        error: EngineError,
+    },
+    CaptureFailed {
+        failure: CaptureFailure,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

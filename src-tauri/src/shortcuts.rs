@@ -49,17 +49,25 @@ impl Action {
 pub enum BindingError {
     NoModifier,
     ShiftOnly,
-    Duplicate { action: String },
+    Duplicate {
+        action: String,
+    },
     Reserved,
     /// The OS refused registration; reported after `register_all`.
-    Taken { detail: String },
+    Taken {
+        detail: String,
+    },
 }
 
 const MODIFIERS: [&str; 5] = ["Cmd", "Super", "Ctrl", "Alt", "Shift"];
 
 fn normalise_modifier(name: &str) -> Option<&'static str> {
     match name {
-        "Cmd" | "Command" | "Meta" => Some(if cfg!(target_os = "macos") { "Cmd" } else { "Super" }),
+        "Cmd" | "Command" | "Meta" => Some(if cfg!(target_os = "macos") {
+            "Cmd"
+        } else {
+            "Super"
+        }),
         "Super" | "Win" | "Windows" => Some("Super"),
         "Ctrl" | "Control" => Some("Ctrl"),
         "Alt" | "Option" => Some("Alt"),
@@ -366,7 +374,10 @@ mod tests {
 
     #[test]
     fn a_bare_key_or_shift_alone_is_refused() {
-        assert_eq!(validate_binding("translate", "T", &[]), Err(BindingError::NoModifier));
+        assert_eq!(
+            validate_binding("translate", "T", &[]),
+            Err(BindingError::NoModifier)
+        );
         assert_eq!(
             validate_binding("translate", "Shift+T", &[]),
             Err(BindingError::ShiftOnly)

@@ -111,7 +111,11 @@ async fn check(app: &AppHandle, manual: bool) -> Result<Option<UpdateInfo>, Stri
     let Some(update) = announced else {
         return Ok(None);
     };
-    let skipped_version = app.state::<AppState>().settings.get().skipped_update_version;
+    let skipped_version = app
+        .state::<AppState>()
+        .settings
+        .get()
+        .skipped_update_version;
     let offered = if manual {
         should_offer(env!("CARGO_PKG_VERSION"), &update.version)
     } else {
