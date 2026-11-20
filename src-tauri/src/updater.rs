@@ -265,7 +265,7 @@ pub async fn install_update_on_quit(app: AppHandle) -> Result<(), String> {
 }
 
 /// Runs from `RunEvent::ExitRequested`: installs the verified bytes, if any.
-pub fn install_pending_on_exit(app: &AppHandle) {
+pub fn install_pending_on_exit(_app: &AppHandle) {
     let bytes = pending_bytes().lock().take();
     let Some(bytes) = bytes else {
         return;

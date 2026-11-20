@@ -8,9 +8,7 @@ use std::sync::OnceLock;
 use log::debug;
 use tauri::{AppHandle, Manager};
 use windows::Win32::Foundation::HWND;
-use windows::Win32::UI::Accessibility::{
-    SetWinEventHook, UnhookWinEvent, HWINEVENTHOOK, WINEVENTPROC,
-};
+use windows::Win32::UI::Accessibility::{SetWinEventHook, UnhookWinEvent, HWINEVENTHOOK};
 use windows::Win32::UI::WindowsAndMessaging::{
     GetForegroundWindow, EVENT_SYSTEM_FOREGROUND, WINEVENT_OUTOFCONTEXT,
 };
@@ -56,7 +54,7 @@ pub fn start(app: AppHandle) {
 pub fn stop() {
     let raw = HOOK.swap(0, Ordering::SeqCst);
     if raw != 0 {
-        unsafe { UnhookWinEvent(HWINEVENTHOOK(raw as *mut core::ffi::c_void)) };
+        let _ = unsafe { UnhookWinEvent(HWINEVENTHOOK(raw as *mut core::ffi::c_void)) };
         debug!("removed the foreground hook");
     }
 }

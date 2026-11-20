@@ -24,17 +24,12 @@ pub enum Theme {
 }
 
 /// Where the accent colour comes from (FR-027/FR-028). Unknown values fall back to the app teal.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Accent {
+    #[default]
     App,
     System,
-}
-
-impl Default for Accent {
-    fn default() -> Self {
-        Accent::App
-    }
 }
 
 impl<'de> Deserialize<'de> for Accent {
