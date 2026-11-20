@@ -23,7 +23,7 @@ bạn tự gõ dùng bảng nhập nhanh.
 
 ```sh
 brew tap lbngoc/verso
-brew install --cask verso
+brew install --cask lbngoc/verso/verso
 ```
 
 Cask tự xoá cờ quarantine sau khi cài nên bản preview mở được ngay, không hiện cảnh báo Gatekeeper. Không cần

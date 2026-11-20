@@ -30,7 +30,7 @@ clicking it again closes it. While the panel is open, Speak does nothing and Tra
 
 ```sh
 brew tap lbngoc/verso
-brew install --cask verso
+brew install --cask lbngoc/verso/verso
 ```
 
 The cask clears the download quarantine flag after installing, so the preview opens without the Gatekeeper

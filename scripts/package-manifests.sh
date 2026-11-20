@@ -81,7 +81,7 @@ cask = f'''cask "verso" do
   app "Verso.app"
 
   auto_updates true
-  depends_on macos: ">= :ventura"
+  depends_on macos: :ventura
 
   postflight do
     target = "#{{appdir}}/Verso.app"

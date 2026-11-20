@@ -18,7 +18,7 @@ with Homebrew:
 
 ```sh
 brew tap lbngoc/verso
-brew install --cask verso
+brew install --cask lbngoc/verso/verso
 ```
 
 The guides (install, troubleshooting, privacy, terms) live in

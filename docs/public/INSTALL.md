@@ -16,7 +16,7 @@ Take the installer from the [latest release](../../releases/latest) page. The fi
 
 ```sh
 brew tap lbngoc/verso
-brew install --cask verso
+brew install --cask lbngoc/verso/verso
 ```
 
 The cask removes the download quarantine flag after installing, so the first-launch warning below does not
