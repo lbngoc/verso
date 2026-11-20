@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- Starts without a Dock icon; window_manager switches to Regular while a main window is open
+       (spec 009 FR-053). -->
+  <key>LSUIElement</key>
+  <true/>
+</dict>
+</plist>

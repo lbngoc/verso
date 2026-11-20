@@ -3,6 +3,7 @@ pub mod autostart;
 pub mod commands;
 pub mod core;
 pub mod engines;
+pub mod links;
 pub mod platform;
 pub mod report;
 pub mod shortcuts;
@@ -73,6 +74,11 @@ pub fn run() {
     builder
         .setup(|app| {
             let handle = app.handle().clone();
+
+            // Tray-only until a main window opens (FR-053). The bundle's LSUIElement does the same
+            // for release builds; this covers `tauri dev`, which runs without the Info.plist.
+            #[cfg(target_os = "macos")]
+            app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
             log::info!(
                 "accessibility permission at startup: {:?}",
@@ -214,6 +220,7 @@ pub fn run() {
             commands::request_permission,
             commands::detect_language,
             commands::open_url,
+            commands::open_public_page,
             commands::app_info,
             commands::open_update_window,
             commands::update_mode,

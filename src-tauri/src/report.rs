@@ -14,7 +14,7 @@ use crate::core::settings::SettingsProfile;
 /// Issue form the URL targets (authored in `docs/public/.github/ISSUE_TEMPLATE/`).
 pub const ISSUE_TEMPLATE: &str = "bug_report.yml";
 /// Endpoint for a new issue; the form is read from the public repository.
-pub const ISSUE_URL: &str = "https://github.com/lbngoc/verso-translate/issues/new";
+pub use crate::links::ISSUE_URL;
 /// GitHub truncates long URLs; staying below this keeps the form prefill intact.
 pub const MAX_URL_CHARS: usize = 6_000;
 /// The clipboard copy carries the whole redacted log, bounded so it stays pasteable.

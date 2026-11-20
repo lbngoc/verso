@@ -280,6 +280,10 @@ pub fn translate_action(quick_visible: bool, quick_offscreen: bool) -> Translate
 }
 
 pub fn trigger_translate(app: &AppHandle) {
+    // Setup is the only window while it is open (FR-052).
+    if window_manager::focus_setup_if_open(app) {
+        return;
+    }
     if translate_action(
         window_manager::quick_is_visible(app),
         window_manager::quick_is_offscreen(app),

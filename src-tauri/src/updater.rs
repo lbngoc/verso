@@ -103,10 +103,18 @@ fn auto_check_enabled(app: &AppHandle) -> bool {
     )
 }
 
+const CHECK_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(15);
+
 async fn check(app: &AppHandle, manual: bool) -> Result<Option<UpdateInfo>, String> {
     use tauri_plugin_updater::UpdaterExt;
 
-    let updater = app.updater().map_err(|error| error.to_string())?;
+    // Without a timeout an offline Mac waits for the OS connect timeout (~75 s) while About shows
+    // "Checking…"; 15 s is plenty for a small JSON file.
+    let updater = app
+        .updater_builder()
+        .timeout(CHECK_TIMEOUT)
+        .build()
+        .map_err(|error| error.to_string())?;
     let announced = updater.check().await.map_err(|error| error.to_string())?;
     let Some(update) = announced else {
         return Ok(None);

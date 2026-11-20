@@ -303,6 +303,13 @@ pub fn open_url(app: AppHandle, url: String) -> Result<(), String> {
         .map_err(|error| error.to_string())
 }
 
+/// Opens one of the About pages by name; the URLs live in `links.rs`, not in the webview.
+#[tauri::command]
+pub fn open_public_page(app: AppHandle, page: String) -> Result<(), String> {
+    let url = crate::links::page_url(&page).ok_or_else(|| format!("unknown page: {page}"))?;
+    open_url(app, url.to_string())
+}
+
 #[tauri::command]
 pub fn detect_language(text: String) -> Option<String> {
     langdetect::detect_language(&text)

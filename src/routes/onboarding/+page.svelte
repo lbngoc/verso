@@ -77,7 +77,8 @@
     await commands.updateSettings({ check_updates: checkUpdates }).catch(() => undefined);
     await commands.completeEngineChoice(disabled, order).catch(() => undefined);
     try {
-      await getCurrentWindow().hide();
+      // Closed, not hidden: the last main window going away hides the Dock icon (FR-053).
+      await getCurrentWindow().close();
     } catch {
       /* browser preview */
     }

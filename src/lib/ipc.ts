@@ -226,6 +226,9 @@ export const commands = {
   appInfo: () => invoke<AppInfo>("app_info"),
   hideUpdateWindow: () => invoke<void>("hide_update_window"),
   openUrl: (url: string) => invoke<void>("open_url", { url }),
+  /** About links; the URLs live in `src-tauri/src/links.rs`. */
+  openPublicPage: (page: "home" | "terms" | "privacy" | "licences") =>
+    invoke<void>("open_public_page", { page }),
   reportProblem: () => invoke<string>("report_problem"),
   copyDiagnostics: () => invoke<string>("copy_diagnostics"),
 };

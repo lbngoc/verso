@@ -301,6 +301,9 @@ pub fn hide_popup(app: &AppHandle) {
 
 /// Opens the quick panel and gives it focus (the user is about to type).
 pub fn show_quick(app: &AppHandle) -> tauri::Result<()> {
+    if focus_setup_if_open(app) {
+        return Ok(());
+    }
     let Some(window) = quick_window(app) else {
         return Ok(());
     };
@@ -349,9 +352,11 @@ pub fn toggle_quick(app: &AppHandle) {
 /// Settings is created on first use, never at startup: every extra webview costs ~15–30 MB of
 /// idle memory and the app must stay under the 150 MB budget (SC-003).
 pub fn show_settings(app: &AppHandle) {
+    if focus_setup_if_open(app) {
+        return;
+    }
     if let Some(window) = app.get_webview_window("settings") {
-        let _ = window.show();
-        let _ = window.set_focus();
+        bring_to_front(app, &window);
         return;
     }
     open_settings(app, "settings.html");
@@ -361,9 +366,11 @@ pub fn show_settings(app: &AppHandle) {
 /// mount (the hash alone is not reliable across webviews), an open one receives `settings-section`
 /// and scrolls there (T025).
 pub fn show_settings_section(app: &AppHandle, section: &str) {
+    if focus_setup_if_open(app) {
+        return;
+    }
     if let Some(window) = app.get_webview_window("settings") {
-        let _ = window.show();
-        let _ = window.set_focus();
+        bring_to_front(app, &window);
         let _ = window.emit("settings-section", section);
         return;
     }
@@ -414,6 +421,7 @@ fn open_settings(app: &AppHandle, url: &str) {
                     let _ = crate::shortcuts::resume(&handle);
                 }
             });
+            track_main_window(app, &window);
         }
         Err(error) => warn!("could not open Settings: {error}"),
     }
@@ -433,10 +441,12 @@ pub fn take_update_mode() -> String {
 
 /// Opens (or focuses) the update dialog: 600 × 460, not resizable, created hidden (R14).
 pub fn open_update_window(app: &AppHandle, mode: &str) {
+    if focus_setup_if_open(app) {
+        return;
+    }
     *UPDATE_MODE.lock() = mode.to_string();
     if let Some(window) = app.get_webview_window("update") {
-        let _ = window.show();
-        let _ = window.set_focus();
+        bring_to_front(app, &window);
         let _ = window.emit("update-mode", mode);
         return;
     }
@@ -451,8 +461,72 @@ pub fn open_update_window(app: &AppHandle, mode: &str) {
     .resizable(false)
     .visible(false);
     match builder.build() {
-        Ok(window) => reveal_on_ready(app, &window),
+        Ok(window) => {
+            reveal_on_ready(app, &window);
+            track_main_window(app, &window);
+        }
         Err(error) => warn!("could not open the update window: {error}"),
+    }
+}
+
+/// Setup, Settings and the update dialog: the windows that give Verso a Dock icon (FR-053).
+const MAIN_WINDOWS: [&str; 3] = ["onboarding", "settings", "update"];
+
+fn is_shown(app: &AppHandle, label: &str) -> bool {
+    app.get_webview_window(label)
+        .is_some_and(|window| window.is_visible().unwrap_or(false))
+}
+
+/// While Setup is open nothing else opens: it comes to the front instead (FR-052).
+pub fn focus_setup_if_open(app: &AppHandle) -> bool {
+    let Some(window) = app.get_webview_window("onboarding") else {
+        return false;
+    };
+    if !window.is_visible().unwrap_or(false) {
+        return false;
+    }
+    bring_to_front(app, &window);
+    true
+}
+
+fn bring_to_front(app: &AppHandle, window: &WebviewWindow) {
+    set_dock_icon(app, true);
+    let _ = window.unminimize();
+    let _ = window.show();
+    let _ = window.set_focus();
+}
+
+/// When a main window is destroyed and no other one is shown, Verso goes back to the tray alone.
+fn track_main_window(app: &AppHandle, window: &WebviewWindow) {
+    let handle = app.clone();
+    let label = window.label().to_string();
+    window.on_window_event(move |event| {
+        if matches!(event, tauri::WindowEvent::Destroyed) {
+            let others = MAIN_WINDOWS
+                .iter()
+                .any(|other| *other != label && is_shown(&handle, other));
+            if !others {
+                set_dock_icon(&handle, false);
+            }
+        }
+    });
+}
+
+/// macOS: `Regular` (Dock icon, Cmd+Tab, menu bar) while a main window is open, `Accessory`
+/// otherwise; the bundle starts as `LSUIElement`. Windows needs nothing: only the popup and the
+/// quick panel skip the taskbar, and the main windows are destroyed when closed.
+#[allow(unused_variables)]
+fn set_dock_icon(app: &AppHandle, visible: bool) {
+    #[cfg(target_os = "macos")]
+    {
+        let policy = if visible {
+            tauri::ActivationPolicy::Regular
+        } else {
+            tauri::ActivationPolicy::Accessory
+        };
+        if let Err(error) = app.set_activation_policy(policy) {
+            warn!("could not change the activation policy: {error}");
+        }
     }
 }
 
@@ -475,9 +549,13 @@ fn reveal_on_ready(app: &AppHandle, window: &WebviewWindow) {
 
 fn show_ready_window(app: &AppHandle, window: &WebviewWindow) {
     let window = window.clone();
-    let _ = app.run_on_main_thread(move || {
+    let app = app.clone();
+    let _ = app.clone().run_on_main_thread(move || {
         if window.is_visible().unwrap_or(false) {
             return;
+        }
+        if MAIN_WINDOWS.contains(&window.label()) {
+            set_dock_icon(&app, true);
         }
         let _ = window.show();
         let _ = window.set_focus();
@@ -533,9 +611,14 @@ pub fn show_permission_onboarding(app: &AppHandle) {
 }
 
 pub fn show_onboarding(app: &AppHandle) {
+    // Setup takes over: it is the only main window while it is open (FR-052).
+    for label in ["settings", "update"] {
+        if let Some(window) = app.get_webview_window(label) {
+            let _ = window.close();
+        }
+    }
     if let Some(window) = app.get_webview_window("onboarding") {
-        let _ = window.show();
-        let _ = window.set_focus();
+        bring_to_front(app, &window);
         return;
     }
     match tauri::WebviewWindowBuilder::new(
@@ -552,6 +635,7 @@ pub fn show_onboarding(app: &AppHandle) {
         Ok(window) => {
             // Same hidden-until-ready rule as Settings (R13).
             reveal_on_ready(app, &window);
+            track_main_window(app, &window);
         }
         Err(error) => warn!("could not open onboarding: {error}"),
     }
