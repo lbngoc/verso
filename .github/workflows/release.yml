@@ -366,6 +366,7 @@ jobs:
           find "$workdir" -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
           cp docs/public/*.md "$workdir"/
           cp -R docs/public/.github "$workdir"/.github
+          cp -R docs/public/assets "$workdir"/assets
           cp THIRD_PARTY.md "$workdir"/
           scripts/check-public-tree.sh "$workdir"
           git -C "$workdir" config user.name "github-actions[bot]"

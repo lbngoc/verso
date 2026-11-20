@@ -9,6 +9,8 @@
 #   README.md README_vi.md INSTALL.md TROUBLESHOOTING.md PRIVACY.md TERMS.md CHANGELOG.md THIRD_PARTY.md SECURITY.md
 # Allowed in .github/ISSUE_TEMPLATE (revision 3, FR-019):
 #   bug_report.yml feature_request.yml config.yml
+# Allowed in assets/ (the README logo):
+#   logo.png
 set -euo pipefail
 
 ALLOWED=(
@@ -29,13 +31,18 @@ ALLOWED_ISSUE_FORMS=(
   .github/ISSUE_TEMPLATE/config.yml
 )
 
+ALLOWED_ASSETS=(
+  assets/logo.png
+)
+
 ALLOWED_DIRS=(
   .github
   .github/ISSUE_TEMPLATE
+  assets
 )
 
 usage() {
-  sed -n '2,13p' "$0"
+  sed -n '2,15p' "$0"
   exit 2
 }
 
@@ -50,6 +57,9 @@ is_allowed() {
     [[ "$name" == "$allowed" ]] && return 0
   done
   for allowed in "${ALLOWED_ISSUE_FORMS[@]}"; do
+    [[ "$name" == "$allowed" ]] && return 0
+  done
+  for allowed in "${ALLOWED_ASSETS[@]}"; do
     [[ "$name" == "$allowed" ]] && return 0
   done
   return 1
@@ -171,6 +181,18 @@ self_test() {
   make_good "$root"
   printf 'name: Extra\n' >"$root/.github/ISSUE_TEMPLATE/other.yml"
   expect_fail "an unexpected issue form" "$root"
+
+  root="$tmp/logo"
+  make_good "$root"
+  mkdir -p "$root/assets"
+  printf 'png\n' >"$root/assets/logo.png"
+  expect_ok "the README logo" "$root"
+
+  root="$tmp/asset"
+  make_good "$root"
+  mkdir -p "$root/assets"
+  printf 'png\n' >"$root/assets/other.png"
+  expect_fail "an unexpected asset" "$root"
 
   root="$tmp/workflows"
   make_good "$root"

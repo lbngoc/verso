@@ -1,5 +1,5 @@
 <h1 align="center">
-  <img src="https://raw.githubusercontent.com/lbngoc/verso/main/src-tauri/icons/128x128.png" alt="Verso Logo" width="128" height="128"><br>
+  <img src="assets/logo.png" alt="Verso Logo" width="128" height="128"><br>
   Verso Translate
 </h1>
 
