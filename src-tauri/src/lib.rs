@@ -8,6 +8,7 @@ pub mod platform;
 pub mod report;
 pub mod shortcuts;
 pub mod tray;
+pub mod ui_text;
 pub mod updater;
 pub mod window_manager;
 
@@ -151,7 +152,11 @@ pub fn run() {
             // The tray shows the current bindings, so a settings change rebuilds it (spec 009 T034).
             {
                 let tray_handle = handle.clone();
-                handle.listen("settings-changed", move |_| tray::rebuild(&tray_handle));
+                handle.listen("settings-changed", move |_| {
+                    tray::rebuild(&tray_handle);
+                    // A UI language change also renames the open windows (FR-019).
+                    window_manager::retitle_main_windows(&tray_handle);
+                });
             }
 
             // T059: after an update macOS may keep the old Accessibility entry switched on while the new
@@ -225,7 +230,6 @@ pub fn run() {
             commands::open_update_window,
             commands::update_mode,
             commands::hide_update_window,
-            commands::list_modules,
             commands::list_languages,
             commands::get_appearance,
             commands::hide_popup,

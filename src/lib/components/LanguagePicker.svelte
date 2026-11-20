@@ -1,6 +1,6 @@
 <script lang="ts">
   import Icon from "./Icon.svelte";
-  import { t as translator } from "$lib/i18n";
+  import { langName, t as translator } from "$lib/i18n";
   import type { Language } from "$lib/ipc";
 
   let {
@@ -48,7 +48,10 @@
   const selectedLabel = $derived(
     value === "auto"
       ? (autoLabel ?? $translator("quick.auto_detect"))
-      : (languages.find((item) => item.code === value)?.name_en ?? value),
+      : (() => {
+          const language = languages.find((item) => item.code === value);
+          return language ? $langName(language) : value;
+        })(),
   );
 
   const recentLanguages = $derived(
@@ -62,6 +65,7 @@
       ? languages.filter(
           (item) =>
             item.name_en.toLowerCase().includes(filter.toLowerCase()) ||
+            $langName(item).toLowerCase().includes(filter.toLowerCase()) ||
             item.name_native.toLowerCase().includes(filter.toLowerCase()) ||
             item.code.toLowerCase().includes(filter.toLowerCase()),
         )
@@ -123,7 +127,7 @@
                 onclick={() => choose(language.code)}
               >
                 <span dir="auto">{language.name_native}</span>
-                <span class="muted">{language.name_en}</span>
+                <span class="muted">{$langName(language)}</span>
               </button>
             </li>
           {/each}
@@ -137,7 +141,7 @@
               onclick={() => choose(language.code)}
             >
               <span dir="auto">{language.name_native}</span>
-              <span class="muted">{language.name_en}</span>
+              <span class="muted">{$langName(language)}</span>
             </button>
           </li>
         {/each}

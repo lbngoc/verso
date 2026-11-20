@@ -12,7 +12,6 @@ use crate::core::engine::{Availability, EngineInfo, Origin, TranslationResult};
 use crate::core::errors::EngineError;
 use crate::core::langdetect;
 use crate::core::languages::{self, Language};
-use crate::core::modules::{self, ModuleInfo};
 use crate::core::pipeline::Pipeline;
 use crate::core::registry::Registry;
 use crate::core::settings::{SettingsProfile, SettingsStore};
@@ -414,11 +413,6 @@ pub async fn speak_selection(app: AppHandle, state: State<'_, AppState>) -> Resu
         text.chars().count()
     );
     platform::services().speak(&text, &lang)
-}
-
-#[tauri::command]
-pub fn list_modules() -> Vec<ModuleInfo> {
-    modules::list_modules()
 }
 
 #[tauri::command]

@@ -33,7 +33,7 @@
   function refuseMessage(error: BindingError): string {
     switch (error.reason) {
       case "no_modifier":
-        return $t("shortcut.err.no_modifier");
+        return $t(mac ? "shortcut.err.no_modifier_mac" : "shortcut.err.no_modifier_windows");
       case "shift_only":
         return $t("shortcut.err.shift_only");
       case "duplicate":

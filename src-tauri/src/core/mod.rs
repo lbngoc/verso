@@ -4,7 +4,6 @@ pub mod errors;
 pub mod langdetect;
 pub mod languages;
 pub mod logging;
-pub mod modules;
 pub mod pipeline;
 pub mod registry;
 pub mod settings;

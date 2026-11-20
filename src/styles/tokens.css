@@ -43,8 +43,8 @@
   --stroke: rgba(0, 0, 0, 0.14);
   --hover: rgba(0, 0, 0, 0.06);
   --danger: #c4271f;
-  --warning: #a35200;
-  --success: #1d7a3a;
+  --warning: #9a4c00;
+  --success: #1a7235;
 }
 
 [data-theme="dark"] {

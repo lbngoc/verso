@@ -76,12 +76,14 @@
       <dd>{$t("settings.keys_text_size")}</dd>
       <dt><Keycap label="Esc" /></dt>
       <dd>{$t("popup.close")}</dd>
+      <dt><Keycap label={mac ? "⌘," : "Ctrl+,"} /></dt>
+      <dd>{$t("quick.key_settings")}</dd>
 
       <dt class="group">{$t("settings.keys_panel_only")}</dt>
       <dd class="group-gap"></dd>
-      <dt><Keycap label="Tab" /></dt>
+      <dt><Keycap label="⇥" /></dt>
       <dd>{$t("quick.swap")}</dd>
-      <dt><Keycap label="Enter" /></dt>
+      <dt><Keycap label="↵" /></dt>
       <dd>{$t("settings.keys_translate_now")}</dd>
       <dt><Keycap label="Esc" /></dt>
       <dd>{$t("settings.keys_close_from_input")}</dd>

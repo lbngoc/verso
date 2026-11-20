@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { contrastRatio, MATERIAL_COLOURS, APP_ACCENT, pickAccent } from "../lib/theme-tokens";
 
@@ -89,5 +91,51 @@ describe("accent tokens (spec 009 FR-027/FR-028)", () => {
   it("falls back to the app values when there is no system accent", () => {
     expect(pickAccent(null, "light")).toEqual(APP_ACCENT.light);
     expect(pickAccent(null, "dark")).toEqual(APP_ACCENT.dark);
+  });
+});
+
+describe("status colours (spec 009 FR-029, FR-043)", () => {
+  // Read from tokens.css so the test follows the shipped values.
+  const css = readFileSync(resolve(__dirname, "tokens.css"), "utf8");
+  function block(selector: string): Record<string, string> {
+    const start = css.indexOf(`${selector} {`);
+    const body = css.slice(start, css.indexOf("}", start));
+    return Object.fromEntries(
+      [...body.matchAll(/--([\w-]+):\s*(#[0-9a-fA-F]{6})/g)].map((match) => [match[1], match[2]]),
+    );
+  }
+  const themes = { light: block('[data-theme="light"]'), dark: block('[data-theme="dark"]') };
+
+  // `color-mix(in srgb, <token> N%, transparent)` painted over a surface.
+  function tint(colour: string, surface: string, share: number): string {
+    const channels = (hex: string) => [1, 3, 5].map((at) => parseInt(hex.slice(at, at + 2), 16));
+    const mixed = channels(colour).map((value, index) =>
+      Math.round(value * share + channels(surface)[index] * (1 - share)),
+    );
+    return `#${mixed.map((value) => value.toString(16).padStart(2, "0")).join("")}`;
+  }
+
+  it("warning and success text reach 4.5:1 on their badges and on cards, both themes", () => {
+    for (const [theme, tokens] of Object.entries(themes)) {
+      for (const surfaceName of ["surface-opaque", "surface-raised"]) {
+        const surface = tokens[surfaceName];
+        expect(surface, `${theme} ${surfaceName}`).toBeDefined();
+        for (const [token, share] of [
+          ["warning", 0.16],
+          ["success", 0.14],
+        ] as const) {
+          const colour = tokens[token];
+          expect(colour, `${theme} --${token}`).toBeDefined();
+          expect(
+            contrastRatio(colour, surface),
+            `${theme} --${token} on ${surfaceName}`,
+          ).toBeGreaterThanOrEqual(4.5);
+          expect(
+            contrastRatio(colour, tint(colour, surface, share)),
+            `${theme} --${token} on its badge over ${surfaceName}`,
+          ).toBeGreaterThanOrEqual(4.5);
+        }
+      }
+    }
   });
 });

@@ -5,11 +5,6 @@ export interface NoticeItem {
   params?: Record<string, string | number>;
 }
 
-export function languageLabel(code: string, languages: Language[]): string {
-  const language = languages.find((item) => item.code.toLowerCase() === code.toLowerCase());
-  return language ? language.name_en : code;
-}
-
 /** Notices shown with a result (popup-ui-contract § States). */
 export function buildNotices(result: TranslationResult, extra: NoticeItem[] = []): NoticeItem[] {
   const notices: NoticeItem[] = [];

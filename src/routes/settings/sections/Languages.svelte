@@ -1,7 +1,7 @@
 <script lang="ts">
   import Card from "$lib/components/Card.svelte";
   import SettingRow from "$lib/components/SettingRow.svelte";
-  import { t } from "$lib/i18n";
+  import { langName, t } from "$lib/i18n";
   import type { Language, SettingsProfile } from "$lib/ipc";
 
   let {
@@ -23,7 +23,7 @@
       onchange={(event) => void onupdate({ target_lang: event.currentTarget.value })}
     >
       {#each languages as language (language.code)}
-        <option value={language.code}>{language.name_en}</option>
+        <option value={language.code}>{$langName(language)}</option>
       {/each}
     </select>
   </SettingRow>
@@ -34,7 +34,7 @@
       onchange={(event) => void onupdate({ secondary_lang: event.currentTarget.value })}
     >
       {#each languages as language (language.code)}
-        <option value={language.code}>{language.name_en}</option>
+        <option value={language.code}>{$langName(language)}</option>
       {/each}
     </select>
   </SettingRow>
@@ -46,7 +46,7 @@
     >
       <option value="auto">{$t("quick.auto_detect")}</option>
       {#each languages as language (language.code)}
-        <option value={language.code}>{language.name_en}</option>
+        <option value={language.code}>{$langName(language)}</option>
       {/each}
     </select>
   </SettingRow>

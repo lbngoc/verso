@@ -81,20 +81,47 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     let quick_accel = settings.shortcuts.quick.clone();
     let accel = |value: String| (!value.trim().is_empty()).then_some(value);
 
+    use crate::ui_text::{text, Text};
+    let ui = settings.ui_language.as_str();
+
     let translate = MenuItem::with_id(
         app,
         "translate",
-        "Translate Selection",
+        text(ui, Text::TranslateSelection),
         true,
         accel(translate_accel),
     )?;
-    let speak = MenuItem::with_id(app, "speak", "Speak Selection", true, accel(speak_accel))?;
-    let quick = MenuItem::with_id(app, "quick", "Quick Input…", true, accel(quick_accel))?;
-    let settings_item = MenuItem::with_id(app, "settings", "Settings…", true, None::<&str>)?;
-    let about = MenuItem::with_id(app, "about", "About Verso", true, None::<&str>)?;
-    let report = MenuItem::with_id(app, "report", "Report a problem…", true, None::<&str>)?;
+    let speak = MenuItem::with_id(
+        app,
+        "speak",
+        text(ui, Text::SpeakSelection),
+        true,
+        accel(speak_accel),
+    )?;
+    let quick = MenuItem::with_id(
+        app,
+        "quick",
+        text(ui, Text::QuickInput),
+        true,
+        accel(quick_accel),
+    )?;
+    let settings_item = MenuItem::with_id(
+        app,
+        "settings",
+        text(ui, Text::Settings),
+        true,
+        None::<&str>,
+    )?;
+    let about = MenuItem::with_id(app, "about", text(ui, Text::About), true, None::<&str>)?;
+    let report = MenuItem::with_id(
+        app,
+        "report",
+        text(ui, Text::ReportProblem),
+        true,
+        None::<&str>,
+    )?;
     let separator = PredefinedMenuItem::separator(app)?;
-    let quit = MenuItem::with_id(app, "quit", "Quit Verso", true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit", text(ui, Text::Quit), true, None::<&str>)?;
 
     let update = update_version()
         .lock()
@@ -103,7 +130,7 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
             MenuItem::with_id(
                 app,
                 "update",
-                format!("Update available — v{version}"),
+                text(ui, Text::UpdateAvailable).replace("{version}", &version),
                 true,
                 None::<&str>,
             )

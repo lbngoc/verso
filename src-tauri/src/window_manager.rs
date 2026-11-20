@@ -390,7 +390,10 @@ static SETTINGS_SECTION: std::sync::Mutex<Option<String>> = std::sync::Mutex::ne
 fn open_settings(app: &AppHandle, url: &str) {
     let builder =
         tauri::WebviewWindowBuilder::new(app, "settings", tauri::WebviewUrl::App(url.into()))
-            .title("Verso Settings")
+            .title(crate::ui_text::current(
+                app,
+                crate::ui_text::Text::SettingsTitle,
+            ))
             .inner_size(780.0, 560.0)
             .min_inner_size(640.0, 460.0)
             .resizable(true)
@@ -455,7 +458,10 @@ pub fn open_update_window(app: &AppHandle, mode: &str) {
         "update",
         tauri::WebviewUrl::App("update.html".into()),
     )
-    .title("Software Update")
+    .title(crate::ui_text::current(
+        app,
+        crate::ui_text::Text::UpdateTitle,
+    ))
     .inner_size(600.0, 460.0)
     .min_inner_size(600.0, 460.0)
     .resizable(false)
@@ -466,6 +472,20 @@ pub fn open_update_window(app: &AppHandle, mode: &str) {
             track_main_window(app, &window);
         }
         Err(error) => warn!("could not open the update window: {error}"),
+    }
+}
+
+/// Renames the open main windows after the UI language changed.
+pub fn retitle_main_windows(app: &AppHandle) {
+    use crate::ui_text::{current, Text};
+    for (label, key) in [
+        ("settings", Text::SettingsTitle),
+        ("update", Text::UpdateTitle),
+        ("onboarding", Text::WelcomeTitle),
+    ] {
+        if let Some(window) = app.get_webview_window(label) {
+            let _ = window.set_title(current(app, key));
+        }
     }
 }
 
@@ -626,7 +646,10 @@ pub fn show_onboarding(app: &AppHandle) {
         "onboarding",
         tauri::WebviewUrl::App("onboarding.html".into()),
     )
-    .title("Welcome to Verso")
+    .title(crate::ui_text::current(
+        app,
+        crate::ui_text::Text::WelcomeTitle,
+    ))
     .inner_size(560.0, 600.0)
     .resizable(false)
     .visible(false)
