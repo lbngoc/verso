@@ -9,8 +9,8 @@
 #   README.md README_vi.md INSTALL.md TROUBLESHOOTING.md PRIVACY.md TERMS.md CHANGELOG.md THIRD_PARTY.md SECURITY.md
 # Allowed in .github/ISSUE_TEMPLATE (revision 3, FR-019):
 #   bug_report.yml feature_request.yml config.yml
-# Allowed in assets/ (the README logo):
-#   logo.png
+# Allowed in assets/ (the README logo and screenshot):
+#   logo.png screenshot.png
 set -euo pipefail
 
 ALLOWED=(
@@ -33,6 +33,7 @@ ALLOWED_ISSUE_FORMS=(
 
 ALLOWED_ASSETS=(
   assets/logo.png
+  assets/screenshot.png
 )
 
 ALLOWED_DIRS=(

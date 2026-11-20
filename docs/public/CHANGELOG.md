@@ -5,6 +5,29 @@ the release tag, so a tag needs its section before it is pushed.
 
 ## Unreleased
 
+## 0.1.5 — 2026-11-20
+
+Polish for first-run setup, Settings and the quick panel, after trying 0.1.4 on a Mac.
+
+### Added
+
+- A theme choice (System, Light, Dark) on the first step of setup; it applies at once.
+- Key hints in the quick panel footer: `↵` Translate, `Esc` Back or Close, `⇥` Swap and `⌘,` Settings. The
+  keys that work in the current focus are highlighted. The result popup shows `Esc` Close.
+- `Cmd+,` (`Ctrl+,` on Windows) opens Settings from the popup and the quick panel.
+
+### Changed
+
+- A missing Accessibility permission is shown as an amber warning with an icon, in setup and in
+  **Settings › Permissions**; a granted one as a green badge.
+- First-run setup fits its window without a scrollbar, and its main buttons have an arrow that slides on hover.
+- The quick panel has more even spacing between its parts.
+- The empty **Modules** section is gone from Settings.
+
+### Fixed
+
+- With the Settings sidebar collapsed on macOS, the toggle no longer sits under the window buttons.
+
 ## 0.1.4 — 2026-11-20
 
 A refreshed interface: a new logo, a settings window, and a faster way to translate and listen.
