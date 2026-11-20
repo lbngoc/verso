@@ -28,6 +28,15 @@ brew install --cask lbngoc/verso/verso
 > **Updates:** Verso updates itself once you agree to the daily check, so `brew upgrade` is not needed
 > (the cask is marked `auto_updates`).
 
+### 🪟 winget (Windows)
+
+```powershell
+winget install lbngoc.Verso
+```
+
+> **Updates:** Verso updates itself once you agree to the daily check, so `winget upgrade` is not needed.
+> Windows SmartScreen still asks for one confirmation, because the installer is not code-signed yet.
+
 ### 📦 Manual download
 
 |    System    |  Status  |                                          Download                                          | Guide                         |

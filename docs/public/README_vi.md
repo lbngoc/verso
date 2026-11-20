@@ -28,6 +28,15 @@ brew install --cask lbngoc/verso/verso
 > **Cập nhật:** Verso tự cập nhật sau khi bạn đồng ý kiểm tra hằng ngày nên không cần `brew upgrade`
 > (cask đặt `auto_updates`).
 
+### 🪟 winget (Windows)
+
+```powershell
+winget install lbngoc.Verso
+```
+
+> **Cập nhật:** Verso tự cập nhật sau khi bạn đồng ý kiểm tra hằng ngày nên không cần `winget upgrade`.
+> SmartScreen vẫn hỏi xác nhận một lần vì bộ cài chưa được ký số.
+
 ### 📦 Tải thủ công
 
 |  Hệ điều hành  | Trạng thái |                                         Tải xuống                                          | Hướng dẫn                         |
