@@ -5,6 +5,38 @@ the release tag, so a tag needs its section before it is pushed.
 
 ## Unreleased
 
+## 0.1.6 — 2026-11-21
+
+Verso now behaves like a menu-bar app, uses less memory when idle, and checks for updates inside
+**Settings › About**.
+
+### Changed
+
+- Verso lives in the menu bar (the notification area on Windows). It shows a Dock icon and a Cmd+Tab
+  entry (a taskbar button and an Alt+Tab entry on Windows) only while setup, Settings or the update window
+  is open.
+- Only one main window at a time: while setup is open, Settings, the update window, the popup and the
+  quick panel wait until it is finished. The update window can still open next to Settings.
+- **Check for Updates…** checks right in **Settings › About**: it says when you already have the newest
+  version or when the update service cannot be reached, and opens the update window only when there is a
+  new version to install. The check gives up after 15 seconds instead of waiting much longer offline.
+- The quick panel is created the first time you open it, which saves memory while Verso is idle; that
+  first opening can take a moment longer.
+- With the Vietnamese interface, language names, the tray menu, the tray tooltip and window titles are
+  in Vietnamese too.
+- The links in **Settings › About** open the public `verso-translate` repository; **Terms** opens the
+  terms of use and a **Privacy** link was added.
+- The key list in **Settings › Popup & panel** includes `⌘,` / `Ctrl+,` (Settings).
+- The shortcut recorder names only the modifier keys of your system.
+- The tray mark is taller with a bolder V, so it is easier to read in the menu bar and the notification
+  area.
+
+### Fixed
+
+- The warning and success colours are slightly darker in the light theme, so their text is easier to read.
+- `Ctrl+,` in the result popup on Windows opens Settings in front of the app you were using, not behind it.
+- Release notes in the update window keep a long bullet together instead of splitting it.
+
 ## 0.1.5 — 2026-11-20
 
 Polish for first-run setup, Settings and the quick panel, after trying 0.1.4 on a Mac.

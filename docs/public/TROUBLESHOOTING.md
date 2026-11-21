@@ -35,7 +35,8 @@ right-clicking Verso in Applications and choosing **Open**.)
 
 ## The shortcut does nothing
 
-- Make sure Verso is running: the two-arrow mark is in the menu bar or the notification area.
+- Make sure Verso is running: the two-arrow mark is in the menu bar or the notification area. Verso has no
+  Dock icon or taskbar button while its windows are closed; that is expected.
 - The combination may belong to another app or be reserved by the system. Change it in
   **Settings › Shortcuts** (the recorder refuses those with a reason); a conflict is reported
   when you save.

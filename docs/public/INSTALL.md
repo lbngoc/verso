@@ -58,6 +58,8 @@ quarantine flag, and Accessibility is asked for as in step 3.
    your password). Without it, translating a selection cannot read the text; the quick panel still works.
 4. Start Verso. The mark (two arrows) appears in the menu bar. Select some text in another app and press
    `Alt+Shift+Z`; the result appears next to the selection. `Alt+Shift+T` opens the quick panel.
+   Verso runs from the menu bar: it has no Dock icon while you are not using one of its windows (setup,
+   Settings or the update window).
 
 Verso starts with the system at login only if **Launch at login** is enabled in Settings.
 
