@@ -26,6 +26,25 @@ describe("parseMarkdown", () => {
     expect(lists[1]).toMatchObject({ ordered: true });
   });
 
+  it("joins wrapped lines to their list item (T141)", () => {
+    const blocks = parseMarkdown(
+      "- Key hints in the footer: `↵` Translate and `⌘,`\n  Settings. The keys that work are highlighted.\n- Second item",
+    );
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0].type).toBe("list");
+    if (blocks[0].type !== "list") return;
+    expect(blocks[0].items).toHaveLength(2);
+    const text = blocks[0].items[0].spans.map((span) => span.value).join("");
+    expect(text).toBe(
+      "Key hints in the footer: ↵ Translate and ⌘, Settings. The keys that work are highlighted.",
+    );
+  });
+
+  it("ends a list at a blank line before a paragraph", () => {
+    const blocks = parseMarkdown("- item\n\nParagraph after.");
+    expect(blocks.map((block) => block.type)).toEqual(["list", "paragraph"]);
+  });
+
   it("parses bold, italic and code", () => {
     const [paragraph] = parseMarkdown("**bold** *italic* `code`");
     expect(paragraph.type).toBe("paragraph");

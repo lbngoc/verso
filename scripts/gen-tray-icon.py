@@ -12,8 +12,8 @@ Outputs, in src-tauri/icons/tray/:
   tray-{S}-busy*.png                         the translating state: the S-arrow alone, without the V
 with S = 18 (macOS, 36 px @2x) and 16 (Windows, 32 px @2x).
 
-The glyph spans about 4..32 units across and 5.6..30.4 down, leaving about 4 units of padding inside the
-36 canvas, so it sits with the same breathing room as the Input Source and Control Center items beside it.
+The glyph spans about 4..32 units across and 3.6..32.4 down (taller than 0.1.5's 5.6..30.4, spec 009 FR-054):
+a thinner S and a bolder, taller V keep the letter readable at menu-bar size.
 """
 
 from __future__ import annotations
@@ -27,18 +27,19 @@ ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "src-tauri" / "icons" / "tray"
 
 GRID = 36
-S_W = 2.4  # stroke of the S-arrow
+S_W = 2.0  # stroke of the S-arrow (2.4 in 0.1.5; thinner so the V stands out, FR-054)
 GAP = 1.0  # clearance cut out of the S around the V
 # Nominal size -> pixels at @2x.
 SIZES = {18: 36, 16: 32}
 
 HEAD = 2.4
-TOP_Y, MID_Y, BOT_Y = 8, 18, 28
+TOP_Y, MID_Y, BOT_Y = 6, 18, 30
 R = (MID_Y - TOP_Y) / 2
 ARC_L, ARC_R = 10, 26  # centres of the two bowls
 TIP_R, TIP_L = 31.5, 4.5
 
-V = "12.6,11 15.9,11 18,19.4 20.1,11 23.4,11 19.7,25.6 16.3,25.6"
+# The V: 18 units tall with 4-unit arms (0.1.5: 14.6 tall, 3.3-unit arms).
+V = "11.6,9 15.6,9 18,18.6 20.4,9 24.4,9 20,27 16,27"
 
 S_PATH = (
     f"M{TIP_R} {TOP_Y}H{ARC_L}A{R} {R} 0 0 0 {ARC_L} {MID_Y}H{ARC_R}A{R} {R} 0 0 1 {ARC_R} {BOT_Y}H{TIP_L}"

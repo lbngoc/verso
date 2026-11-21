@@ -110,6 +110,8 @@ export function parseMarkdown(source: string): Block[] {
   const blocks: Block[] = [];
   let paragraph: string[] = [];
   let list: { ordered: boolean; items: ListItem[] } | null = null;
+  // Source text of the open list item, so its wrapped lines can be joined to it (T141).
+  let itemSource = "";
 
   const flushParagraph = (): void => {
     if (!paragraph.length) return;
@@ -151,10 +153,19 @@ export function parseMarkdown(source: string): Block[] {
         flushList();
         list = { ordered, items: [] };
       }
+      itemSource = item[2].trim();
       list.items.push({
-        spans: parseInline(item[2].trim()),
+        spans: parseInline(itemSource),
         nested: item[1].length >= 2,
       });
+      continue;
+    }
+
+    // An indented line right under a list item continues it (a wrapped CHANGELOG bullet).
+    if (list && /^\s+\S/.test(line)) {
+      const items: ListItem[] = list.items;
+      itemSource = `${itemSource} ${line.trim()}`;
+      items[items.length - 1].spans = parseInline(itemSource);
       continue;
     }
 

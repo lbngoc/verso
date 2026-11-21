@@ -384,7 +384,10 @@ pub fn hide_popup(app: &AppHandle) {
     // The popup page also asks to hide itself when the capture found nothing, and that request can
     // arrive after the quick panel was opened for the same press; handing the foreground back to
     // the source window then would steal the panel's focus and close it (seen on Windows).
-    if !quick_is_open(app) {
+    // Likewise when a main window was just asked for from the popup (`Ctrl+,` / `⌘,` opens
+    // Settings, then the page hides the popup): Settings keeps the foreground (FR-049, T143).
+    let main_requested = *MAIN_REQUESTED_AT.lock();
+    if !quick_is_open(app) && !main_window_keeps_focus(main_requested, std::time::Instant::now()) {
         platform::services().restore_capture_target();
     }
     POPUP_PINNED.store(false, Ordering::SeqCst);
@@ -457,6 +460,7 @@ pub fn toggle_quick(app: &AppHandle) {
 /// Settings is created on first use, never at startup: every extra webview costs ~15–30 MB of
 /// idle memory and the app must stay under the 150 MB budget (SC-003).
 pub fn show_settings(app: &AppHandle) {
+    note_main_requested();
     if focus_setup_if_open(app) {
         return;
     }
@@ -471,6 +475,7 @@ pub fn show_settings(app: &AppHandle) {
 /// mount (the hash alone is not reliable across webviews), an open one receives `settings-section`
 /// and scrolls there (T025).
 pub fn show_settings_section(app: &AppHandle, section: &str) {
+    note_main_requested();
     if focus_setup_if_open(app) {
         return;
     }
@@ -549,6 +554,7 @@ pub fn take_update_mode() -> String {
 
 /// Opens (or focuses) the update dialog: 600 × 460, not resizable, created hidden (R14).
 pub fn open_update_window(app: &AppHandle, mode: &str) {
+    note_main_requested();
     if focus_setup_if_open(app) {
         return;
     }
@@ -594,6 +600,24 @@ pub fn retitle_main_windows(app: &AppHandle) {
     }
 }
 
+/// When a main window (Setup, Settings, Update) was last asked for; hiding the popup right after
+/// must not hand the foreground back to the source app (T143).
+static MAIN_REQUESTED_AT: parking_lot::Mutex<Option<std::time::Instant>> =
+    parking_lot::Mutex::new(None);
+const MAIN_FOCUS_GRACE: std::time::Duration = std::time::Duration::from_secs(3);
+
+fn note_main_requested() {
+    *MAIN_REQUESTED_AT.lock() = Some(std::time::Instant::now());
+}
+
+/// Whether a main window asked for at `requested` still owns the foreground at `now`.
+pub fn main_window_keeps_focus(
+    requested: Option<std::time::Instant>,
+    now: std::time::Instant,
+) -> bool {
+    requested.is_some_and(|at| now.saturating_duration_since(at) < MAIN_FOCUS_GRACE)
+}
+
 /// Setup, Settings and the update dialog: the windows that give Verso a Dock icon (FR-053).
 const MAIN_WINDOWS: [&str; 3] = ["onboarding", "settings", "update"];
 
@@ -610,6 +634,7 @@ pub fn focus_setup_if_open(app: &AppHandle) -> bool {
 }
 
 fn bring_to_front(app: &AppHandle, window: &WebviewWindow) {
+    note_main_requested();
     set_dock_icon(app, true);
     let _ = window.unminimize();
     let _ = window.show();
@@ -741,6 +766,7 @@ pub fn show_permission_onboarding(app: &AppHandle) {
 }
 
 pub fn show_onboarding(app: &AppHandle) {
+    note_main_requested();
     // Setup takes over: it is the only main window while it is open (FR-052).
     for label in ["settings", "update"] {
         if let Some(window) = app.get_webview_window(label) {
@@ -840,6 +866,16 @@ pub fn self_test(app: &AppHandle, iterations: u32) {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn a_main_window_asked_for_just_now_keeps_the_foreground() {
+        let now = std::time::Instant::now();
+        assert!(!main_window_keeps_focus(None, now));
+        assert!(main_window_keeps_focus(Some(now), now));
+        let later = now + std::time::Duration::from_secs(5);
+        assert!(!main_window_keeps_focus(Some(now), later));
+    }
+
     use super::*;
 
     fn work_area() -> Rect {
