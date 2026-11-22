@@ -53,6 +53,8 @@ pub struct Shortcuts {
     pub quick: String,
     /// Speak the selection (FR-009); empty means unbound.
     pub speak: String,
+    /// Translate a screen region (spec 004). Registered only while the module is on.
+    pub screen: String,
 }
 
 impl Default for Shortcuts {
@@ -61,6 +63,30 @@ impl Default for Shortcuts {
             translate: "Alt+Shift+Z".into(),
             quick: default_quick_shortcut().into(),
             speak: "Alt+Shift+S".into(),
+            screen: default_screen_shortcut().into(),
+        }
+    }
+}
+
+/// The screen translate default (spec 004 R9): the same on both platforms.
+pub fn default_screen_shortcut() -> &'static str {
+    "Alt+Shift+X"
+}
+
+/// The screen translate module (spec 004): off until the user turns it on.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct OcrSettings {
+    pub enabled: bool,
+    /// `"auto"` or a BCP-47 code the system recognises.
+    pub language: String,
+}
+
+impl Default for OcrSettings {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            language: "auto".into(),
         }
     }
 }
@@ -81,6 +107,7 @@ pub struct SettingsProfile {
     pub engine_order: Vec<String>,
     pub engines_disabled: Vec<String>,
     pub shortcuts: Shortcuts,
+    pub ocr: OcrSettings,
     pub theme: Theme,
     pub launch_at_login: bool,
     pub ui_language: String,
@@ -117,6 +144,7 @@ impl Default for SettingsProfile {
             engine_order: KNOWN_ENGINES.iter().map(|id| id.to_string()).collect(),
             engines_disabled: Vec::new(),
             shortcuts: Shortcuts::default(),
+            ocr: OcrSettings::default(),
             theme: Theme::System,
             launch_at_login: false,
             ui_language: default_ui_language(),
@@ -235,6 +263,19 @@ impl SettingsProfile {
                 || self.shortcuts.speak == self.shortcuts.quick)
         {
             self.shortcuts.speak.clear();
+        }
+        // Spec 004: the screen shortcut follows the same rule; saved bindings win over the default.
+        self.shortcuts.screen = self.shortcuts.screen.trim().to_string();
+        if !self.shortcuts.screen.is_empty()
+            && (self.shortcuts.screen == self.shortcuts.translate
+                || self.shortcuts.screen == self.shortcuts.speak
+                || self.shortcuts.screen == self.shortcuts.quick)
+        {
+            self.shortcuts.screen.clear();
+        }
+        self.ocr.language = self.ocr.language.trim().to_string();
+        if self.ocr.language.is_empty() {
+            self.ocr.language = "auto".into();
         }
         self.text_size_step = self.text_size_step.clamp(-2, 4);
         self.skipped_update_version = self
@@ -382,6 +423,18 @@ impl SettingsStore {
         let mut value = serde_json::to_value(self.get()).map_err(|error| {
             SettingsError::InvalidPatch(format!("current settings are not serialisable: {error}"))
         })?;
+        // An empty recognition language is refused rather than quietly turned into "auto".
+        if let Some(language) = object
+            .get("ocr")
+            .and_then(|ocr| ocr.get("language"))
+            .and_then(Value::as_str)
+        {
+            if language.trim().is_empty() {
+                return Err(SettingsError::InvalidPatch(
+                    "ocr.language must be \"auto\" or a language code".into(),
+                ));
+            }
+        }
         merge_json(&mut value, &Value::Object(object.clone()));
         let parsed: SettingsProfile = serde_json::from_value(value)
             .map_err(|error| SettingsError::InvalidPatch(error.to_string()))?;

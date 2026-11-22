@@ -72,3 +72,52 @@ fn the_redaction_helper_takes_the_query_string_away() {
         "https://example.com/a?…"
     );
 }
+
+#[test]
+fn the_screen_translate_path_logs_no_text_or_image_data() {
+    // The OCR flow handles recognised text and pixels: its sources must keep them out of every
+    // info!/warn!/error! line (spec 004 FR-006). Debug lines may carry lengths only.
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src");
+    let files = [
+        root.join("core/ocr.rs"),
+        root.join("core/ocr_text.rs"),
+        root.join("core/pipeline.rs"),
+    ];
+    let forbidden = [
+        "recognised",
+        "joined",
+        "lines[",
+        "image",
+        "pixels",
+        "buffer",
+        "region_text",
+    ];
+    let mut violations = Vec::new();
+    for file in files {
+        let Ok(content) = fs::read_to_string(&file) else {
+            continue;
+        };
+        for (index, line) in content.lines().enumerate() {
+            let trimmed = line.trim_start();
+            if !(trimmed.starts_with("info!")
+                || trimmed.starts_with("warn!")
+                || trimmed.starts_with("error!")
+                || trimmed.starts_with("log::info!")
+                || trimmed.starts_with("log::warn!")
+                || trimmed.starts_with("log::error!"))
+            {
+                continue;
+            }
+            for needle in forbidden {
+                if line.contains(needle) {
+                    violations.push(format!("{}:{}: {}", file.display(), index + 1, trimmed));
+                }
+            }
+        }
+    }
+    assert!(
+        violations.is_empty(),
+        "OCR data in a log line:\n{}",
+        violations.join("\n")
+    );
+}

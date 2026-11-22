@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { emit, listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
-export type Origin = "selection" | "typed";
+export type Origin = "selection" | "typed" | "screen";
 export type Theme = "system" | "light" | "dark";
 export type Material = "glass" | "vibrancy" | "acrylic" | "opaque";
 export type UiTheme = "light" | "dark";
@@ -51,6 +51,26 @@ export interface Shortcuts {
   translate: string;
   quick: string;
   speak: string;
+  screen: string;
+}
+
+/** Screen translate module (spec 004). */
+export interface OcrSettings {
+  enabled: boolean;
+  language: string;
+}
+
+export interface OcrAvailability {
+  available: boolean;
+  reason: "os_too_old" | "no_language" | "unsupported" | null;
+  languages: Array<{ code: string; name: string }>;
+}
+
+export interface Region {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
 export type Accent = "app" | "system";
@@ -64,7 +84,7 @@ export interface ResetOutcome {
   status: PermissionStatus;
 }
 
-export type ShortcutAction = "translate" | "speak" | "quick";
+export type ShortcutAction = "translate" | "speak" | "quick" | "screen";
 
 /** Why the OS or the rules refused a recorded shortcut (`shortcut.err.*`). */
 export type BindingError =
@@ -82,6 +102,7 @@ export interface SettingsProfile {
   engine_order: string[];
   engines_disabled: string[];
   shortcuts: Shortcuts;
+  ocr: OcrSettings;
   theme: Theme;
   launch_at_login: boolean;
   ui_language: "en" | "vi";
@@ -155,7 +176,9 @@ export type CaptureFailure =
   | "secure_field"
   | "terminal_tui"
   | "elevated_window"
-  | "timeout";
+  | "timeout"
+  | "no_text_in_region"
+  | "read_failed";
 
 export interface CaptureOutcome {
   method: "accessibility" | "copy" | "none";
@@ -247,6 +270,14 @@ export const commands = {
     invoke<void>("open_public_page", { page }),
   reportProblem: () => invoke<string>("report_problem"),
   copyDiagnostics: () => invoke<string>("copy_diagnostics"),
+  /** Screen translate (spec 004). */
+  ocrAvailability: () => invoke<OcrAvailability>("ocr_availability"),
+  startScreenTranslate: () => invoke<"opened" | "ignored" | "permission">("start_screen_translate"),
+  overlayReady: (monitor: number) => invoke<void>("overlay_ready", { monitor }),
+  finishRegion: (monitor: number, rect: Region) => invoke<void>("finish_region", { monitor, rect }),
+  cancelRegion: () => invoke<void>("cancel_region"),
+  permissionStepKind: () => invoke<PermissionKind>("permission_step_kind"),
+  restartApp: () => invoke<void>("restart_app"),
 };
 
 export const events = {
@@ -279,6 +310,8 @@ export const events = {
     listen<SettingsProfile>("settings-changed", (event) => handler(event.payload)),
   onQuickPrefill: (handler: (payload: { text: string }) => void): Promise<UnlistenFn> =>
     listen<{ text: string }>("quick-prefill", (event) => handler(event.payload)),
+  onOcrChanged: (handler: (payload: { enabled: boolean }) => void): Promise<UnlistenFn> =>
+    listen<{ enabled: boolean }>("ocr-changed", (event) => handler(event.payload)),
   onSettingsSection: (handler: (payload: string) => void): Promise<UnlistenFn> =>
     listen<string>("settings-section", (event) => handler(event.payload)),
   onShortcutConflict: (

@@ -119,7 +119,11 @@ pub async fn translate_selection(
 
     if plan.open_onboarding {
         window_manager::hide_popup(&app);
-        window_manager::show_permission_onboarding(&app, platform::PermissionReason::Missing);
+        window_manager::show_permission_onboarding(
+            &app,
+            PermissionKind::Accessibility,
+            platform::PermissionReason::Missing,
+        );
         return Ok(None);
     }
 
@@ -253,6 +257,55 @@ pub async fn reset_permission(kind: PermissionKind) -> platform::ResetOutcome {
             ok: false,
             status: platform::services().permission_status(kind),
         })
+}
+
+/// Whether screen translate can run here, and with which recognition languages (spec 004).
+#[tauri::command]
+pub fn ocr_availability() -> platform::OcrAvailability {
+    static CACHE: std::sync::OnceLock<platform::OcrAvailability> = std::sync::OnceLock::new();
+    CACHE
+        .get_or_init(|| platform::services().ocr_availability())
+        .clone()
+}
+
+/// Same path as the shortcut and the tray item.
+#[tauri::command]
+pub fn start_screen_translate(app: AppHandle) -> &'static str {
+    match crate::core::ocr::start(&app) {
+        crate::core::ocr::StartResult::Opened => "opened",
+        crate::core::ocr::StartResult::Ignored => "ignored",
+        crate::core::ocr::StartResult::Permission => "permission",
+    }
+}
+
+/// The overlay page has painted: the backend shows that window.
+#[tauri::command]
+pub fn overlay_ready(app: AppHandle, monitor: u32) {
+    window_manager::show_overlay(&app, monitor);
+}
+
+/// The drag ended: capture, read, translate, show the popup next to the region.
+#[tauri::command]
+pub async fn finish_region(app: AppHandle, monitor: u32, rect: platform::Rect) {
+    crate::core::ocr::finish(app, monitor, rect).await;
+}
+
+#[tauri::command]
+pub fn cancel_region(app: AppHandle) {
+    crate::core::ocr::cancel(&app);
+}
+
+/// The kind the permission step was opened for (Accessibility unless Screen Recording asked).
+#[tauri::command]
+pub fn permission_step_kind() -> PermissionKind {
+    window_manager::permission_step_kind()
+}
+
+/// Relaunches Verso (macOS may apply a new Screen Recording grant only after a restart).
+#[tauri::command]
+pub fn restart_app(app: AppHandle) {
+    log::info!("restart requested from the permission step");
+    app.restart();
 }
 
 /// Version and build date for the About section (spec 009, contracts/settings-window.md).

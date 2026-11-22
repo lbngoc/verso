@@ -5,8 +5,8 @@ use log::debug;
 use tauri::WebviewWindow;
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::{
-    GetWindowLongPtrW, SetWindowLongPtrW, ShowWindow, GWL_EXSTYLE, SW_HIDE, SW_SHOWNOACTIVATE,
-    WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST,
+    GetWindowLongPtrW, SetWindowLongPtrW, ShowWindow, GWL_EXSTYLE, SW_HIDE, SW_SHOW,
+    SW_SHOWNOACTIVATE, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST,
 };
 
 fn hwnd_of(window: &WebviewWindow) -> Option<HWND> {
@@ -45,6 +45,47 @@ pub fn hide(window: &WebviewWindow) {
     };
     unsafe {
         let _ = ShowWindow(hwnd, SW_HIDE);
+    }
+}
+
+/// Whether the overlay could be kept out of screen captures (`WDA_EXCLUDEFROMCAPTURE`).
+static OVERLAY_EXCLUDED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+
+pub fn overlay_excluded() -> bool {
+    OVERLAY_EXCLUDED.load(std::sync::atomic::Ordering::SeqCst)
+}
+
+/// The region picker: a top-most tool window with no taskbar button, kept out of captures
+/// (spec 004 R3). When the OS refuses the exclusion, the flow waits for the overlay to go away.
+pub fn prepare_overlay(window: &WebviewWindow) {
+    let Some(hwnd) = hwnd_of(window) else {
+        return;
+    };
+    let current = unsafe { GetWindowLongPtrW(hwnd, GWL_EXSTYLE) };
+    let wanted = current | WS_EX_TOOLWINDOW.0 as isize | WS_EX_TOPMOST.0 as isize;
+    unsafe {
+        SetWindowLongPtrW(hwnd, GWL_EXSTYLE, wanted);
+        match windows::Win32::UI::WindowsAndMessaging::SetWindowDisplayAffinity(
+            hwnd,
+            windows::Win32::UI::WindowsAndMessaging::WDA_EXCLUDEFROMCAPTURE,
+        ) {
+            Ok(()) => OVERLAY_EXCLUDED.store(true, std::sync::atomic::Ordering::SeqCst),
+            Err(error) => {
+                log::info!("overlay cannot be excluded from capture: {error}");
+                OVERLAY_EXCLUDED.store(false, std::sync::atomic::Ordering::SeqCst);
+            }
+        }
+    }
+}
+
+/// Puts the overlay on screen and gives it the keyboard so Escape works.
+pub fn show_overlay(window: &WebviewWindow) {
+    let Some(hwnd) = hwnd_of(window) else {
+        return;
+    };
+    unsafe {
+        let _ = ShowWindow(hwnd, SW_SHOW);
+        let _ = set_foreground_window_compat(hwnd);
     }
 }
 

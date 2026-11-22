@@ -6,6 +6,7 @@ use tauri::{AppHandle, Manager};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Text {
     TranslateSelection,
+    TranslateScreen,
     SpeakSelection,
     QuickInput,
     Settings,
@@ -24,6 +25,7 @@ pub fn text(ui_language: &str, key: Text) -> &'static str {
     let vi = ui_language == "vi";
     match key {
         Text::TranslateSelection => pick(vi, "Translate Selection", "Dịch đoạn đã chọn"),
+        Text::TranslateScreen => pick(vi, "Translate Screen Region", "Dịch vùng màn hình"),
         Text::SpeakSelection => pick(vi, "Speak Selection", "Đọc đoạn đã chọn"),
         Text::QuickInput => pick(vi, "Quick Input…", "Nhập nhanh…"),
         Text::Settings => pick(vi, "Settings…", "Cài đặt…"),

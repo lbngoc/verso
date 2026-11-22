@@ -27,6 +27,27 @@ mod popup_panel {
 }
 use popup_panel::PopupPanel;
 
+mod overlay_panel {
+    use tauri_nspanel::tauri_panel;
+
+    tauri_panel! {
+        // The region picker (spec 004): covers a monitor above the menu bar, takes the keyboard
+        // and the mouse without activating Verso, so the app the user is in keeps its state.
+        panel!(OverlayPanel {
+            config: {
+                can_become_key_window: true,
+                can_become_main_window: false,
+                become_key_if_only_needed: false,
+                is_floating_panel: true
+            }
+        })
+    }
+}
+use overlay_panel::OverlayPanel;
+
+/// `NSScreenSaverWindowLevel`: above the menu bar and the Dock.
+const OVERLAY_LEVEL: i64 = 1000;
+
 /// `NSWindowStyleMaskNonactivatingPanel`.
 const NONACTIVATING_PANEL: usize = 1 << 7;
 
@@ -110,4 +131,45 @@ pub fn focus_on_interaction(window: &WebviewWindow) {
     };
     let ns_window: &NSWindow = unsafe { &*(pointer as *const NSWindow) };
     ns_window.makeKeyWindow();
+}
+
+/// Turns an overlay window into a non-activating panel above the menu bar on every Space.
+pub fn prepare_overlay(window: &WebviewWindow) {
+    match window.to_panel::<OverlayPanel>() {
+        Ok(panel) => {
+            let _ = panel.add_style_mask(NSWindowStyleMask::NonactivatingPanel);
+            panel.set_collection_behavior(NSWindowCollectionBehavior(
+                NSWindowCollectionBehavior::CanJoinAllSpaces.0
+                    | NSWindowCollectionBehavior::Stationary.0
+                    | NSWindowCollectionBehavior::FullScreenAuxiliary.0,
+            ));
+            panel.set_level(OVERLAY_LEVEL);
+            panel.set_hides_on_deactivate(false);
+            panel.set_has_shadow(false);
+            debug!("overlay converted to a panel");
+        }
+        Err(error) => debug!("overlay panel conversion failed, using a plain window: {error}"),
+    }
+}
+
+/// Shows the overlay and makes it key (for Escape) without activating the app.
+pub fn show_overlay(window: &WebviewWindow) {
+    if let Ok(panel) = window.app_handle().get_webview_panel(window.label()) {
+        panel.order_front_regardless();
+        panel.make_key_window();
+        return;
+    }
+    let _ = window.show();
+}
+
+/// A panel must become a plain window again before Tauri destroys it.
+pub fn close_overlay(window: &WebviewWindow) {
+    if let Ok(panel) = window.app_handle().get_webview_panel(window.label()) {
+        panel.hide();
+        if let Some(plain) = panel.to_window() {
+            let _ = plain.destroy();
+            return;
+        }
+    }
+    let _ = window.destroy();
 }

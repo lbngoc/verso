@@ -90,6 +90,14 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
         true,
         accel(translate_accel),
     )?;
+    let screen_enabled = settings.ocr.enabled && crate::platform::services().supports("ocr");
+    let screen = MenuItem::with_id(
+        app,
+        "screen",
+        text(ui, Text::TranslateScreen),
+        true,
+        accel(settings.shortcuts.screen.clone()),
+    )?;
     let speak = MenuItem::with_id(
         app,
         "speak",
@@ -136,8 +144,16 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
         })
         .transpose()?;
 
-    let mut items: Vec<&dyn tauri::menu::IsMenuItem<tauri::Wry>> =
-        vec![&translate, &speak, &quick, &settings_item, &about];
+    let mut items: Vec<&dyn tauri::menu::IsMenuItem<tauri::Wry>> = vec![&translate];
+    if screen_enabled {
+        items.push(&screen);
+    }
+    items.extend([
+        &speak as &dyn tauri::menu::IsMenuItem<tauri::Wry>,
+        &quick,
+        &settings_item,
+        &about,
+    ]);
     if let Some(update) = &update {
         items.push(update);
     }
@@ -273,6 +289,7 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id.as_ref() {
             "translate" => shortcuts::trigger_translate(app),
+            "screen" => shortcuts::trigger_screen(app),
             "speak" => shortcuts::trigger_speak(app),
             "quick" => {
                 let _ = window_manager::show_quick(app);

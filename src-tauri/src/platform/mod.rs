@@ -38,6 +38,10 @@ pub enum CaptureFailure {
     TerminalTui,
     ElevatedWindow,
     Timeout,
+    /// Screen translate (spec 004): the region held no readable text.
+    NoTextInRegion,
+    /// Screen translate: the region could not be captured or read.
+    ReadFailed,
 }
 
 /// Result of one capture attempt; drives the popup, the quick panel and FR-018 messages.
@@ -126,6 +130,90 @@ impl Rect {
             && point.y <= self.bottom()
     }
 }
+
+/// One line of text a recogniser found: its top candidate and its box (top-left origin, in the
+/// pixels of the image that was recognised).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RecognisedLine {
+    pub text: String,
+    pub rect: Rect,
+}
+
+/// Why the screen translate module cannot be used on this system (spec 004 FR-012).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OcrUnavailableReason {
+    OsTooOld,
+    NoLanguage,
+    Unsupported,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OcrLanguage {
+    pub code: String,
+    pub name: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OcrAvailability {
+    pub available: bool,
+    pub reason: Option<OcrUnavailableReason>,
+    pub languages: Vec<OcrLanguage>,
+}
+
+impl OcrAvailability {
+    pub fn unsupported() -> Self {
+        Self {
+            available: false,
+            reason: Some(OcrUnavailableReason::Unsupported),
+            languages: Vec::new(),
+        }
+    }
+}
+
+/// The screen region to read: the same area in global logical points (macOS) and in physical
+/// pixels of the virtual screen (Windows), plus the scale of the monitor it lies on.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct CaptureRegion {
+    pub logical: Rect,
+    pub physical: Rect,
+    pub scale: f64,
+}
+
+/// A captured region. The payload is platform specific, is never serialised or cloned, and is
+/// dropped right after recognition: images stay in memory only (spec 004 FR-006).
+pub struct RegionImage {
+    payload: Box<dyn std::any::Any + Send>,
+}
+
+impl RegionImage {
+    pub fn new<T: std::any::Any + Send>(payload: T) -> Self {
+        Self {
+            payload: Box::new(payload),
+        }
+    }
+
+    /// The platform's own payload back, or `None` when it is another platform's.
+    pub fn into_payload<T: std::any::Any>(self) -> Option<T> {
+        self.payload.downcast::<T>().ok().map(|boxed| *boxed)
+    }
+}
+
+impl std::fmt::Debug for RegionImage {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("RegionImage(..)")
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CaptureError {
+    /// Screen Recording is not (or no longer) granted: the permission step handles it.
+    PermissionMissing,
+    Failed(String),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OcrError(pub String);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -258,6 +346,47 @@ pub trait PlatformServices: Send + Sync {
 
     /// Draws the Settings sidebar material (macOS sidebar vibrancy, Windows Mica).
     fn apply_settings_material(&self, _window: &tauri::WebviewWindow, _appearance: &Appearance) {}
+
+    // ---- spec 004: screen translate. Every method defaults to "unsupported". ----
+
+    fn ocr_availability(&self) -> OcrAvailability {
+        OcrAvailability::unsupported()
+    }
+
+    /// Copies a screen region into memory, leaving Verso's own windows out.
+    fn capture_region(&self, _region: CaptureRegion) -> Result<RegionImage, CaptureError> {
+        Err(CaptureError::Failed(
+            "screen capture is not supported".into(),
+        ))
+    }
+
+    /// Reads the text in a captured region. `language` is `"auto"` or a BCP-47 code.
+    fn recognise(
+        &self,
+        _image: RegionImage,
+        _language: &str,
+    ) -> Result<Vec<RecognisedLine>, OcrError> {
+        Err(OcrError("text recognition is not supported".into()))
+    }
+
+    /// Makes an overlay window cover the screen above everything else, without taking the app
+    /// the user is in out of focus.
+    fn prepare_overlay(&self, _window: &tauri::WebviewWindow) {}
+
+    /// Puts the overlay on screen (it was created hidden).
+    fn show_overlay(&self, window: &tauri::WebviewWindow) {
+        let _ = window.show();
+    }
+
+    /// Closes an overlay window (a panel on macOS must be turned back into a window first).
+    fn close_overlay(&self, window: &tauri::WebviewWindow) {
+        let _ = window.destroy();
+    }
+
+    /// Whether the overlay windows are kept out of screen captures by the OS.
+    fn overlay_excluded_from_capture(&self) -> bool {
+        true
+    }
 }
 
 static SERVICES: OnceLock<Box<dyn PlatformServices>> = OnceLock::new();

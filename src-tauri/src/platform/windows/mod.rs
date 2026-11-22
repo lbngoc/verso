@@ -11,6 +11,8 @@ pub mod clipboard;
 pub mod cursor;
 pub mod events;
 pub mod material;
+pub mod ocr;
+pub mod screen_capture;
 pub mod selection;
 pub mod tts;
 pub mod window_style;
@@ -75,6 +77,45 @@ impl PlatformServices for WindowsServices {
 
     fn supports(&self, feature: &str) -> bool {
         matches!(feature, "selection" | "tts" | "native_material")
+            || (feature == "ocr" && ocr::availability().available)
+    }
+
+    fn ocr_availability(&self) -> crate::platform::OcrAvailability {
+        ocr::availability()
+    }
+
+    fn capture_region(
+        &self,
+        region: crate::platform::CaptureRegion,
+    ) -> Result<crate::platform::RegionImage, crate::platform::CaptureError> {
+        screen_capture::capture(region)
+    }
+
+    fn recognise(
+        &self,
+        image: crate::platform::RegionImage,
+        language: &str,
+    ) -> Result<Vec<crate::platform::RecognisedLine>, crate::platform::OcrError> {
+        // WinRT calls need a multithreaded apartment on this worker thread.
+        unsafe {
+            let _ = windows::Win32::System::Com::CoInitializeEx(
+                None,
+                windows::Win32::System::Com::COINIT_MULTITHREADED,
+            );
+        }
+        ocr::recognise(image, language)
+    }
+
+    fn prepare_overlay(&self, window: &WebviewWindow) {
+        window_style::prepare_overlay(window);
+    }
+
+    fn show_overlay(&self, window: &WebviewWindow) {
+        window_style::show_overlay(window);
+    }
+
+    fn overlay_excluded_from_capture(&self) -> bool {
+        window_style::overlay_excluded()
     }
 
     fn appearance(&self) -> Appearance {

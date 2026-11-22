@@ -12,6 +12,7 @@
   import {
     commands,
     events,
+    type PermissionKind,
     type PermissionReason,
     type SettingsProfile,
     type Theme,
@@ -35,6 +36,18 @@
   let settings = $state<SettingsProfile | null>(null);
   let permission = $state<"granted" | "denied" | "not_determined">("denied");
   let permissionReason = $state<PermissionReason>("missing");
+  // The kind the permission step was opened for (spec 004): Screen Recording shows a short step of
+  // its own that closes itself on grant instead of continuing the Setup flow.
+  let stepKind = $state<PermissionKind>("accessibility");
+  const screenOnly = $derived(step === 1 && stepKind === "screen_recording");
+
+  async function closeWindow(): Promise<void> {
+    try {
+      await getCurrentWindow().close();
+    } catch {
+      /* browser preview */
+    }
+  }
   let isMac = $state(true);
   let warning = $state(false);
   // Pre-checked consent (FR-016): saved when onboarding finishes, changeable in Settings.
@@ -104,11 +117,10 @@
       theme = settings.theme;
     }
     step = (await commands.onboardingStep().catch(() => 0)) === 1 ? 1 : 0;
+    stepKind = await commands.permissionStepKind().catch(() => "accessibility" as const);
     if (isMac) {
-      permissionReason = await commands
-        .permissionReason("accessibility")
-        .catch(() => "missing" as const);
-      permission = await commands.checkPermissions("accessibility").catch(() => "denied");
+      permissionReason = await commands.permissionReason(stepKind).catch(() => "missing" as const);
+      permission = await commands.checkPermissions(stepKind).catch(() => "denied");
       await events.onPermissionChanged((payload) => {
         if (payload.status === "granted" || payload.status === "denied") {
           permission = payload.status;
@@ -121,23 +133,36 @@
 </script>
 
 <main class="onboarding">
-  <header>
-    <h1>{$translator("onboarding.title")}</h1>
-    <p class="muted">{$translator("onboarding.subtitle")}</p>
-    <ol class="steps" aria-label={$translator("onboarding.step_engines")}>
-      <li class:current={step === 0} aria-current={step === 0 ? "step" : undefined}>
-        <span class="num">1</span>
-        {$translator("onboarding.indicator_services")}
-      </li>
-      <li class="sep" aria-hidden="true">·</li>
-      <li class:current={step === 1} aria-current={step === 1 ? "step" : undefined}>
-        <span class="num">2</span>
-        {$translator("onboarding.indicator_permission")}
-      </li>
-    </ol>
-  </header>
+  {#if !screenOnly}
+    <header>
+      <h1>{$translator("onboarding.title")}</h1>
+      <p class="muted">{$translator("onboarding.subtitle")}</p>
+      <ol class="steps" aria-label={$translator("onboarding.step_engines")}>
+        <li class:current={step === 0} aria-current={step === 0 ? "step" : undefined}>
+          <span class="num">1</span>
+          {$translator("onboarding.indicator_services")}
+        </li>
+        <li class="sep" aria-hidden="true">·</li>
+        <li class:current={step === 1} aria-current={step === 1 ? "step" : undefined}>
+          <span class="num">2</span>
+          {$translator("onboarding.indicator_permission")}
+        </li>
+      </ol>
+    </header>
+  {/if}
 
-  {#if step === 0}
+  {#if screenOnly}
+    <section class="step-body">
+      <h2>{$translator("permission.screen_recording_name")}</h2>
+      <p class="muted">{$translator("permission.screen_recording_body")}</p>
+      <PermissionGuide
+        kind="screen_recording"
+        reason={permissionReason}
+        bind:status={permission}
+        ongranted={() => void closeWindow()}
+      />
+    </section>
+  {:else if step === 0}
     <section class="step-body">
       <h2>{$translator("onboarding.engines_title")}</h2>
       <p class="muted">{$translator("onboarding.engines_body")}</p>

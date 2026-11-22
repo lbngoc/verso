@@ -10,9 +10,11 @@ pub mod appearance;
 pub mod cursor;
 pub mod events;
 pub mod material;
+pub mod ocr;
 pub mod panel;
 pub mod pasteboard;
 pub mod permissions;
+pub mod screen_capture;
 pub mod selection;
 pub mod tts;
 
@@ -71,7 +73,43 @@ impl PlatformServices for MacosServices {
         matches!(
             feature,
             "selection" | "tts" | "accessibility" | "native_material"
-        )
+        ) || (feature == "ocr" && ocr::availability().available)
+    }
+
+    fn ocr_availability(&self) -> crate::platform::OcrAvailability {
+        ocr::availability()
+    }
+
+    fn capture_region(
+        &self,
+        region: crate::platform::CaptureRegion,
+    ) -> Result<crate::platform::RegionImage, crate::platform::CaptureError> {
+        // `CGPreflightScreenCaptureAccess` can stay stale after a revoke, so a refusal from
+        // ScreenCaptureKit itself is mapped too (screen_capture.rs); this check avoids a prompt.
+        if permissions::status(PermissionKind::ScreenRecording) != PermissionStatus::Granted {
+            return Err(crate::platform::CaptureError::PermissionMissing);
+        }
+        screen_capture::capture(region)
+    }
+
+    fn recognise(
+        &self,
+        image: crate::platform::RegionImage,
+        language: &str,
+    ) -> Result<Vec<crate::platform::RecognisedLine>, crate::platform::OcrError> {
+        ocr::recognise(image, language)
+    }
+
+    fn prepare_overlay(&self, window: &WebviewWindow) {
+        panel::prepare_overlay(window);
+    }
+
+    fn show_overlay(&self, window: &WebviewWindow) {
+        panel::show_overlay(window);
+    }
+
+    fn close_overlay(&self, window: &WebviewWindow) {
+        panel::close_overlay(window);
     }
 
     fn appearance(&self) -> Appearance {

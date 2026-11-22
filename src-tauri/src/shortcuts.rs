@@ -7,6 +7,8 @@ use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 
 use crate::commands::{self, AppState};
+use crate::core::settings::SettingsProfile;
+use crate::platform;
 use crate::{tray, window_manager};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -14,6 +16,7 @@ pub enum Action {
     Translate,
     Speak,
     Quick,
+    Screen,
 }
 
 impl Action {
@@ -22,6 +25,7 @@ impl Action {
             Action::Translate => "translate",
             Action::Speak => "speak",
             Action::Quick => "quick",
+            Action::Screen => "screen",
         }
     }
 
@@ -30,6 +34,7 @@ impl Action {
             Action::Translate => "Alt+Shift+Z",
             Action::Speak => "Alt+Shift+S",
             Action::Quick => crate::core::settings::default_quick_shortcut(),
+            Action::Screen => crate::core::settings::default_screen_shortcut(),
         }
     }
 
@@ -38,6 +43,7 @@ impl Action {
             "translate" => Some(Action::Translate),
             "speak" => Some(Action::Speak),
             "quick" => Some(Action::Quick),
+            "screen" => Some(Action::Screen),
             _ => None,
         }
     }
@@ -193,21 +199,35 @@ pub fn validate_binding(
     Ok(normalised)
 }
 
+/// The actions that get a global shortcut: Translate, Speak and Quick always, Screen only while
+/// the module is on, available on this system and bound (spec 004 R9). Pure.
+pub fn active_actions(profile: &SettingsProfile, ocr_available: bool) -> Vec<Action> {
+    let mut actions = vec![Action::Translate, Action::Speak, Action::Quick];
+    if profile.ocr.enabled && ocr_available && !profile.shortcuts.screen.trim().is_empty() {
+        actions.push(Action::Screen);
+    }
+    actions
+}
+
+fn binding_of(profile: &SettingsProfile, action: Action) -> &str {
+    match action {
+        Action::Translate => &profile.shortcuts.translate,
+        Action::Speak => &profile.shortcuts.speak,
+        Action::Quick => &profile.shortcuts.quick,
+        Action::Screen => &profile.shortcuts.screen,
+    }
+}
+
 pub fn register_all(app: &AppHandle) -> Result<(), String> {
     let settings = app.state::<AppState>().settings.get();
     let manager = app.global_shortcut();
     let _ = manager.unregister_all();
 
-    let translate = register_one(app, &settings.shortcuts.translate, Action::Translate);
-    let speak = register_one(app, &settings.shortcuts.speak, Action::Speak);
-    let quick = register_one(app, &settings.shortcuts.quick, Action::Quick);
-
     let mut conflict = None;
-    for (binding, result) in [
-        (settings.shortcuts.translate.clone(), translate),
-        (settings.shortcuts.speak.clone(), speak),
-        (settings.shortcuts.quick.clone(), quick),
-    ] {
+    let actions = active_actions(&settings, platform::services().supports("ocr"));
+    for action in actions {
+        let binding = binding_of(&settings, action).to_string();
+        let result = register_one(app, &binding, action);
         if let Err(error) = result {
             if conflict.is_none() {
                 conflict = Some((binding, error.clone()));
@@ -251,6 +271,7 @@ fn register_one(app: &AppHandle, value: &str, action: Action) -> Result<(), Stri
                     Action::Translate => trigger_translate(app),
                     Action::Speak => trigger_speak(app),
                     Action::Quick => window_manager::toggle_quick(app),
+                    Action::Screen => trigger_screen(app),
                 }
             }
         })
@@ -298,6 +319,21 @@ pub fn trigger_translate(app: &AppHandle) {
     });
 }
 
+/// The screen translate shortcut, the tray item and the "try another region" button. Inside the
+/// quick panel or Setup it follows spec 009: Setup comes to the front, the panel closes, and no
+/// overlay opens.
+pub fn trigger_screen(app: &AppHandle) {
+    if window_manager::focus_setup_if_open(app) {
+        return;
+    }
+    if window_manager::quick_is_open(app) {
+        log::debug!("screen translate closes the open quick panel");
+        window_manager::hide_quick(app);
+        return;
+    }
+    crate::core::ocr::start(app);
+}
+
 pub fn trigger_speak(app: &AppHandle) {
     if should_ignore_trigger(window_manager::quick_is_open(app)) {
         log::debug!("speak ignored: the quick panel is open");
@@ -321,6 +357,7 @@ pub fn set_binding(app: &AppHandle, action: &str, accel: &str) -> Result<(), Bin
         ("translate", profile.shortcuts.translate.as_str()),
         ("speak", profile.shortcuts.speak.as_str()),
         ("quick", profile.shortcuts.quick.as_str()),
+        ("screen", profile.shortcuts.screen.as_str()),
     ]
     .into_iter()
     .filter(|(other, _)| *other != action.id())
@@ -333,6 +370,7 @@ pub fn set_binding(app: &AppHandle, action: &str, accel: &str) -> Result<(), Bin
         Action::Translate => serde_json::json!({ "shortcuts": { "translate": value } }),
         Action::Speak => serde_json::json!({ "shortcuts": { "speak": value } }),
         Action::Quick => serde_json::json!({ "shortcuts": { "quick": value } }),
+        Action::Screen => serde_json::json!({ "shortcuts": { "screen": value } }),
     };
     state
         .settings
@@ -346,6 +384,7 @@ pub fn set_binding(app: &AppHandle, action: &str, accel: &str) -> Result<(), Bin
             Action::Translate => profile.shortcuts.translate.clone(),
             Action::Speak => profile.shortcuts.speak.clone(),
             Action::Quick => profile.shortcuts.quick.clone(),
+            Action::Screen => profile.shortcuts.screen.clone(),
         };
         let _ = state.settings.update(&nested(&previous));
         let _ = register_all(app);
@@ -434,6 +473,42 @@ mod tests {
     fn translate_closes_the_panel_only_while_it_is_open() {
         assert_eq!(translate_action(false), TranslateAction::Run);
         assert_eq!(translate_action(true), TranslateAction::Close);
+    }
+
+    // ---- spec 004 (T005) ----
+
+    #[test]
+    fn the_screen_action_has_its_id_and_default() {
+        assert_eq!(Action::Screen.id(), "screen");
+        assert_eq!(Action::Screen.default_accel(), "Alt+Shift+X");
+        assert_eq!(Action::from_id("screen"), Some(Action::Screen));
+    }
+
+    #[test]
+    fn the_screen_binding_cannot_equal_another_action() {
+        for other in ["translate", "speak", "quick"] {
+            assert_eq!(
+                validate_binding("screen", "Alt+Shift+X", &[(other, "Alt+Shift+X")]),
+                Err(BindingError::Duplicate {
+                    action: other.into()
+                })
+            );
+        }
+        assert_eq!(validate_binding("screen", "", &[]), Ok(String::new()));
+    }
+
+    #[test]
+    fn the_screen_action_is_active_only_while_the_module_is_on_and_available() {
+        let mut profile = crate::core::settings::SettingsProfile::default();
+        assert!(!active_actions(&profile, true).contains(&Action::Screen));
+        profile.ocr.enabled = true;
+        assert!(active_actions(&profile, true).contains(&Action::Screen));
+        assert!(!active_actions(&profile, false).contains(&Action::Screen));
+        profile.shortcuts.screen.clear();
+        assert!(!active_actions(&profile, true).contains(&Action::Screen));
+        // The other three are always active while bound.
+        assert!(active_actions(&profile, true).contains(&Action::Translate));
+        assert!(active_actions(&profile, false).contains(&Action::Quick));
     }
 
     #[test]

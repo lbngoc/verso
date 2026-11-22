@@ -176,3 +176,108 @@ fn the_menu_bar_is_excluded_by_the_work_area() {
     });
     assert!(position.y >= area.y + EDGE_MARGIN);
 }
+
+// ---- spec 004 (T025): the popup next to a screen region ----
+
+use verso_lib::window_manager::place_near_region;
+
+fn region(x: f64, y: f64, width: f64, height: f64) -> Rect {
+    Rect {
+        x,
+        y,
+        width,
+        height,
+    }
+}
+
+fn inside(area: Rect, position: Point, size: Size) -> bool {
+    position.x >= area.x + EDGE_MARGIN - 0.001
+        && position.y >= area.y + EDGE_MARGIN - 0.001
+        && position.x + size.width <= area.right() - EDGE_MARGIN + 0.001
+        && position.y + size.height <= area.bottom() - EDGE_MARGIN + 0.001
+}
+
+#[test]
+fn a_region_gets_the_popup_below_it_aligned_to_its_left_edge() {
+    let area = work_area();
+    let target = region(300.0, 200.0, 400.0, 60.0);
+    let popup = size(POPUP_WIDTH);
+    let position = place_near_region(target, area, popup, PLACEMENT_GAP);
+    assert_eq!(position.x, 300.0);
+    assert_eq!(position.y, target.bottom() + PLACEMENT_GAP);
+}
+
+#[test]
+fn with_no_room_below_the_popup_goes_above() {
+    let area = work_area();
+    let target = region(300.0, area.bottom() - 90.0, 400.0, 60.0);
+    let popup = size(POPUP_WIDTH);
+    let position = place_near_region(target, area, popup, PLACEMENT_GAP);
+    assert_eq!(position.y, target.y - PLACEMENT_GAP - popup.height);
+    assert!(inside(area, position, popup));
+}
+
+#[test]
+fn a_tall_region_gets_the_popup_to_the_right_then_the_left() {
+    let area = work_area();
+    let popup = size(POPUP_WIDTH);
+    // Fills the height: neither above nor below fits, there is room on the right.
+    let target = region(100.0, area.y, 300.0, area.height);
+    let position = place_near_region(target, area, popup, PLACEMENT_GAP);
+    assert_eq!(position.x, target.right() + PLACEMENT_GAP);
+    assert!(inside(area, position, popup));
+    // Against the right edge: the left side is used.
+    let target = region(area.right() - 320.0, area.y, 300.0, area.height);
+    let position = place_near_region(target, area, popup, PLACEMENT_GAP);
+    assert_eq!(position.x, target.x - PLACEMENT_GAP - popup.width);
+    assert!(inside(area, position, popup));
+}
+
+#[test]
+fn a_region_filling_the_screen_gets_the_popup_inside_its_top_clamped() {
+    let area = work_area();
+    let popup = size(POPUP_WIDTH);
+    let target = region(area.x, area.y, area.width, area.height);
+    let position = place_near_region(target, area, popup, PLACEMENT_GAP);
+    assert!(inside(area, position, popup));
+    assert!(position.y <= area.y + EDGE_MARGIN + 0.001);
+}
+
+#[test]
+fn the_popup_always_stays_inside_the_work_area() {
+    let area = work_area();
+    let popup = size(POPUP_MAX_WIDTH);
+    for (x, y) in [
+        (0.0, 25.0),
+        (1400.0, 25.0),
+        (0.0, 900.0),
+        (1450.0, 940.0),
+        (700.0, 500.0),
+    ] {
+        let target = region(x, y, 60.0, 30.0);
+        let position = place_near_region(target, area, popup, PLACEMENT_GAP);
+        assert!(
+            inside(area, position, popup),
+            "region at {x},{y} -> {position:?}"
+        );
+    }
+}
+
+#[test]
+fn a_work_area_with_a_negative_origin_is_handled() {
+    // A monitor to the left of the primary one.
+    let area = Rect {
+        x: -1440.0,
+        y: 25.0,
+        width: 1440.0,
+        height: 875.0,
+    };
+    let popup = size(POPUP_WIDTH);
+    let target = region(-1000.0, 300.0, 300.0, 40.0);
+    let position = place_near_region(target, area, popup, PLACEMENT_GAP);
+    assert_eq!(position.x, -1000.0);
+    assert_eq!(position.y, target.bottom() + PLACEMENT_GAP);
+    let near_edge = region(-1430.0, 300.0, 100.0, 40.0);
+    let position = place_near_region(near_edge, area, popup, PLACEMENT_GAP);
+    assert!(inside(area, position, popup));
+}

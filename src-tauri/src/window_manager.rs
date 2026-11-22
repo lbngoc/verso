@@ -62,6 +62,54 @@ pub fn place_popup(input: &PlacementInput) -> Point {
     Point { x, y }
 }
 
+/// Places the popup next to a screen region (spec 004 R7): below it, aligned to its left edge;
+/// else above; else to its right; else to its left; else inside its top. Always clamped into the
+/// work area minus `EDGE_MARGIN`. Pure; all values are logical points.
+pub fn place_near_region(region: Rect, work_area: Rect, size: Size, gap: f64) -> Point {
+    let margin = EDGE_MARGIN;
+    let min_x = work_area.x + margin;
+    let max_x = (work_area.right() - size.width - margin).max(min_x);
+    let min_y = work_area.y + margin;
+    let max_y = (work_area.bottom() - size.height - margin).max(min_y);
+
+    let aligned_x = region.x.clamp(min_x, max_x);
+    let below = region.bottom() + gap;
+    if below <= max_y {
+        return Point {
+            x: aligned_x,
+            y: below,
+        };
+    }
+    let above = region.y - gap - size.height;
+    if above >= min_y {
+        return Point {
+            x: aligned_x,
+            y: above,
+        };
+    }
+    // Neither fits vertically: beside the region, vertically centred on it and clamped.
+    let beside_y = (region.y + region.height / 2.0 - size.height / 2.0).clamp(min_y, max_y);
+    let right = region.right() + gap;
+    if right <= max_x {
+        return Point {
+            x: right,
+            y: beside_y,
+        };
+    }
+    let left = region.x - gap - size.width;
+    if left >= min_x {
+        return Point {
+            x: left,
+            y: beside_y,
+        };
+    }
+    // Nothing fits (the region fills the screen): inside it, at the top.
+    Point {
+        x: aligned_x,
+        y: region.y.clamp(min_y, max_y),
+    }
+}
+
 /// The pill the popup starts as while translating (contract § Status tooltip).
 pub fn popup_pill_size() -> Size {
     Size {
@@ -249,6 +297,10 @@ pub fn prewarm(app: &AppHandle) {
 /// The cursor point the popup was placed at; content growth re-runs placement from it (R2/R3).
 static POPUP_ANCHOR: parking_lot::Mutex<Option<Point>> = parking_lot::Mutex::new(None);
 
+/// The screen region the popup was placed next to (spec 004); content growth re-runs placement
+/// from it instead of from the cursor.
+static POPUP_REGION: parking_lot::Mutex<Option<Rect>> = parking_lot::Mutex::new(None);
+
 /// The frame of a result popup once placed; later resizes only change the height (R20).
 static POPUP_LOCKED: parking_lot::Mutex<Option<Rect>> = parking_lot::Mutex::new(None);
 
@@ -284,6 +336,7 @@ pub fn show_popup(app: &AppHandle) -> tauri::Result<()> {
     });
 
     *POPUP_ANCHOR.lock() = Some(cursor);
+    *POPUP_REGION.lock() = None;
     *POPUP_LOCKED.lock() = None;
     POPUP_PINNED.store(false, Ordering::SeqCst);
     platform::services().remember_capture_target();
@@ -301,6 +354,45 @@ pub fn show_popup(app: &AppHandle) -> tauri::Result<()> {
     let _ = receiver.recv_timeout(std::time::Duration::from_millis(300));
     register_escape(app);
     // Unpinned: a click outside closes the popup even before it ever took focus (R5).
+    platform::services().start_outside_click_monitor(app.clone());
+    app.emit(
+        "popup-state",
+        PopupState::Status {
+            kind: crate::core::capture::StatusKind::Translating,
+        },
+    )?;
+    Ok(())
+}
+
+/// Shows the status pill next to a screen region (global logical points) without activating it
+/// (spec 004 US1). Later growth keeps the popup next to the region.
+pub fn show_popup_near(app: &AppHandle, region: Rect) -> tauri::Result<()> {
+    let Some(window) = popup_window(app) else {
+        return Ok(());
+    };
+    let services = platform::services();
+    let centre = Point {
+        x: region.x + region.width / 2.0,
+        y: region.y + region.height / 2.0,
+    };
+    let work_area = services.monitor_work_area(centre);
+    let size = popup_pill_size();
+    let position = place_near_region(region, work_area, size, PLACEMENT_GAP);
+
+    *POPUP_ANCHOR.lock() = Some(centre);
+    *POPUP_REGION.lock() = Some(region);
+    *POPUP_LOCKED.lock() = None;
+    POPUP_PINNED.store(false, Ordering::SeqCst);
+    window.set_size(LogicalSize::new(size.width, size.height))?;
+    window.set_position(LogicalPosition::new(position.x, position.y))?;
+    let (sender, receiver) = std::sync::mpsc::channel();
+    let show_window = window.clone();
+    let _ = app.run_on_main_thread(move || {
+        services_show(&show_window);
+        let _ = sender.send(());
+    });
+    let _ = receiver.recv_timeout(std::time::Duration::from_millis(300));
+    register_escape(app);
     platform::services().start_outside_click_monitor(app.clone());
     app.emit(
         "popup-state",
@@ -346,13 +438,17 @@ pub fn resize_popup_to(app: &AppHandle, width: f64, height: f64) {
         .lock()
         .unwrap_or_else(|| services.cursor_position());
     let work_area = services.monitor_work_area(cursor);
-    let position = place_popup(&PlacementInput {
-        cursor,
-        work_area,
-        size,
-        scale_factor: 1.0,
-        gap: PLACEMENT_GAP,
-    });
+    let region = *POPUP_REGION.lock();
+    let position = match region {
+        Some(region) => place_near_region(region, work_area, size, PLACEMENT_GAP),
+        None => place_popup(&PlacementInput {
+            cursor,
+            work_area,
+            size,
+            scale_factor: 1.0,
+            gap: PLACEMENT_GAP,
+        }),
+    };
     let _ = window.set_size(LogicalSize::new(size.width, size.height));
     let _ = window.set_position(LogicalPosition::new(position.x, position.y));
     if !is_pill {
@@ -444,6 +540,7 @@ pub fn hide_popup(app: &AppHandle) {
     }
     POPUP_PINNED.store(false, Ordering::SeqCst);
     *POPUP_ANCHOR.lock() = None;
+    *POPUP_REGION.lock() = None;
     *POPUP_LOCKED.lock() = None;
     unregister_escape(app);
     let _ = app.emit("popup-state", PopupState::Hidden);
@@ -804,6 +901,11 @@ fn register_escape(app: &AppHandle) {
         .global_shortcut()
         .on_shortcut("Escape", |app, _shortcut, event| {
             if event.state() == ShortcutState::Pressed {
+                // The region picker takes Escape first: cancelling it leaves the popup alone.
+                if crate::core::ocr::is_selecting() {
+                    crate::core::ocr::cancel(app);
+                    return;
+                }
                 hide_popup(app);
                 hide_quick(app);
             }
@@ -815,6 +917,10 @@ fn register_escape(app: &AppHandle) {
 }
 
 fn unregister_escape(app: &AppHandle) {
+    // The overlays still need Escape while they are up (a popup hidden meanwhile must not drop it).
+    if crate::core::ocr::is_selecting() {
+        return;
+    }
     if ESCAPE_REGISTERED.swap(false, Ordering::SeqCst) {
         let _ = app.global_shortcut().unregister("Escape");
     }
@@ -854,10 +960,19 @@ fn clear_permission_reasons() {
 
 /// Opens the onboarding directly at the Accessibility step, saying why: missing at runtime, or lost
 /// across an update (spec 010 FR-003).
-pub fn show_permission_onboarding(app: &AppHandle, reason: PermissionReason) {
-    set_permission_reason(PermissionKind::Accessibility, reason);
+pub fn show_permission_onboarding(app: &AppHandle, kind: PermissionKind, reason: PermissionReason) {
+    set_permission_reason(kind, reason);
+    *PERMISSION_STEP_KIND.lock() = kind;
     ONBOARDING_STEP.store(1, Ordering::SeqCst);
     show_onboarding(app);
+}
+
+/// The kind the permission step was opened for; reset to Accessibility when the window closes.
+static PERMISSION_STEP_KIND: parking_lot::Mutex<PermissionKind> =
+    parking_lot::Mutex::new(PermissionKind::Accessibility);
+
+pub fn permission_step_kind() -> PermissionKind {
+    *PERMISSION_STEP_KIND.lock()
 }
 
 pub fn show_onboarding(app: &AppHandle) {
@@ -892,6 +1007,7 @@ pub fn show_onboarding(app: &AppHandle) {
             window.on_window_event(|event| {
                 if matches!(event, tauri::WindowEvent::Destroyed) {
                     clear_permission_reasons();
+                    *PERMISSION_STEP_KIND.lock() = PermissionKind::Accessibility;
                 }
             });
             track_main_window(app, &window);
@@ -962,6 +1078,144 @@ pub fn self_test(app: &AppHandle, iterations: u32) {
             millis.len()
         );
     }
+}
+
+// ---- spec 004: the region picker overlays (one window per monitor, created on demand) ----
+
+const OVERLAY_PREFIX: &str = "capture-";
+
+fn overlay_labels(app: &AppHandle) -> Vec<String> {
+    app.webview_windows()
+        .keys()
+        .filter(|label| label.starts_with(OVERLAY_PREFIX))
+        .cloned()
+        .collect()
+}
+
+/// The monitors as logical frames in the global point space (`position / scale`, as Tauri reports
+/// them on both platforms).
+pub fn monitor_snapshots(app: &AppHandle) -> Vec<crate::core::ocr::MonitorInfo> {
+    let Ok(monitors) = app.available_monitors() else {
+        return Vec::new();
+    };
+    monitors
+        .iter()
+        .enumerate()
+        .map(|(index, monitor)| {
+            let scale = monitor.scale_factor();
+            let position = monitor.position().to_logical::<f64>(scale);
+            let size = monitor.size().to_logical::<f64>(scale);
+            crate::core::ocr::MonitorInfo {
+                index: index as u32,
+                frame: Rect {
+                    x: position.x,
+                    y: position.y,
+                    width: size.width,
+                    height: size.height,
+                },
+                scale,
+            }
+        })
+        .collect()
+}
+
+/// Creates one hidden overlay per monitor. Each page calls `overlay_ready` once painted and is
+/// shown then. Returns false when no overlay could be created.
+pub fn open_overlays(app: &AppHandle, monitors: &[crate::core::ocr::MonitorInfo]) -> bool {
+    let mut created = 0;
+    for monitor in monitors {
+        let label = format!("{OVERLAY_PREFIX}{}", monitor.index);
+        let builder = tauri::WebviewWindowBuilder::new(
+            app,
+            &label,
+            tauri::WebviewUrl::App("capture.html".into()),
+        )
+        .title("Verso")
+        .position(monitor.frame.x, monitor.frame.y)
+        .inner_size(monitor.frame.width, monitor.frame.height)
+        .visible(false)
+        .decorations(false)
+        .transparent(true)
+        .always_on_top(true)
+        .skip_taskbar(true)
+        .focused(false)
+        .resizable(false)
+        .maximizable(false)
+        .minimizable(false)
+        .shadow(false)
+        .accept_first_mouse(true);
+        match builder.build() {
+            Ok(window) => {
+                info!("overlay {label} created");
+                created += 1;
+                let handle = app.clone();
+                let styled = window.clone();
+                let _ = app.run_on_main_thread(move || {
+                    let _ = &handle;
+                    platform::services().prepare_overlay(&styled);
+                });
+            }
+            Err(error) => warn!("could not create overlay {label}: {error}"),
+        }
+    }
+    if created > 0 {
+        register_escape(app);
+        // Safety net: if a page never reports ready (a script error), show the overlays anyway.
+        let late = app.clone();
+        let indexes: Vec<u32> = monitors.iter().map(|monitor| monitor.index).collect();
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(800));
+            if crate::core::ocr::is_selecting() {
+                for index in indexes {
+                    show_overlay(&late, index);
+                }
+            }
+        });
+    }
+    created > 0
+}
+
+/// The overlay page has painted: show it (never a white flash).
+pub fn show_overlay(app: &AppHandle, monitor: u32) {
+    info!("overlay {monitor} painted; showing it");
+    let label = format!("{OVERLAY_PREFIX}{monitor}");
+    let Some(window) = app.get_webview_window(&label) else {
+        return;
+    };
+    let handle = app.clone();
+    let _ = app.run_on_main_thread(move || {
+        let _ = &handle;
+        platform::services().show_overlay(&window);
+    });
+}
+
+/// Destroys every overlay and gives the foreground back.
+pub fn close_overlays(app: &AppHandle) {
+    let labels = overlay_labels(app);
+    if labels.is_empty() {
+        return;
+    }
+    let (sender, receiver) = std::sync::mpsc::channel();
+    let handle = app.clone();
+    let _ = app.run_on_main_thread(move || {
+        for label in labels {
+            if let Some(window) = handle.get_webview_window(&label) {
+                platform::services().close_overlay(&window);
+            }
+        }
+        let _ = sender.send(());
+    });
+    // The capture that follows must not see the overlay: wait until it is gone.
+    let _ = receiver.recv_timeout(std::time::Duration::from_millis(500));
+    // Escape belongs to the popup again only when one is shown (it registers it itself).
+    if let Some(popup) = popup_window(app) {
+        if !popup.is_visible().unwrap_or(false) {
+            unregister_escape(app);
+        }
+    } else {
+        unregister_escape(app);
+    }
+    platform::services().restore_capture_target();
 }
 
 #[cfg(test)]

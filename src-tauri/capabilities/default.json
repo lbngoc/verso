@@ -1,7 +1,7 @@
 {
   "identifier": "default",
   "description": "Default capability for the Verso windows",
-  "windows": ["popup", "quick", "settings", "onboarding", "update"],
+  "windows": ["popup", "quick", "settings", "onboarding", "update", "capture-*"],
   "permissions": [
     "core:default",
     "core:window:allow-show",

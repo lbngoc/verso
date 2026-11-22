@@ -14,6 +14,7 @@ extern "C" {
     fn AXIsProcessTrusted() -> bool;
     fn AXIsProcessTrustedWithOptions(options: CFTypeRef) -> bool;
     fn CGPreflightScreenCaptureAccess() -> bool;
+    fn CGRequestScreenCaptureAccess() -> bool;
 }
 
 pub fn accessibility_granted() -> bool {
@@ -61,6 +62,13 @@ pub fn request(kind: PermissionKind) {
             );
         }
         PermissionKind::ScreenRecording => {
+            // The first request in this process adds Verso's row to the list and shows the
+            // system prompt (spec 004 R8); later ones only open the pane.
+            static ASKED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+            if !ASKED.swap(true, std::sync::atomic::Ordering::SeqCst) {
+                let granted = unsafe { CGRequestScreenCaptureAccess() };
+                info!("screen recording requested (granted: {granted})");
+            }
             open_pane(
                 "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture",
             );

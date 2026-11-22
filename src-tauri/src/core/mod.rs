@@ -4,6 +4,8 @@ pub mod errors;
 pub mod langdetect;
 pub mod languages;
 pub mod logging;
+pub mod ocr;
+pub mod ocr_text;
 pub mod pipeline;
 pub mod quick_queue;
 pub mod registry;

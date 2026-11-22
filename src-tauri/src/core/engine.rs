@@ -11,6 +11,8 @@ use super::errors::{EngineAttempt, EngineError};
 pub enum Origin {
     Selection,
     Typed,
+    /// Text read from a screen region (spec 004).
+    Screen,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

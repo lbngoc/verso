@@ -29,6 +29,10 @@
   // Set after "Reset and grant again": `done` = the fresh row is waiting to be switched on,
   // `failed` = the system tool refused, so the manual steps are the way forward.
   let resetState = $state<"idle" | "done" | "failed">("idle");
+  // Screen Recording: macOS may apply a new grant to a running process only after a relaunch
+  // (spec 004 R8). Once the pane was opened and the grant is still missing, offer the restart.
+  let paneOpened = $state(false);
+  let restartHint = $derived(kind === "screen_recording" && paneOpened && status !== "granted");
   let granted = $derived(status === "granted");
 
   const check = () => commands.checkPermissions(kind);
@@ -58,6 +62,7 @@
 
   async function openSettings(): Promise<void> {
     await commands.requestPermission(kind).catch(() => undefined);
+    paneOpened = true;
     await poll.recheckNow();
   }
 
@@ -79,7 +84,11 @@
   {/if}
 
   <Card>
-    <SettingRow label={$t("settings.permission")}>
+    <SettingRow
+      label={kind === "screen_recording"
+        ? $t("permission.screen_recording_name")
+        : $t("settings.permission")}
+    >
       {#if granted}
         <!-- Nothing to do: the badge below says it is granted. -->
       {:else if reason === "after_update"}
@@ -106,6 +115,14 @@
   />
 
   {#if !granted}
+    {#if restartHint}
+      <p class="next">{$t("permission.restart_hint")}</p>
+      <div>
+        <button class="secondary" type="button" onclick={() => void commands.restartApp()}>
+          {$t("permission.restart")}
+        </button>
+      </div>
+    {/if}
     {#if resetState === "done"}
       <p class="next">{$t("permission.switch_on_now")}</p>
     {:else if resetState === "failed"}

@@ -158,3 +158,32 @@ async fn attempts_are_recorded_without_text() {
     let serialised = serde_json::to_string(&result.attempts).unwrap();
     assert!(!serialised.contains("hello"));
 }
+
+// ---- spec 004 (T006) ----
+
+#[test]
+fn the_screen_origin_serialises_as_screen() {
+    assert_eq!(
+        serde_json::to_string(&Origin::Screen).unwrap(),
+        "\"screen\""
+    );
+    let parsed: Origin = serde_json::from_str("\"screen\"").unwrap();
+    assert_eq!(parsed, Origin::Screen);
+}
+
+#[tokio::test]
+async fn screen_text_goes_through_the_same_engines_with_the_screen_origin() {
+    let engine = Arc::new(common::FakeEngine::new(
+        "http-google",
+        common::FakeResponse::ok("xin chào", Some("en")),
+    ));
+    let (pipeline, _settings, _dir) = pipeline_with(vec![engine.clone()], None);
+    let result = pipeline
+        .translate_screen_text("hello there")
+        .await
+        .expect("translates");
+    assert_eq!(result.text, "xin chào");
+    assert_eq!(engine.calls(), 1);
+    let empty = pipeline.translate_screen_text("   ").await;
+    assert!(matches!(empty, Err(EngineError::EmptyInput)));
+}

@@ -152,6 +152,24 @@ pub fn run() {
                     granted,
                     regrant
                 );
+                // Spec 004: a Screen Recording grant lost across an update is recorded for the
+                // module's permission step, which opens only when the user uses the module.
+                if profile.ocr.enabled {
+                    let screen_granted = platform::services()
+                        .permission_status(PermissionKind::ScreenRecording)
+                        == PermissionStatus::Granted;
+                    if needs_permission_regrant(
+                        profile.first_run_engine_choice_at.is_some(),
+                        &profile.last_run_version,
+                        env!("CARGO_PKG_VERSION"),
+                        screen_granted,
+                    ) {
+                        window_manager::set_permission_reason(
+                            PermissionKind::ScreenRecording,
+                            permission_reason(true),
+                        );
+                    }
+                }
                 if regrant {
                     log::info!(
                         "Accessibility is missing after an update ({} -> {}); showing the re-grant step",
@@ -163,6 +181,7 @@ pub fn run() {
                         std::thread::sleep(std::time::Duration::from_millis(500));
                         window_manager::show_permission_onboarding(
                             &handle,
+                            PermissionKind::Accessibility,
                             permission_reason(regrant),
                         );
                     });
@@ -232,6 +251,13 @@ pub fn run() {
             commands::set_shortcut,
             commands::reset_shortcut,
             commands::complete_engine_choice,
+            commands::ocr_availability,
+            commands::start_screen_translate,
+            commands::overlay_ready,
+            commands::finish_region,
+            commands::cancel_region,
+            commands::permission_step_kind,
+            commands::restart_app,
             commands::voice_exists,
             commands::engine_availability,
             commands::report_problem,

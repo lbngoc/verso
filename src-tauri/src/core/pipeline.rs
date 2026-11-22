@@ -131,6 +131,16 @@ impl Pipeline {
             .await
     }
 
+    /// Text read from a screen region: source language detected, same engines and fallback as a
+    /// selection (spec 004 FR-007).
+    pub async fn translate_screen_text(
+        &self,
+        text: &str,
+    ) -> Result<TranslationResult, EngineError> {
+        let target = self.settings.get().target_lang;
+        self.translate(text, "auto", &target, Origin::Screen).await
+    }
+
     pub async fn translate_typed(&self, text: &str) -> Result<TranslationResult, EngineError> {
         let settings = self.settings.get();
         self.translate(

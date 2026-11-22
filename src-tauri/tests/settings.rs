@@ -153,3 +153,88 @@ fn telemetry_is_always_off() {
         .expect("update");
     assert!(!profile.telemetry_opt_in);
 }
+
+// ---- spec 004: the screen translate module (T004) ----
+
+#[test]
+fn a_fresh_profile_has_the_module_off_and_the_default_shortcut() {
+    let profile = SettingsProfile::default();
+    assert!(!profile.ocr.enabled);
+    assert_eq!(profile.ocr.language, "auto");
+    assert_eq!(profile.shortcuts.screen, "Alt+Shift+X");
+}
+
+#[test]
+fn a_file_without_the_ocr_fields_loads_their_defaults() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("settings.json");
+    fs::write(
+        &path,
+        r#"{"schema":1,"target_lang":"ja","shortcuts":{"translate":"Alt+Shift+Z","speak":"Alt+Shift+S","quick":"Alt+Shift+T"}}"#,
+    )
+    .unwrap();
+    let (profile, warning) = load_profile(&path);
+    assert!(warning.is_none());
+    assert_eq!(profile.schema, 1);
+    assert!(!profile.ocr.enabled);
+    assert_eq!(profile.ocr.language, "auto");
+    assert_eq!(profile.shortcuts.screen, "Alt+Shift+X");
+    assert_eq!(profile.target_lang, "ja");
+}
+
+#[test]
+fn an_ocr_patch_round_trips_through_save_and_load() {
+    let (_dir, store) = common::temp_store();
+    store
+        .update(&json!({ "ocr": { "enabled": true, "language": "fr" } }))
+        .expect("update");
+    let reopened = SettingsStore::open(store.path());
+    let profile = reopened.get();
+    assert!(profile.ocr.enabled);
+    assert_eq!(profile.ocr.language, "fr");
+    // A partial patch keeps the other field.
+    reopened
+        .update(&json!({ "ocr": { "enabled": false } }))
+        .unwrap();
+    assert_eq!(reopened.get().ocr.language, "fr");
+}
+
+#[test]
+fn the_recognition_language_is_auto_or_a_non_empty_code() {
+    let (_dir, store) = common::temp_store();
+    assert!(store.update(&json!({ "ocr": { "language": "" } })).is_err());
+    assert!(store
+        .update(&json!({ "ocr": { "language": "   " } }))
+        .is_err());
+    assert_eq!(
+        store.get().ocr.language,
+        "auto",
+        "a refused patch changes nothing"
+    );
+    // A well-formed code the system does not know is kept as written (it falls back at capture time).
+    store
+        .update(&json!({ "ocr": { "language": "xx-YY" } }))
+        .expect("well-formed codes are kept");
+    assert_eq!(store.get().ocr.language, "xx-YY");
+    store
+        .update(&json!({ "ocr": { "language": "auto" } }))
+        .unwrap();
+    assert_eq!(store.get().ocr.language, "auto");
+}
+
+#[test]
+fn the_screen_shortcut_cannot_share_another_binding() {
+    let profile = SettingsProfile {
+        shortcuts: verso_lib::core::settings::Shortcuts {
+            screen: "Alt+Shift+Z".into(),
+            ..Default::default()
+        },
+        ..SettingsProfile::default()
+    }
+    .validated();
+    assert_eq!(
+        profile.shortcuts.screen, "",
+        "left unbound, like quick and speak"
+    );
+    assert_eq!(profile.shortcuts.translate, "Alt+Shift+Z");
+}
