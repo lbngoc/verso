@@ -21,12 +21,13 @@ fn error(context: &str, cause: windows::core::Error) -> OcrError {
 pub fn availability() -> OcrAvailability {
     let languages = match OcrEngine::AvailableRecognizerLanguages() {
         Ok(list) => list,
-        Err(_) => {
+        Err(error) => {
+            log::warn!("could not list the OCR languages: {error}");
             return OcrAvailability {
                 available: false,
                 reason: Some(OcrUnavailableReason::NoLanguage),
                 languages: Vec::new(),
-            }
+            };
         }
     };
     let listed: Vec<OcrLanguage> = languages
@@ -42,6 +43,7 @@ pub fn availability() -> OcrAvailability {
         })
         .collect();
     if listed.is_empty() {
+        log::warn!("no OCR language is installed");
         return OcrAvailability {
             available: false,
             reason: Some(OcrUnavailableReason::NoLanguage),

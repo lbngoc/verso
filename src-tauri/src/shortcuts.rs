@@ -331,7 +331,12 @@ pub fn trigger_screen(app: &AppHandle) {
         window_manager::hide_quick(app);
         return;
     }
-    crate::core::ocr::start(app);
+    // Off the event-loop thread: creating the overlay windows from a hotkey handler can deadlock
+    // on Windows while WebView2 waits for that very loop (seen in Windows 11 1, spec 004).
+    let handle = app.clone();
+    std::thread::spawn(move || {
+        crate::core::ocr::start(&handle);
+    });
 }
 
 pub fn trigger_speak(app: &AppHandle) {

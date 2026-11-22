@@ -270,7 +270,7 @@ pub fn ocr_availability() -> platform::OcrAvailability {
 
 /// Same path as the shortcut and the tray item.
 #[tauri::command]
-pub fn start_screen_translate(app: AppHandle) -> &'static str {
+pub async fn start_screen_translate(app: AppHandle) -> &'static str {
     match crate::core::ocr::start(&app) {
         crate::core::ocr::StartResult::Opened => "opened",
         crate::core::ocr::StartResult::Ignored => "ignored",
