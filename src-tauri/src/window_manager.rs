@@ -136,6 +136,7 @@ pub fn prepare_transient(app: &AppHandle, window: &WebviewWindow) {
         if let tauri::WindowEvent::Focused(false) = event {
             let visible = watched.is_visible().unwrap_or(false);
             if !is_popup {
+                log::info!("quick panel lost focus (visible: {visible})");
                 // A loading panel keeps its queued show; only a panel on screen closes (T134).
                 if QUICK.lock().blur(visible) {
                     hide_quick(&handle);
@@ -364,7 +365,54 @@ pub fn resize_popup_to(app: &AppHandle, width: f64, height: f64) {
     }
 }
 
+/// Whether the popup may take the keyboard focus: only while it is on screen and the quick panel is
+/// not open. Results are broadcast to every page, so the hidden popup also sees the panel's.
+pub fn popup_may_take_focus(popup_visible: bool, quick_open: bool) -> bool {
+    popup_visible && !quick_open
+}
+
+/// Set when the popup asked to hide while a requested main window was still loading (T035).
+static POPUP_HIDE_PENDING: AtomicBool = AtomicBool::new(false);
+
+/// Whether the popup should stay until the main window it asked for appears: hiding it first hands
+/// the foreground to the source app, and Windows then refuses to bring Settings forward (T035).
+pub fn defer_popup_hide(main_requested_recently: bool, main_window_visible: bool) -> bool {
+    main_requested_recently && !main_window_visible
+}
+
+/// Whether hiding the popup gives the foreground back to the app the selection came from: only when
+/// the popup was on screen, and not to take it from the panel or a main window.
+pub fn hand_back_to_source(
+    popup_was_visible: bool,
+    quick_open: bool,
+    main_requested_recently: bool,
+    main_window_focused: bool,
+) -> bool {
+    popup_was_visible && !quick_open && !main_requested_recently && !main_window_focused
+}
+
+fn any_main_window(app: &AppHandle, test: impl Fn(&WebviewWindow) -> bool) -> bool {
+    MAIN_WINDOWS
+        .iter()
+        .filter_map(|label| app.get_webview_window(label))
+        .any(|window| test(&window))
+}
+
 pub fn hide_popup(app: &AppHandle) {
+    let requested_recently =
+        main_window_keeps_focus(*MAIN_REQUESTED_AT.lock(), std::time::Instant::now());
+    let was_visible = popup_window(app).is_some_and(|window| window.is_visible().unwrap_or(false));
+    if was_visible
+        && defer_popup_hide(
+            requested_recently,
+            any_main_window(app, |window| window.is_visible().unwrap_or(false)),
+        )
+    {
+        // `show_ready_window` hides it once the main window is on screen and focused.
+        POPUP_HIDE_PENDING.store(true, Ordering::SeqCst);
+        return;
+    }
+    POPUP_HIDE_PENDING.store(false, Ordering::SeqCst);
     if let Some(window) = popup_window(app) {
         // AppKit's `orderOut` must run on the main thread (macOS 26 traps otherwise, seen with
         // `--self-test` and any capture that finishes on a worker); queueing keeps the order
@@ -386,8 +434,12 @@ pub fn hide_popup(app: &AppHandle) {
     // the source window then would steal the panel's focus and close it (seen on Windows).
     // Likewise when a main window was just asked for from the popup (`Ctrl+,` / `⌘,` opens
     // Settings, then the page hides the popup): Settings keeps the foreground (FR-049, T143).
-    let main_requested = *MAIN_REQUESTED_AT.lock();
-    if !quick_is_open(app) && !main_window_keeps_focus(main_requested, std::time::Instant::now()) {
+    if hand_back_to_source(
+        was_visible,
+        quick_is_open(app),
+        requested_recently,
+        any_main_window(app, |window| window.is_focused().unwrap_or(false)),
+    ) {
         platform::services().restore_capture_target();
     }
     POPUP_PINNED.store(false, Ordering::SeqCst);
@@ -414,6 +466,7 @@ pub fn show_quick(app: &AppHandle) -> tauri::Result<()> {
 }
 
 fn present_quick(window: &WebviewWindow) -> tauri::Result<()> {
+    log::info!("quick panel: present");
     let services = platform::services();
     let cursor = services.cursor_position();
     let work_area = services.monitor_work_area(cursor);
@@ -522,8 +575,15 @@ fn open_settings(app: &AppHandle, url: &str) {
             // Painted before the window appears, so the first frame is never blank (R13).
             reveal_on_ready(app, &window);
             // The sidebar material sits behind the webview; the page leaves that column transparent.
-            let appearance = platform::services().appearance();
-            platform::services().apply_settings_material(&window, &appearance);
+            // AppKit needs the main thread, and `⌘,` / the header Settings button arrive on a
+            // worker thread through the async command (spec 010 R5); the user's theme override
+            // applies from the first frame.
+            let handle = app.clone();
+            let styled = window.clone();
+            let _ = app.run_on_main_thread(move || {
+                let appearance = crate::appearance::current(&handle);
+                platform::services().apply_settings_material(&styled, &appearance);
+            });
             // A recorder may have suspended the global shortcuts; closing Settings restores them.
             let handle = app.clone();
             window.on_window_event(move |event| {
@@ -710,6 +770,14 @@ fn show_ready_window(app: &AppHandle, window: &WebviewWindow) {
         let _ = window.show();
         let _ = window.set_focus();
         nudge_layout(&window);
+        // The popup that asked for this window stayed until now, so Verso still owned the
+        // foreground when the window took the focus (T035).
+        if MAIN_WINDOWS.contains(&window.label()) && POPUP_HIDE_PENDING.load(Ordering::SeqCst) {
+            // Windows may report the focus a moment later; a fresh request time keeps the
+            // foreground from going back to the source app as the popup hides.
+            note_main_requested();
+            hide_popup(&app);
+        }
     });
 }
 
@@ -906,6 +974,41 @@ mod tests {
         assert!(main_window_keeps_focus(Some(now), now));
         let later = now + std::time::Duration::from_secs(5);
         assert!(!main_window_keeps_focus(Some(now), later));
+    }
+
+    #[test]
+    fn the_popup_waits_for_a_requested_main_window_to_appear() {
+        // T035: hiding the popup before Settings shows hands the foreground to the source app.
+        assert!(defer_popup_hide(true, false));
+        assert!(!defer_popup_hide(true, true));
+        assert!(!defer_popup_hide(false, false));
+    }
+
+    #[test]
+    fn no_hand_back_while_a_main_window_has_the_focus() {
+        // T035: the source app must not take the foreground from Settings, however late the
+        // popup hides.
+        assert!(hand_back_to_source(true, false, false, false));
+        assert!(!hand_back_to_source(true, true, false, false)); // quick panel open
+        assert!(!hand_back_to_source(true, false, true, false)); // main window just asked for
+        assert!(!hand_back_to_source(true, false, false, true)); // a main window is focused
+    }
+
+    #[test]
+    fn a_hidden_popup_never_takes_the_focus() {
+        // 009-S13 on Windows: the panel's result reached the hidden popup page, which asked for the
+        // focus and took the foreground from the panel; the panel then closed on blur.
+        assert!(popup_may_take_focus(true, false));
+        assert!(!popup_may_take_focus(false, false));
+        assert!(!popup_may_take_focus(true, true));
+    }
+
+    #[test]
+    fn no_hand_back_when_the_popup_was_not_on_screen() {
+        // A tray click hides the (already hidden) popup before it opens the panel; handing the
+        // foreground to the last source app then took it from the new panel, which closed on blur
+        // (009-S13 on Windows: the third click did not open the panel).
+        assert!(!hand_back_to_source(false, false, false, false));
     }
 
     use super::*;

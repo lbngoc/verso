@@ -345,12 +345,15 @@ fn emit_quick_prefill(app: &AppHandle, enabled: bool) {
 /// (FR-034). A click that arrives right after the panel hid (its own blur) just closes it.
 pub fn open_quick_from_tray(app: &AppHandle) {
     if window_manager::quick_just_hidden() {
+        log::info!("tray click: panel just hidden by this click; staying closed");
         return;
     }
     if window_manager::quick_is_open(app) {
+        log::info!("tray click: panel open; closing it");
         window_manager::hide_quick(app);
         return;
     }
+    log::info!("tray click: opening the panel");
     window_manager::hide_popup(app);
     if window_manager::show_quick(app).is_err() {
         return;
@@ -538,6 +541,10 @@ pub fn set_popup_pinned(pinned: bool) {
 #[tauri::command]
 pub fn focus_popup(app: AppHandle) {
     if let Some(window) = window_manager::popup_window(&app) {
+        let visible = window.is_visible().unwrap_or(false);
+        if !window_manager::popup_may_take_focus(visible, window_manager::quick_is_open(&app)) {
+            return;
+        }
         platform::services().focus_popup(&window);
     }
 }

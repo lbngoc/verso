@@ -5,7 +5,7 @@
 //! Reduce Transparency / Increase Contrast: no material view at all; the stylesheet paints an
 //! opaque `windowBackgroundColor`-equivalent surface.
 
-use log::debug;
+use log::{debug, warn};
 use objc2::runtime::AnyObject;
 use objc2::MainThreadMarker;
 use objc2_app_kit::{
@@ -40,7 +40,7 @@ pub fn apply(window: &WebviewWindow, appearance: &Appearance) {
         return;
     };
     let Some(mtm) = MainThreadMarker::new() else {
-        debug!("material applied off the main thread; keeping the CSS fallback");
+        warn!("material applied off the main thread; keeping the CSS fallback");
         return;
     };
     let ns_window: &NSWindow = unsafe { &*(pointer as *const NSWindow) };
@@ -55,6 +55,15 @@ pub fn apply(window: &WebviewWindow, appearance: &Appearance) {
             let view = NSGlassEffectView::new(mtm);
             view.setStyle(NSGlassEffectViewStyle::Regular);
             view.setCornerRadius(GLASS_RADIUS);
+            follow_theme(&view, appearance.theme);
+            // Liquid Glass adapts its shade to what lies behind it, but the page's text follows
+            // Verso's theme: light text over glass that went light (or dark over dark) was nearly
+            // invisible (T034). A tint in the theme's surface colour keeps the contrast.
+            let tint = match appearance.theme {
+                crate::platform::UiTheme::Light => NSColor::colorWithWhite_alpha(1.0, 0.55),
+                crate::platform::UiTheme::Dark => NSColor::colorWithWhite_alpha(0.0, 0.45),
+            };
+            view.setTintColor(Some(&tint));
             install(&content, &view, GLASS_RADIUS);
             debug!("installed NSGlassEffectView");
         }
@@ -69,6 +78,7 @@ pub fn apply(window: &WebviewWindow, appearance: &Appearance) {
             view.setMaterial(material);
             view.setBlendingMode(NSVisualEffectBlendingMode::BehindWindow);
             view.setState(NSVisualEffectState::Active);
+            follow_theme(&view, appearance.theme);
             install(&content, &view, PANEL_RADIUS);
             debug!("installed NSVisualEffectView ({material:?}) forced active");
         }
@@ -80,6 +90,23 @@ pub fn apply(window: &WebviewWindow, appearance: &Appearance) {
             ns_window.setOpaque(false);
             round_content(&content, PANEL_RADIUS);
             debug!("opaque surface (webview background)");
+        }
+    }
+}
+
+/// Pins the material view to the theme Verso shows (spec 010): with a Light/Dark override that
+/// differs from the system, the material would otherwise follow the system and leave the page's
+/// text on the wrong background. Only the material view changes; the webview keeps its own theme.
+fn follow_theme(view: &NSView, theme: crate::platform::UiTheme) {
+    let name = objc2_foundation::NSString::from_str(match theme {
+        crate::platform::UiTheme::Dark => "NSAppearanceNameDarkAqua",
+        crate::platform::UiTheme::Light => "NSAppearanceNameAqua",
+    });
+    unsafe {
+        let named: *mut AnyObject =
+            objc2::msg_send![objc2::class!(NSAppearance), appearanceNamed: &*name];
+        if !named.is_null() {
+            let _: () = objc2::msg_send![view, setAppearance: named];
         }
     }
 }
@@ -118,7 +145,7 @@ pub fn apply_settings(window: &WebviewWindow, appearance: &Appearance) {
         return;
     };
     let Some(mtm) = MainThreadMarker::new() else {
-        debug!("sidebar material applied off the main thread; keeping the CSS fallback");
+        warn!("sidebar material applied off the main thread; keeping the CSS fallback");
         return;
     };
     let ns_window: &NSWindow = unsafe { &*(pointer as *const NSWindow) };
@@ -132,6 +159,7 @@ pub fn apply_settings(window: &WebviewWindow, appearance: &Appearance) {
     view.setMaterial(NSVisualEffectMaterial::Sidebar);
     view.setBlendingMode(NSVisualEffectBlendingMode::BehindWindow);
     view.setState(NSVisualEffectState::FollowsWindowActiveState);
+    follow_theme(&view, appearance.theme);
     install(&content, &view, 10.0);
     debug!("installed the sidebar material for Settings");
 }
