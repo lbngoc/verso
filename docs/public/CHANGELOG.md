@@ -5,6 +5,11 @@ the release tag, so a tag needs its section before it is pushed.
 
 ## Unreleased
 
+## 0.1.7 — 2026-11-22
+
+When an update leaves macOS no longer trusting Verso, setup says so and fixes it with one click; Settings
+looks the same however it is opened, and several Windows focus problems are gone.
+
 ### Changed
 
 - When an update leaves macOS no longer trusting Verso for Accessibility, the setup window now says the
