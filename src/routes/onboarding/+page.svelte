@@ -3,13 +3,19 @@
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import Card from "$lib/components/Card.svelte";
   import Icon from "$lib/components/Icon.svelte";
-  import StatusBadge from "$lib/components/StatusBadge.svelte";
+  import PermissionGuide from "$lib/components/PermissionGuide.svelte";
   import SettingRow from "$lib/components/SettingRow.svelte";
   import Switch from "$lib/components/Switch.svelte";
   import { setUiLanguage, t as translator } from "$lib/i18n";
   import { initAppearance } from "$lib/stores/appearance";
   import { applyTheme, initTheme } from "$lib/stores/theme";
-  import { commands, events, type SettingsProfile, type Theme } from "$lib/ipc";
+  import {
+    commands,
+    events,
+    type PermissionReason,
+    type SettingsProfile,
+    type Theme,
+  } from "$lib/ipc";
   import { displayAccelerator } from "$lib/keys";
 
   const THEMES: Array<{ id: Theme; label: string }> = [
@@ -28,6 +34,7 @@
   let disabled = $state<string[]>([]);
   let settings = $state<SettingsProfile | null>(null);
   let permission = $state<"granted" | "denied" | "not_determined">("denied");
+  let permissionReason = $state<PermissionReason>("missing");
   let isMac = $state(true);
   let warning = $state(false);
   // Pre-checked consent (FR-016): saved when onboarding finishes, changeable in Settings.
@@ -98,6 +105,9 @@
     }
     step = (await commands.onboardingStep().catch(() => 0)) === 1 ? 1 : 0;
     if (isMac) {
+      permissionReason = await commands
+        .permissionReason("accessibility")
+        .catch(() => "missing" as const);
       permission = await commands.checkPermissions("accessibility").catch(() => "denied");
       await events.onPermissionChanged((payload) => {
         if (payload.status === "granted" || payload.status === "denied") {
@@ -188,37 +198,10 @@
     <section class="step-body">
       <h2>{$translator("onboarding.permission_title")}</h2>
       {#if isMac}
-        <p class="muted">{$translator("onboarding.permission_body")}</p>
-        <Card>
-          <SettingRow label={$translator("settings.permission")}>
-            <button
-              class="secondary"
-              type="button"
-              onclick={async () => {
-                await commands.requestPermission("accessibility");
-                permission = await commands.checkPermissions("accessibility");
-              }}
-            >
-              {$translator("capture.grant")}
-            </button>
-            <button
-              class="secondary"
-              type="button"
-              onclick={async () => (permission = await commands.checkPermissions("accessibility"))}
-            >
-              {$translator("capture.recheck")}
-            </button>
-          </SettingRow>
-        </Card>
-        <StatusBadge
-          kind={permission === "granted" ? "ok" : "warn"}
-          text={permission === "granted"
-            ? $translator("settings.permission_granted")
-            : $translator("settings.permission_missing")}
-        />
-        {#if permission !== "granted"}
-          <p class="hint">{$translator("capture.stale_hint")}</p>
+        {#if permissionReason !== "after_update"}
+          <p class="muted">{$translator("onboarding.permission_body")}</p>
         {/if}
+        <PermissionGuide kind="accessibility" reason={permissionReason} bind:status={permission} />
       {:else}
         <p class="muted">{$translator("onboarding.permission_windows")}</p>
       {/if}
@@ -413,16 +396,5 @@
   .primary.wide {
     align-self: stretch;
     width: 100%;
-  }
-
-  .secondary {
-    height: var(--control-height);
-    padding: 0 12px;
-    border: none;
-    border-radius: 6px;
-    background: var(--surface-opaque);
-    box-shadow: inset 0 0 0 1px var(--stroke);
-    color: var(--text);
-    font-size: 12px;
   }
 </style>

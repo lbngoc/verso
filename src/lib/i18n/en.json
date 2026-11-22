@@ -29,7 +29,7 @@
   "capture.permission_missing": "Verso needs the Accessibility permission to read selected text.",
   "capture.recheck": "Check again",
   "capture.secure_field": "This is a protected field, so nothing was read.",
-  "capture.stale_hint": "After replacing an unsigned build, remove the old Verso row in System Settings › Privacy & Security › Accessibility, then add the new build.",
+  "capture.stale_hint": "If Verso is already in the list and switched on but still not allowed, remove it with minus and add it again with plus, or use Reset and grant again.",
   "capture.terminal_option": "Option (⌥)",
   "capture.terminal_shift": "Shift (⇧)",
   "capture.terminal_tui": "This full-screen terminal program draws its own selection. Hold {modifier} while selecting so the terminal can copy it.",
@@ -211,5 +211,10 @@
   "settings.keys_close_from_input": "Close the panel",
   "onboarding.indicator_services": "Services",
   "onboarding.indicator_permission": "Permission",
-  "shortcut.note.quick_unbound": "The quick panel had to be left without a shortcut because its new default is already in use. Choose one here."
+  "shortcut.note.quick_unbound": "The quick panel had to be left without a shortcut because its new default is already in use. Choose one here.",
+  "permission.after_update_title": "Verso was updated",
+  "permission.after_update_body": "Verso was updated and macOS needs the permission again.",
+  "permission.reset": "Reset and grant again",
+  "permission.switch_on_now": "In the dialog that appears, choose Open System Settings, then switch Verso on.",
+  "permission.reset_failed": "Verso could not reset the permission. Use the steps below."
 }

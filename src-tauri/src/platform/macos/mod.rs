@@ -51,6 +51,10 @@ impl PlatformServices for MacosServices {
         permissions::request(kind)
     }
 
+    fn reset_permission(&self, kind: PermissionKind) -> crate::platform::ResetOutcome {
+        permissions::reset(kind)
+    }
+
     fn speak(&self, text: &str, lang: &str) -> Result<(), String> {
         tts::speak(text, lang)
     }

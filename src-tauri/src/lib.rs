@@ -132,17 +132,27 @@ pub fn run() {
             // step at once, rather than waiting for a failed capture.
             #[cfg(target_os = "macos")]
             {
-                use crate::core::settings::needs_permission_regrant;
+                use crate::core::settings::{needs_permission_regrant, permission_reason};
                 use crate::platform::{PermissionKind, PermissionStatus};
 
                 let granted = platform::services().permission_status(PermissionKind::Accessibility)
                     == PermissionStatus::Granted;
-                if needs_permission_regrant(
+                let regrant = needs_permission_regrant(
                     profile.first_run_engine_choice_at.is_some(),
                     &profile.last_run_version,
                     env!("CARGO_PKG_VERSION"),
                     granted,
-                ) {
+                );
+                // One line per start for diagnosing grants lost across updates (spec 010 R1):
+                // versions and booleans only, nothing read from TCC.
+                log::info!(
+                    "startup: version={} last_run={} ax_trusted={} regrant={}",
+                    env!("CARGO_PKG_VERSION"),
+                    profile.last_run_version,
+                    granted,
+                    regrant
+                );
+                if regrant {
                     log::info!(
                         "Accessibility is missing after an update ({} -> {}); showing the re-grant step",
                         profile.last_run_version,
@@ -151,7 +161,10 @@ pub fn run() {
                     let handle = handle.clone();
                     std::thread::spawn(move || {
                         std::thread::sleep(std::time::Duration::from_millis(500));
-                        window_manager::show_permission_onboarding(&handle);
+                        window_manager::show_permission_onboarding(
+                            &handle,
+                            permission_reason(regrant),
+                        );
                     });
                 }
             }
@@ -191,6 +204,8 @@ pub fn run() {
             commands::speak,
             commands::check_permissions,
             commands::request_permission,
+            commands::permission_reason,
+            commands::reset_permission,
             commands::detect_language,
             commands::open_url,
             commands::open_public_page,

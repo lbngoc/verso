@@ -55,6 +55,15 @@ export interface Shortcuts {
 
 export type Accent = "app" | "system";
 
+export type PermissionKind = "accessibility" | "screen_recording";
+export type PermissionStatus = "granted" | "denied" | "not_determined";
+/** Why the permission step is shown (spec 010): a grant lost across an update has its own wording. */
+export type PermissionReason = "missing" | "after_update";
+export interface ResetOutcome {
+  ok: boolean;
+  status: PermissionStatus;
+}
+
 export type ShortcutAction = "translate" | "speak" | "quick";
 
 /** Why the OS or the rules refused a recorded shortcut (`shortcut.err.*`). */
@@ -193,6 +202,11 @@ export const commands = {
     invoke<"granted" | "denied" | "not_determined">("check_permissions", { kind }),
   requestPermission: (kind: "accessibility" | "screen_recording") =>
     invoke<"granted" | "denied" | "not_determined">("request_permission", { kind }),
+  /** Why the permission step for `kind` is open (spec 010). */
+  permissionReason: (kind: PermissionKind) =>
+    invoke<PermissionReason>("permission_reason", { kind }),
+  /** "Reset and grant again": clears Verso's own entry and asks again (spec 010 R2). */
+  resetPermission: (kind: PermissionKind) => invoke<ResetOutcome>("reset_permission", { kind }),
   detectLanguage: (text: string) => invoke<string | null>("detect_language", { text }),
   listLanguages: () => invoke<Language[]>("list_languages"),
   getAppearance: () => invoke<Appearance>("get_appearance"),

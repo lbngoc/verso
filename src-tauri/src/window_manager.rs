@@ -10,7 +10,7 @@ use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 
 use crate::core::capture::PopupState;
 use crate::core::quick_queue::QuickQueue;
-use crate::platform::{self, Point, Rect, Size};
+use crate::platform::{self, PermissionKind, PermissionReason, Point, Rect, Size};
 
 pub const POPUP_PILL_WIDTH: f64 = 200.0;
 pub const POPUP_PILL_HEIGHT: f64 = 36.0;
@@ -759,8 +759,35 @@ pub fn onboarding_step() -> u8 {
     ONBOARDING_STEP.load(Ordering::SeqCst)
 }
 
-/// Opens the onboarding directly at the Accessibility step (permission missing at runtime).
-pub fn show_permission_onboarding(app: &AppHandle) {
+/// Why the permission step is open, per permission kind (spec 010 data-model). Process memory only;
+/// back to `Missing` when the setup window closes.
+static PERMISSION_REASONS: parking_lot::Mutex<
+    Option<std::collections::HashMap<PermissionKind, PermissionReason>>,
+> = parking_lot::Mutex::new(None);
+
+pub fn set_permission_reason(kind: PermissionKind, reason: PermissionReason) {
+    PERMISSION_REASONS
+        .lock()
+        .get_or_insert_with(Default::default)
+        .insert(kind, reason);
+}
+
+pub fn permission_reason(kind: PermissionKind) -> PermissionReason {
+    PERMISSION_REASONS
+        .lock()
+        .as_ref()
+        .and_then(|reasons| reasons.get(&kind).copied())
+        .unwrap_or_default()
+}
+
+fn clear_permission_reasons() {
+    *PERMISSION_REASONS.lock() = None;
+}
+
+/// Opens the onboarding directly at the Accessibility step, saying why: missing at runtime, or lost
+/// across an update (spec 010 FR-003).
+pub fn show_permission_onboarding(app: &AppHandle, reason: PermissionReason) {
+    set_permission_reason(PermissionKind::Accessibility, reason);
     ONBOARDING_STEP.store(1, Ordering::SeqCst);
     show_onboarding(app);
 }
@@ -794,6 +821,11 @@ pub fn show_onboarding(app: &AppHandle) {
         Ok(window) => {
             // Same hidden-until-ready rule as Settings (R13).
             reveal_on_ready(app, &window);
+            window.on_window_event(|event| {
+                if matches!(event, tauri::WindowEvent::Destroyed) {
+                    clear_permission_reasons();
+                }
+            });
             track_main_window(app, &window);
         }
         Err(error) => warn!("could not open onboarding: {error}"),

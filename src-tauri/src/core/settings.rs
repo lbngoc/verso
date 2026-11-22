@@ -270,6 +270,24 @@ pub fn needs_permission_regrant(
     onboarded && last_run_version != current_version && !permission_granted
 }
 
+/// The reason the permission step opens with: "after an update" only when the startup check asked
+/// for a re-grant (spec 010 FR-003, FR-007).
+pub fn permission_reason(regrant: bool) -> crate::platform::PermissionReason {
+    if regrant {
+        crate::platform::PermissionReason::AfterUpdate
+    } else {
+        crate::platform::PermissionReason::Missing
+    }
+}
+
+/// The service name `tccutil` and TCC use for a permission kind (spec 010 R2).
+pub fn tcc_service(kind: crate::platform::PermissionKind) -> &'static str {
+    match kind {
+        crate::platform::PermissionKind::Accessibility => "Accessibility",
+        crate::platform::PermissionKind::ScreenRecording => "ScreenCapture",
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum SettingsError {
     #[error("could not read settings: {0}")]
@@ -457,6 +475,24 @@ mod tests {
         // The grant survived: nothing to do.
         assert!(!needs_permission_regrant(true, "0.1.0", "0.1.1", true));
         assert!(!needs_permission_regrant(true, "", "0.1.3", true));
+    }
+
+    #[test]
+    fn permission_reason_is_after_update_only_for_a_regrant() {
+        use crate::platform::PermissionReason;
+        assert_eq!(permission_reason(true), PermissionReason::AfterUpdate);
+        assert_eq!(permission_reason(false), PermissionReason::Missing);
+        assert_eq!(PermissionReason::default(), PermissionReason::Missing);
+    }
+
+    #[test]
+    fn tcc_service_names_match_tccutil() {
+        use crate::platform::PermissionKind;
+        assert_eq!(tcc_service(PermissionKind::Accessibility), "Accessibility");
+        assert_eq!(
+            tcc_service(PermissionKind::ScreenRecording),
+            "ScreenCapture"
+        );
     }
 
     fn load_json(text: &str) -> (SettingsProfile, tempfile::TempDir) {

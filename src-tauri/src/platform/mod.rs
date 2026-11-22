@@ -127,11 +127,29 @@ impl Rect {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PermissionKind {
     Accessibility,
     ScreenRecording,
+}
+
+/// Why the permission step is shown (spec 010): a grant lost across an update gets its own wording
+/// and the one-click reset.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PermissionReason {
+    #[default]
+    Missing,
+    AfterUpdate,
+}
+
+/// Result of "Reset and grant again": `ok` is false when the reset was refused (grant already
+/// effective, unsupported platform) or the system tool failed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ResetOutcome {
+    pub ok: bool,
+    pub status: PermissionStatus,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -191,6 +209,14 @@ pub trait PlatformServices: Send + Sync {
     fn monitor_work_area(&self, point: Point) -> Rect;
     fn permission_status(&self, kind: PermissionKind) -> PermissionStatus;
     fn request_permission(&self, kind: PermissionKind);
+    /// Clears the app's own entry for `kind` and asks again (spec 010 R2). Platforms without such
+    /// an entry (Windows) refuse and report the current status.
+    fn reset_permission(&self, kind: PermissionKind) -> ResetOutcome {
+        ResetOutcome {
+            ok: false,
+            status: self.permission_status(kind),
+        }
+    }
     fn speak(&self, text: &str, lang: &str) -> Result<(), String>;
     fn voice_exists(&self, lang: &str) -> bool;
     /// Replaces the clipboard with plain text (used by "Copy diagnostics").

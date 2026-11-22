@@ -119,7 +119,7 @@ pub async fn translate_selection(
 
     if plan.open_onboarding {
         window_manager::hide_popup(&app);
-        window_manager::show_permission_onboarding(&app);
+        window_manager::show_permission_onboarding(&app, platform::PermissionReason::Missing);
         return Ok(None);
     }
 
@@ -235,6 +235,24 @@ pub fn check_permissions(kind: PermissionKind) -> PermissionStatus {
 pub fn request_permission(kind: PermissionKind) -> PermissionStatus {
     platform::services().request_permission(kind);
     platform::services().permission_status(kind)
+}
+
+/// Why the permission step for `kind` is open (spec 010 contracts/permission-step.md).
+#[tauri::command]
+pub fn permission_reason(kind: PermissionKind) -> platform::PermissionReason {
+    window_manager::permission_reason(kind)
+}
+
+/// "Reset and grant again": clears Verso's own entry and asks again; refused while the grant is
+/// effective (spec 010 R2).
+#[tauri::command]
+pub async fn reset_permission(kind: PermissionKind) -> platform::ResetOutcome {
+    tokio::task::spawn_blocking(move || platform::services().reset_permission(kind))
+        .await
+        .unwrap_or(platform::ResetOutcome {
+            ok: false,
+            status: platform::services().permission_status(kind),
+        })
 }
 
 /// Version and build date for the About section (spec 009, contracts/settings-window.md).

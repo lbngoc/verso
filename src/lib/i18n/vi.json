@@ -29,7 +29,7 @@
   "capture.permission_missing": "Verso cần quyền Trợ năng để đọc văn bản đã chọn.",
   "capture.recheck": "Kiểm tra lại",
   "capture.secure_field": "Đây là trường bảo mật nên không có nội dung nào được đọc.",
-  "capture.stale_hint": "Sau khi thay bản build chưa ký, hãy xoá dòng Verso cũ trong Cài đặt hệ thống › Quyền riêng tư & Bảo mật › Trợ năng, rồi thêm bản mới.",
+  "capture.stale_hint": "Nếu Verso đã có trong danh sách và đang bật nhưng vẫn chưa được phép, hãy xoá bằng nút trừ rồi thêm lại bằng nút cộng, hoặc dùng Đặt lại và cấp quyền.",
   "capture.terminal_option": "Option (⌥)",
   "capture.terminal_shift": "Shift (⇧)",
   "capture.terminal_tui": "Chương trình terminal toàn màn hình tự vẽ vùng chọn. Giữ {modifier} khi chọn để terminal có thể sao chép.",
@@ -211,5 +211,10 @@
   "settings.keys_close_from_input": "Đóng panel",
   "onboarding.indicator_services": "Dịch vụ",
   "onboarding.indicator_permission": "Quyền truy cập",
-  "shortcut.note.quick_unbound": "Bảng dịch nhanh chưa có phím tắt vì phím mặc định mới đã được dùng. Hãy chọn phím khác ở đây."
+  "shortcut.note.quick_unbound": "Bảng dịch nhanh chưa có phím tắt vì phím mặc định mới đã được dùng. Hãy chọn phím khác ở đây.",
+  "permission.after_update_title": "Verso đã được cập nhật",
+  "permission.after_update_body": "Verso vừa được cập nhật và macOS cần bạn cấp lại quyền.",
+  "permission.reset": "Đặt lại và cấp quyền",
+  "permission.switch_on_now": "Trong hộp thoại vừa hiện, chọn mở Cài đặt hệ thống rồi bật Verso.",
+  "permission.reset_failed": "Verso không đặt lại được quyền. Hãy làm theo các bước bên dưới."
 }
