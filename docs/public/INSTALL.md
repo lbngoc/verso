@@ -1,7 +1,7 @@
 # Installing Verso
 
-Written for **Verso 0.1.5** (macOS 13 or later; Windows 10 or 11, 64-bit). The macOS build is ad-hoc signed
-but not notarized, and the Windows build is unsigned, so both systems ask for one confirmation on the first
+Written for **Verso 0.1.7** (macOS 13 or later; Windows 10 or 11, 64-bit). The macOS build is signed with
+Verso's own (self-signed) certificate but not notarized, and the Windows build is unsigned, so both systems ask for one confirmation on the first
 launch; the steps below cover it.
 
 Take the installer from the [latest release](../../releases/latest) page. The file names carry the version:
@@ -56,6 +56,9 @@ quarantine flag, and Accessibility is asked for as in step 3.
 3. Verso asks for the **Accessibility** permission the first time it needs to read a selection. Grant it in
    **System Settings › Privacy & Security › Accessibility** (switch Verso on; the first time, confirm with
    your password). Without it, translating a selection cannot read the text; the quick panel still works.
+   If Verso is listed and switched on but still asks after an update, choose **Reset and grant again** in
+   its setup window and switch Verso on in the list that opens (see
+   [TROUBLESHOOTING.md](TROUBLESHOOTING.md)).
 4. Start Verso. The mark (two arrows) appears in the menu bar. Select some text in another app and press
    `Alt+Shift+Z`; the result appears next to the selection. `Alt+Shift+T` opens the quick panel.
    Verso runs from the menu bar: it has no Dock icon while you are not using one of its windows (setup,

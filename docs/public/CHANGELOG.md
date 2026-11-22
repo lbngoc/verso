@@ -5,6 +5,28 @@ the release tag, so a tag needs its section before it is pushed.
 
 ## Unreleased
 
+### Changed
+
+- When an update leaves macOS no longer trusting Verso for Accessibility, the setup window now says the
+  update is the reason and offers **Reset and grant again**: it clears Verso's old entry and asks again,
+  so you only choose **Open System Settings** in the dialog and switch Verso on. The window notices the
+  permission within a second, without a restart.
+
+### Fixed
+
+- Settings opened with `⌘,` from the popup or the quick panel (or from an engine error's **Change engine
+  order** button) showed a transparent sidebar on macOS; it now looks the same however it is opened.
+- With **Settings › Appearance › Theme** set to Light or Dark against the opposite system setting, the
+  Settings sidebar and the quick panel kept the system's shade behind Verso's text on macOS; they now
+  follow Verso's choice, from the first frame and when the theme is changed.
+- On macOS 26 the popup's glass could take the shade of the window behind it and leave the translation
+  hard to read; it now keeps a light or dark tint that matches the theme.
+- On Windows, `Ctrl+,` from the popup could open Settings behind the app you were reading; the popup now
+  stays until Settings is on screen and Settings keeps the focus.
+- On Windows, clicking the tray icon again after closing the quick panel could show nothing: the panel
+  opened and closed itself as its translation arrived. It now stays open.
+- The install and troubleshooting guides no longer describe the macOS build as ad-hoc signed.
+
 ## 0.1.6 — 2026-11-21
 
 Verso now behaves like a menu-bar app, uses less memory when idle, and checks for updates inside

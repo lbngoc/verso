@@ -57,7 +57,7 @@ Mỗi bản phát hành kèm [`SHA256SUMS.txt`](https://github.com/lbngoc/verso-
 <details>
 <summary><strong>⚠️ macOS: app không mở được?</strong></summary>
 
-Bản cài được ký ad-hoc nhưng chưa notarize, nên macOS chặn một lần với thông báo "Apple could not verify
+Bản cài được ký bằng chứng chỉ riêng của Verso nhưng chưa notarize, nên macOS chặn một lần với thông báo "Apple could not verify
 'Verso' is free of malware".
 
 1. Bấm **Done** (không chọn **Move to Trash**).

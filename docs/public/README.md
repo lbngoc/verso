@@ -57,7 +57,7 @@ Every release also publishes [`SHA256SUMS.txt`](https://github.com/lbngoc/verso-
 <details>
 <summary><strong>⚠️ macOS: the app does not open?</strong></summary>
 
-The build is ad-hoc signed but not notarized, so macOS blocks it once with "Apple could not verify 'Verso'
+The build is signed with Verso's own certificate but not notarized, so macOS blocks it once with "Apple could not verify 'Verso'
 is free of malware".
 
 1. Dismiss the alert with **Done** (not **Move to Trash**).

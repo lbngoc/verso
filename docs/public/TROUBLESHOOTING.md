@@ -18,7 +18,7 @@ turn one off. With both on, Verso falls back automatically and tells you which s
 
 ## macOS says it could not verify Verso
 
-The builds are ad-hoc signed but not notarized, so Gatekeeper blocks the first launch with "Apple could
+The builds are signed with Verso's own (self-signed) certificate but not notarized, so Gatekeeper blocks the first launch with "Apple could
 not verify 'Verso' is free of malware". Dismiss it with **Done**, then open **System Settings › Privacy &
 Security** and scroll to **Security**: a line about Verso has an **Open Anyway** button. Click it, enter
 your login password, and open Verso again. The button appears for about an hour after the blocked attempt;
@@ -41,9 +41,10 @@ right-clicking Verso in Applications and choosing **Open**.)
   **Settings › Shortcuts** (the recorder refuses those with a reason); a conflict is reported
   when you save.
 - On macOS, translating the selected text needs the **Accessibility** permission: **System Settings ›
-  Privacy & Security › Accessibility** must list Verso and have it switched on. After replacing
-  `Verso.app` with a new build, macOS may keep the old entry switched on while the new build is not
-  trusted: remove the entry with minus, add the new app with plus, and switch it on.
+  Privacy & Security › Accessibility** must list Verso and have it switched on. macOS can keep an old
+  entry switched on while the installed build is no longer trusted (an entry made for an earlier build):
+  in Verso's setup window choose **Reset and grant again** and switch Verso on in the list that opens, or
+  remove the entry with minus, add `Verso.app` with plus, and switch it on.
 - The quick panel (`Alt+Shift+T` by default; check **Settings › Shortcuts** if you saved another key) works without Accessibility;
   use it to check the engines while the selection path is being fixed.
 
@@ -88,6 +89,9 @@ Security problems go through [SECURITY.md](SECURITY.md), not a public issue.
   installer from anywhere else.
 - **The app did not come back after installing.** On macOS, open Verso again from `Applications`. On
   Windows, the installer closes the app while it replaces it and starts the new version itself.
-- **Accessibility stopped working after an update (macOS).** Builds are ad-hoc signed, so macOS may tie
-  the grant to the previous build: remove Verso in **System Settings › Privacy & Security ›
-  Accessibility** and add the new `Verso.app` again, as in [INSTALL.md](INSTALL.md).
+- **Accessibility stopped working after an update (macOS).** Releases since 0.1.2 share one signing
+  certificate, so a grant made for one of them is meant to carry over. An entry made for an older build
+  (0.1.1 or a test build) can stay switched on without being trusted. Verso notices this when it starts
+  and opens its setup window at the permission step: choose **Reset and grant again**, then switch Verso
+  on in the list that opens. If that does not help, remove Verso in **System Settings › Privacy &
+  Security › Accessibility** with minus and add `Verso.app` again with plus, as in [INSTALL.md](INSTALL.md).
