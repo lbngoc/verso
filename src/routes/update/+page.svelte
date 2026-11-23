@@ -6,6 +6,7 @@
   import { setUiLanguage, t as translator } from "$lib/i18n";
   import { initAppearance } from "$lib/stores/appearance";
   import { initTheme } from "$lib/stores/theme";
+  import { createProgressDisplay } from "$lib/updateProgress";
   import { commands, events, type SettingsProfile, type UpdateInfo } from "$lib/ipc";
 
   // macOS-style update dialog (spec 009, contracts/update-dialog.md).
@@ -22,6 +23,33 @@
   let offer = $state<UpdateInfo | null>(null);
   let settings = $state<SettingsProfile | null>(null);
   let percent = $state(0);
+  let indeterminate = $state(false);
+  let root = $state<HTMLElement | null>(null);
+  const display = createProgressDisplay();
+  let resizeTimer: ReturnType<typeof setTimeout> | undefined;
+
+  // The window is as tall as its content: the page reports its height after each change.
+  function reportHeight(): void {
+    if (resizeTimer) clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      if (!root) return;
+      void commands.resizeUpdateWindow(Math.ceil(root.getBoundingClientRect().height));
+    }, 50);
+  }
+
+  function syncDisplay(): void {
+    percent = display.state.percent;
+    indeterminate = display.state.indeterminate;
+  }
+
+  // After the download the bar fills to 100 % and stays long enough to be seen before the next
+  // state (FR-016).
+  async function finishDownload(): Promise<void> {
+    display.finish();
+    syncDisplay();
+    const wait = display.remaining();
+    if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+  }
   let failure = $state<"offline" | "verified" | "download">("download");
   let current = $state("");
 
@@ -38,10 +66,12 @@
   }
 
   async function install(): Promise<void> {
-    percent = 0;
+    display.start();
+    syncDisplay();
     phase = "downloading";
     try {
       await commands.installUpdate();
+      await finishDownload();
       phase = "ready";
     } catch {
       failure = "verified";
@@ -50,10 +80,12 @@
   }
 
   async function installOnQuit(): Promise<void> {
-    percent = 0;
+    display.start();
+    syncDisplay();
     phase = "downloading";
     try {
       await commands.installUpdateOnQuit();
+      await finishDownload();
       phase = "install_on_quit";
     } catch {
       failure = "download";
@@ -105,7 +137,10 @@
             offer = info;
             if (phase !== "downloading") phase = "available";
           }),
-          events.onUpdateProgress((payload) => (percent = payload.percent)),
+          events.onUpdateProgress((payload) => {
+            display.update(payload.percent);
+            syncDisplay();
+          }),
           events.onSettingsChanged((profile) => (settings = profile)),
         ]);
         unlisteners.push(...listeners);
@@ -124,7 +159,11 @@
     })();
 
     window.addEventListener("keydown", onKeydown);
+    const observer = new ResizeObserver(() => reportHeight());
+    if (root) observer.observe(root);
     return () => {
+      observer.disconnect();
+      if (resizeTimer) clearTimeout(resizeTimer);
       window.removeEventListener("keydown", onKeydown);
       unlisteners.forEach((unlisten) => unlisten());
     };
@@ -133,7 +172,7 @@
   let unlisteners: Array<() => void> = [];
 </script>
 
-<main class="update">
+<main class="update" bind:this={root}>
   <header class="head">
     <img src={appIcon} alt="" width="64" height="64" />
     <div class="titles">
@@ -181,14 +220,17 @@
   {#if phase === "downloading"}
     <div
       class="progress"
+      class:indeterminate
       role="progressbar"
-      aria-valuenow={percent}
+      aria-valuenow={indeterminate ? undefined : percent}
       aria-valuemin="0"
       aria-valuemax="100"
     >
-      <span style:width={`${percent}%`}></span>
+      <span style:width={indeterminate ? undefined : `${percent}%`}></span>
     </div>
-    <p class="percent">{percent}%</p>
+    {#if !indeterminate}
+      <p class="percent">{percent}%</p>
+    {/if}
   {/if}
 
   {#if settings}
@@ -249,7 +291,6 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
-    height: 100vh;
     padding: 20px 20px 16px;
     box-sizing: border-box;
     background: var(--surface-opaque);
@@ -284,7 +325,6 @@
   }
 
   .notes {
-    flex: 1;
     min-height: 0;
     display: flex;
     flex-direction: column;
@@ -298,8 +338,8 @@
   }
 
   .scroll {
-    flex: 1;
     min-height: 0;
+    max-height: 280px;
     overflow-y: auto;
     padding: 8px 10px;
     border-radius: 10px;
@@ -317,7 +357,31 @@
     display: block;
     height: 100%;
     background: var(--accent);
-    transition: width 120ms linear;
+    transition: width 200ms ease-out;
+  }
+
+  /* Unknown length: a segment sweeps along the bar; a static stripe with reduced motion. */
+  .progress.indeterminate span {
+    width: 35%;
+    transition: none;
+    animation: sweep 1.2s ease-in-out infinite;
+  }
+
+  @keyframes sweep {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(290%);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .progress.indeterminate span {
+      width: 100%;
+      animation: none;
+      opacity: 0.5;
+    }
   }
 
   .percent {

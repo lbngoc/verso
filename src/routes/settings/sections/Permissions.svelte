@@ -1,26 +1,28 @@
 <script lang="ts">
-  import PermissionGuide from "$lib/components/PermissionGuide.svelte";
-  import type { PermissionStatus } from "$lib/ipc";
+  import Card from "$lib/components/Card.svelte";
+  import PermissionRow from "$lib/components/PermissionRow.svelte";
+  import type { SettingsProfile } from "$lib/ipc";
 
-  // Settings never opens with the "after an update" reason: Setup takes over in that case (spec 010
-  // contracts/permission-step.md). The parent keeps the status for the sidebar and its events.
-  let {
-    permission,
-    ongranted,
-  }: {
-    permission: PermissionStatus;
-    ongranted: (status: PermissionStatus) => void;
-  } = $props();
-
-  let status = $state<PermissionStatus>("denied");
-  $effect(() => {
-    status = permission;
-  });
+  // Settings › Permissions (macOS): one row per permission instead of one tall guide. Screen
+  // Recording is listed only while the screen translate module is on (spec 004 FR-014).
+  let { settings }: { settings: SettingsProfile } = $props();
 </script>
 
-<PermissionGuide
-  kind="accessibility"
-  reason="missing"
-  bind:status
-  ongranted={() => ongranted("granted")}
-/>
+<div class="rows">
+  <Card>
+    <PermissionRow kind="accessibility" />
+  </Card>
+  {#if settings.ocr.enabled}
+    <Card>
+      <PermissionRow kind="screen_recording" />
+    </Card>
+  {/if}
+</div>
+
+<style>
+  .rows {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+</style>

@@ -12,8 +12,12 @@ Outputs, in src-tauri/icons/tray/:
   tray-{S}-busy*.png                         the translating state: the S-arrow alone, without the V
 with S = 18 (macOS, 36 px @2x) and 16 (Windows, 32 px @2x).
 
-The glyph spans about 4..32 units across and 3.6..32.4 down (taller than 0.1.5's 5.6..30.4, spec 009 FR-054):
-a thinner S and a bolder, taller V keep the letter readable at menu-bar size.
+The glyph spans about 4..32 units across and 1.5..34.5 down (0.1.7: 3.6..32.4; 0.1.5: 5.6..30.4). The macOS status
+item is a fixed 18 pt high, so the only way to a larger mark is less padding inside the canvas (spec 004 R12):
+the S stroke is 2.2 and the V is 22 units tall with 5-unit arms.
+
+`--sheet` also writes target/tray-compare.png: 0.1.7 beside the new mark, on light and dark backgrounds,
+at 36 px and at 32/24 px, for the owner's visual judgement (SC-007).
 """
 
 from __future__ import annotations
@@ -27,44 +31,86 @@ ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "src-tauri" / "icons" / "tray"
 
 GRID = 36
-S_W = 2.0  # stroke of the S-arrow (2.4 in 0.1.5; thinner so the V stands out, FR-054)
 GAP = 1.0  # clearance cut out of the S around the V
 # Nominal size -> pixels at @2x.
 SIZES = {18: 36, 16: 32}
 
 HEAD = 2.4
-TOP_Y, MID_Y, BOT_Y = 6, 18, 30
-R = (MID_Y - TOP_Y) / 2
 ARC_L, ARC_R = 10, 26  # centres of the two bowls
 TIP_R, TIP_L = 31.5, 4.5
 
-# The V: 18 units tall with 4-unit arms (0.1.5: 14.6 tall, 3.3-unit arms).
-V = "11.6,9 15.6,9 18,18.6 20.4,9 24.4,9 20,27 16,27"
+# 0.1.7 drawing, kept for the comparison sheet.
+OLD = {
+    "s_w": 2.0,
+    "top": 6,
+    "bot": 30,
+    "v": "11.6,9 15.6,9 18,18.6 20.4,9 24.4,9 20,27 16,27",
+}
+# 0.1.8 drawing: the glyph fills ~1.5..34.5 of the 36-unit canvas.
+NEW = {
+    "s_w": 2.2,
+    "top": 5.0,
+    "bot": 31.0,
+    "v": "11,7 16,7 18,19.8 20,7 25,7 20.6,29 15.4,29",
+}
 
-S_PATH = (
-    f"M{TIP_R} {TOP_Y}H{ARC_L}A{R} {R} 0 0 0 {ARC_L} {MID_Y}H{ARC_R}A{R} {R} 0 0 1 {ARC_R} {BOT_Y}H{TIP_L}"
-    f"M{TIP_R - HEAD} {TOP_Y - HEAD}L{TIP_R} {TOP_Y}L{TIP_R - HEAD} {TOP_Y + HEAD}"
-    f"M{TIP_L + HEAD} {BOT_Y - HEAD}L{TIP_L} {BOT_Y}L{TIP_L + HEAD} {BOT_Y + HEAD}"
-)
+
+def s_path(top: float, bot: float) -> str:
+    mid = (top + bot) / 2
+    r = (mid - top) / 2
+    return (
+        f"M{TIP_R} {top}H{ARC_L}A{r} {r} 0 0 0 {ARC_L} {mid}H{ARC_R}A{r} {r} 0 0 1 {ARC_R} {bot}H{TIP_L}"
+        f"M{TIP_R - HEAD} {top - HEAD}L{TIP_R} {top}L{TIP_R - HEAD} {top + HEAD}"
+        f"M{TIP_L + HEAD} {bot - HEAD}L{TIP_L} {bot}L{TIP_L + HEAD} {bot + HEAD}"
+    )
+
+
+def body(colour: str, busy: bool, geo: dict, ident: str) -> str:
+    """The glyph's SVG elements on the 36-unit grid (no <svg> wrapper)."""
+    path = s_path(geo["top"], geo["bot"])
+    stroke = (
+        f'fill="none" stroke="{colour}" stroke-width="{geo["s_w"]}" '
+        'stroke-linecap="round" stroke-linejoin="round"'
+    )
+    if busy:
+        return f'<path d="{path}" {stroke}/>'
+    return (
+        f'<defs><mask id="{ident}" maskUnits="userSpaceOnUse">'
+        f'<rect width="{GRID}" height="{GRID}" fill="#fff"/>'
+        f'<polygon points="{geo["v"]}" stroke="#000" stroke-width="{2 * GAP}" stroke-linejoin="round"/>'
+        "</mask></defs>"
+        f'<path mask="url(#{ident})" d="{path}" {stroke}/>'
+        f'<polygon points="{geo["v"]}" fill="{colour}"/>'
+    )
 
 
 def svg(px: int, colour: str, busy: bool) -> str:
-    if busy:
-        defs, mask, letter = "", "", ""
-    else:
-        defs = (
-            '<defs><mask id="v" maskUnits="userSpaceOnUse">'
-            f'<rect width="{GRID}" height="{GRID}" fill="#fff"/>'
-            f'<polygon points="{V}" stroke="#000" stroke-width="{2 * GAP}" stroke-linejoin="round"/>'
-            "</mask></defs>"
-        )
-        mask = ' mask="url(#v)"'
-        letter = f'<polygon points="{V}" fill="{colour}"/>'
     return (
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="{px}" height="{px}" viewBox="0 0 {GRID} {GRID}">{defs}'
-        f'<path{mask} d="{S_PATH}" fill="none" stroke="{colour}" stroke-width="{S_W}" '
-        f'stroke-linecap="round" stroke-linejoin="round"/>{letter}</svg>'
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{px}" height="{px}" viewBox="0 0 {GRID} {GRID}">'
+        f"{body(colour, busy, NEW, 'v')}</svg>"
     )
+
+
+def sheet() -> str:
+    """0.1.7 (left) and the new mark (right) on light and dark, at 36 px and 32/24 px."""
+    cell = 80
+    rows = [("#f2f2f2", "#000000"), ("#2b2b2b", "#ffffff")]
+    sizes = [36, 32, 24]
+    width = cell * len(sizes) * 2 + 20
+    height = cell * len(rows) + 10
+    out = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}">']
+    for r, (background, colour) in enumerate(rows):
+        out.append(f'<rect x="0" y="{r * cell}" width="{width}" height="{cell}" fill="{background}"/>')
+        for g, (geo, name) in enumerate(((OLD, "o"), (NEW, "n"))):
+            for i, size in enumerate(sizes):
+                x = g * (cell * len(sizes) + 20) + i * cell + (cell - size) / 2
+                y = r * cell + (cell - size) / 2
+                out.append(
+                    f'<svg x="{x}" y="{y}" width="{size}" height="{size}" viewBox="0 0 {GRID} {GRID}">'
+                    f"{body(colour, False, geo, f'{name}{r}{i}')}</svg>"
+                )
+    out.append("</svg>")
+    return "".join(out)
 
 
 def render(svg_text: str, target: Path) -> None:
@@ -86,6 +132,11 @@ def main() -> None:
                     name = f"tray-{nominal}{'-busy' if busy else ''}{suffix}{'@2x' if scale == 2 else ''}.png"
                     render(svg(px, colour, busy), OUT / name)
     print(f"wrote tray icons to {OUT.relative_to(ROOT)}")
+    if "--sheet" in sys.argv:
+        target = ROOT / "src-tauri" / "target" / "tray-compare.png"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        render(sheet(), target)
+        print(f"wrote {target.relative_to(ROOT)}")
 
 
 if __name__ == "__main__":

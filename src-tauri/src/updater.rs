@@ -205,19 +205,69 @@ pub async fn check_for_update(app: AppHandle) -> Result<Option<UpdateInfo>, Stri
     Ok(info)
 }
 
+/// What the update window shows while a download runs (data-model `UpdateProgress`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+pub struct Progress {
+    pub downloaded: u64,
+    /// `None` when the server did not say how long the file is: the bar is indeterminate.
+    pub total: Option<u64>,
+    pub percent: Option<u32>,
+}
+
+/// Bytes between two reports when the length is unknown.
+const UNKNOWN_LENGTH_STEP: u64 = 256 * 1024;
+
+/// Turns the updater's per-chunk callback into progress. `tauri-plugin-updater` calls
+/// `on_chunk(chunk.len(), content_length)`: the first argument is the size of *this chunk*, not a
+/// running total; treating it as the total kept the bar near 0 % in 0.1.7 (spec 004 R11).
+#[derive(Debug, Default)]
+pub struct ProgressTracker {
+    downloaded: u64,
+    last_percent: Option<u32>,
+    last_report: Option<u64>,
+}
+
+impl ProgressTracker {
+    pub fn on_chunk(&mut self, chunk_len: usize, total: Option<u64>) -> Option<Progress> {
+        self.downloaded += chunk_len as u64;
+        match total.filter(|total| *total > 0) {
+            Some(total) => {
+                let percent = ((self.downloaded.min(total)) * 100 / total) as u32;
+                // Monotonic, and one report per percent step.
+                if self.last_percent.is_some_and(|last| percent <= last) {
+                    return None;
+                }
+                self.last_percent = Some(percent);
+                Some(Progress {
+                    downloaded: self.downloaded,
+                    total: Some(total),
+                    percent: Some(percent),
+                })
+            }
+            None => {
+                let due = self
+                    .last_report
+                    .map_or(true, |last| self.downloaded - last >= UNKNOWN_LENGTH_STEP);
+                if !due {
+                    return None;
+                }
+                self.last_report = Some(self.downloaded);
+                Some(Progress {
+                    downloaded: self.downloaded,
+                    total: None,
+                    percent: None,
+                })
+            }
+        }
+    }
+}
+
 fn progress_reporter(app: &AppHandle) -> impl FnMut(usize, Option<u64>) + 'static {
     let emitter = app.clone();
-    let mut reported = u32::MAX;
-    move |downloaded, total| {
-        if let Some(total) = total.filter(|total| *total > 0) {
-            let percent = (downloaded as u64 * 100 / total) as u32;
-            if percent != reported {
-                reported = percent;
-                let _ = emitter.emit(
-                    "update-progress",
-                    json!({ "downloaded": downloaded, "total": total, "percent": percent }),
-                );
-            }
+    let mut tracker = ProgressTracker::default();
+    move |chunk_len, total| {
+        if let Some(progress) = tracker.on_chunk(chunk_len, total) {
+            let _ = emitter.emit("update-progress", progress);
         }
     }
 }
