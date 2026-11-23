@@ -66,6 +66,12 @@
     border-top: 1px solid var(--separator);
   }
 
+  /* A row with a head and content below it (a permission) stacks and aligns left like the rest. */
+  .rows > :global([data-row="block"]) {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
   .rows > :global(*:first-child) {
     border-top: none;
   }

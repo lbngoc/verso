@@ -11,7 +11,6 @@
   import General from "./sections/General.svelte";
   import Appearance from "./sections/Appearance.svelte";
   import PopupPanel from "./sections/PopupPanel.svelte";
-  import ScreenTranslate from "./sections/ScreenTranslate.svelte";
   import Permissions from "./sections/Permissions.svelte";
   import About from "./sections/About.svelte";
   import { commands, events, type EngineInfo, type Language, type SettingsProfile } from "$lib/ipc";
@@ -25,8 +24,6 @@
   let isMac = $state(true);
   let section = $state("languages");
   let collapsed = $state(false);
-  // The section is hidden on a platform without the module (Linux), never shown broken.
-  let ocrSupported = $state(false);
 
   const groups = $derived.by<SidebarGroup[]>(() => {
     const appItems: SidebarItem[] = [
@@ -53,15 +50,6 @@
         items: [
           { id: "shortcuts", label: $translator("settings.section_shortcuts"), icon: "keyboard" },
           { id: "popup", label: $translator("settings.section_popup"), icon: "sidebar" },
-          ...(ocrSupported
-            ? [
-                {
-                  id: "screen",
-                  label: $translator("ocr.section_title"),
-                  icon: "expand",
-                } as SidebarItem,
-              ]
-            : []),
         ],
       },
       {
@@ -79,7 +67,9 @@
     return groups.some((group) => group.items.some((item) => item.id === id));
   }
 
-  function select(id: string): void {
+  function select(requested: string): void {
+    // The Screen Translate section was folded into General, Shortcuts and Permissions (R14).
+    const id = requested === "screen" ? "general" : requested;
     if (!allowed(id)) return;
     section = id;
     history.replaceState(null, "", `#${id}`);
@@ -126,13 +116,12 @@
         setUiLanguage(profile.ui_language);
         languages = await commands.listLanguages().catch(() => []);
         engines = await commands.listEngines().catch(() => []);
-        const ocr = await commands.ocrAvailability().catch(() => null);
-        ocrSupported = ocr !== null && ocr.reason !== "unsupported";
 
         const requested = await commands.settingsSection().catch(() => null);
         const hash = location.hash.replace("#", "");
         const initial = requested ?? (hash || "languages");
-        section = allowed(initial) ? initial : "languages";
+        const wanted = initial === "screen" ? "general" : initial;
+        section = allowed(wanted) ? wanted : "languages";
 
         unlisteners = await Promise.all([
           events.onSettingsChanged((next) => {
@@ -196,12 +185,10 @@
             <p class="conflict" role="alert">{conflict}</p>
           {/if}
         </div>
-      {:else if section === "screen"}
-        <ScreenTranslate {settings} onupdate={update} onchange={onProfile} />
       {:else if section === "popup"}
         <PopupPanel {settings} onchange={onProfile} />
       {:else if section === "general"}
-        <General {settings} onupdate={update} />
+        <General {settings} onupdate={update} onpermissions={() => select("permissions")} />
       {:else if section === "appearance"}
         <Appearance {settings} onupdate={update} />
       {:else if section === "permissions"}

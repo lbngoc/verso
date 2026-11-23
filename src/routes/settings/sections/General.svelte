@@ -1,5 +1,6 @@
 <script lang="ts">
   import Card from "$lib/components/Card.svelte";
+  import ScreenTranslateCard from "$lib/components/ScreenTranslateCard.svelte";
   import SettingRow from "$lib/components/SettingRow.svelte";
   import Switch from "$lib/components/Switch.svelte";
   import { t } from "$lib/i18n";
@@ -8,9 +9,11 @@
   let {
     settings,
     onupdate,
+    onpermissions,
   }: {
     settings: SettingsProfile;
     onupdate: (patch: Record<string, unknown>) => Promise<void>;
+    onpermissions: () => void;
   } = $props();
 </script>
 
@@ -24,6 +27,8 @@
       />
     </SettingRow>
   </Card>
+
+  <ScreenTranslateCard {settings} {onupdate} {onpermissions} />
 
   <Card title={$t("settings.card_language")}>
     <SettingRow label={$t("settings.ui_language")}>

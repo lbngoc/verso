@@ -14,6 +14,11 @@ function read(name: string): string {
 }
 
 const contents = new Map(files.map((name) => [name, read(name)]));
+// The screen translation card is a component mounted by General (Revision 2, R14).
+contents.set(
+  "ScreenTranslateCard.svelte",
+  readFileSync(join(process.cwd(), "src/lib/components/ScreenTranslateCard.svelte"), "utf8"),
+);
 
 // Some fields are written through a dedicated command instead of a patch object.
 const NEEDLES: Record<string, string> = {
@@ -38,9 +43,9 @@ const OWNERS: Record<string, string> = {
   ui_language: "General.svelte",
   text_size_step: "PopupPanel.svelte",
   check_updates: "About.svelte",
-  "ocr.enabled": "ScreenTranslate.svelte",
-  "ocr.language": "ScreenTranslate.svelte",
-  "shortcuts.screen": "ScreenTranslate.svelte",
+  "ocr.enabled": "ScreenTranslateCard.svelte",
+  "ocr.language": "ScreenTranslateCard.svelte",
+  "shortcuts.screen": "Shortcuts.svelte",
 };
 
 describe("settings coverage (FR-019, SC-004)", () => {

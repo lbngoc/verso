@@ -5,12 +5,22 @@
   import ShortcutRecorder from "$lib/components/ShortcutRecorder.svelte";
   import { t } from "$lib/i18n";
   import { commands, type SettingsProfile } from "$lib/ipc";
+  import { onMount } from "svelte";
 
   // Settings → Input → Shortcuts (spec 009, contracts/shortcuts.md).
   let {
     settings,
     onchange,
   }: { settings: SettingsProfile; onchange: (profile: SettingsProfile) => void } = $props();
+
+  // The screen-region row is hidden on a platform without the module (Linux).
+  let ocrSupported = $state(false);
+  onMount(() => {
+    void commands
+      .ocrAvailability()
+      .then((ocr) => (ocrSupported = ocr.reason !== "unsupported"))
+      .catch(() => undefined);
+  });
 
   const speakCollided = $derived(
     settings.shortcuts.speak === "" &&
@@ -68,6 +78,20 @@
         {onchange}
       />
     </SettingRow>
+    {#if ocrSupported}
+      <SettingRow
+        label={$t("ocr.shortcut_row")}
+        helper={settings.ocr.enabled ? "" : $t("ocr.shortcut_off_hint")}
+      >
+        <ShortcutRecorder
+          action="screen"
+          label={$t("ocr.shortcut_row")}
+          value={settings.shortcuts.screen}
+          disabled={!settings.ocr.enabled}
+          {onchange}
+        />
+      </SettingRow>
+    {/if}
   </Card>
 
   {#if speakCollided}

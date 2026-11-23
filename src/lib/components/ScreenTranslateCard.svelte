@@ -1,10 +1,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import Card from "$lib/components/Card.svelte";
-  import PermissionGuide from "$lib/components/PermissionGuide.svelte";
-  import SettingRow from "$lib/components/SettingRow.svelte";
-  import ShortcutRecorder from "$lib/components/ShortcutRecorder.svelte";
-  import Switch from "$lib/components/Switch.svelte";
+  import Card from "./Card.svelte";
+  import SettingRow from "./SettingRow.svelte";
+  import Switch from "./Switch.svelte";
   import { t } from "$lib/i18n";
   import {
     commands,
@@ -14,17 +12,18 @@
     type SettingsProfile,
   } from "$lib/ipc";
 
-  // Settings › Screen Translate (spec 004 contracts/screen-translate.md § Settings): the module
-  // switch, its shortcut and the recognition language, and why the module cannot be used when it
-  // cannot. Switching takes effect at once (shortcut, tray item, overlays).
+  // Settings › General › Screen translation (spec 004 FR-011, contracts/screen-result-panel.md §
+  // Settings layout): the module switch, the recognition language, and why the module cannot be
+  // used when it cannot. The shortcut lives in Shortcuts, the Screen Recording grant in
+  // Permissions. Switching takes effect at once (shortcut, tray item, overlays).
   let {
     settings,
     onupdate,
-    onchange,
+    onpermissions,
   }: {
     settings: SettingsProfile;
     onupdate: (patch: Record<string, unknown>) => Promise<void>;
-    onchange: (profile: SettingsProfile) => void;
+    onpermissions: () => void;
   } = $props();
 
   let availability = $state<OcrAvailability | null>(null);
@@ -34,6 +33,7 @@
 
   const available = $derived(availability?.available ?? false);
   const enabled = $derived(settings.ocr.enabled);
+  const unsupported = $derived(availability?.reason === "unsupported");
   const reasonKey = $derived(
     availability?.reason === "os_too_old"
       ? "ocr.unavailable_os_too_old"
@@ -80,8 +80,8 @@
   });
 </script>
 
-<div class="section">
-  <Card title={$t("ocr.section_title")}>
+{#if !unsupported}
+  <Card title={$t("ocr.card_title")}>
     <SettingRow label={$t("ocr.enable")} helper={$t("ocr.enable_hint")}>
       <Switch
         checked={enabled}
@@ -90,17 +90,20 @@
         onchange={(checked) => void setEnabled(checked)}
       />
     </SettingRow>
-    <SettingRow label={$t("ocr.shortcut")}>
-      <ShortcutRecorder
-        action="screen"
-        label={$t("ocr.shortcut")}
-        value={settings.shortcuts.screen}
-        disabled={!enabled}
-        {onchange}
-      />
-    </SettingRow>
-    <SettingRow label={$t("ocr.language")}>
+    {#if availability && !availability.available && reasonKey}
+      <p class="notice" role="status">
+        {$t(reasonKey)}
+        {#if availability.reason === "no_language"}
+          <span class="hint">{$t("ocr.unavailable_no_language_hint")}</span>
+        {/if}
+      </p>
+    {/if}
+    {#if refusal}
+      <p class="notice" role="alert">{refusal}</p>
+    {/if}
+    <SettingRow label={$t("ocr.language")} helper={enabled ? "" : $t("ocr.language_off_hint")}>
       <select
+        class:dim={!enabled}
         value={settings.ocr.language}
         disabled={!enabled}
         aria-label={$t("ocr.language")}
@@ -112,34 +115,15 @@
         {/each}
       </select>
     </SettingRow>
+    {#if mac && enabled && available && permission !== "granted"}
+      <button class="link" type="button" onclick={onpermissions}>
+        {$t("ocr.permission_link")}
+      </button>
+    {/if}
   </Card>
-
-  {#if availability && !availability.available && reasonKey}
-    <p class="notice" role="status">
-      {$t(reasonKey)}
-      {#if availability.reason === "no_language"}
-        <span class="hint">{$t("ocr.unavailable_no_language_hint")}</span>
-      {/if}
-    </p>
-  {/if}
-  {#if refusal}
-    <p class="notice" role="alert">{refusal}</p>
-  {/if}
-
-  {#if mac && enabled && available && permission !== "granted"}
-    <Card title={$t("permission.screen_recording_name")}>
-      <PermissionGuide kind="screen_recording" reason="missing" bind:status={permission} />
-    </Card>
-  {/if}
-</div>
+{/if}
 
 <style>
-  .section {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-  }
-
   select {
     height: var(--control-height);
     max-width: 220px;
@@ -152,18 +136,34 @@
     font-size: 12px;
   }
 
+  .dim {
+    opacity: 0.5;
+  }
+
   .notice {
     margin: 0;
-    padding: 8px 12px;
-    border-radius: 10px;
-    background: var(--accent-soft);
-    color: var(--text);
+    padding: 6px 0;
     font-size: 12px;
+    color: var(--warning);
   }
 
   .hint {
     display: block;
     margin-top: 2px;
     color: var(--text-secondary);
+  }
+
+  .link {
+    justify-content: flex-start;
+    border: none;
+    background: none;
+    padding: 0;
+    color: var(--accent);
+    font-size: 12px;
+    text-align: left;
+  }
+
+  .link:hover {
+    text-decoration: underline;
   }
 </style>

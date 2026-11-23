@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onDestroy, onMount } from "svelte";
-  import StatusBadge from "./StatusBadge.svelte";
+  import Icon from "./Icon.svelte";
+  import SettingRow from "./SettingRow.svelte";
   import Switch from "./Switch.svelte";
   import { t } from "$lib/i18n";
   import {
@@ -83,21 +84,20 @@
   });
 </script>
 
-<div class="row">
-  <div class="head">
-    <div class="text">
-      <span class="name">{name}</span>
-      <span class="body">{body}</span>
-    </div>
+<div class="row" data-row="block">
+  <SettingRow label={name} helper={body}>
     {#if granted}
       {#key switchKey}
         <Switch checked={true} label={name} onchange={() => void openPane()} />
       {/key}
     {/if}
-  </div>
+  </SettingRow>
 
   {#if !granted}
-    <StatusBadge kind="warn" text={$t("settings.permission_missing")} />
+    <p class="warning" role="status">
+      <Icon name="warning" size={14} />
+      {$t("settings.permission_missing")}
+    </p>
     <div class="actions">
       {#if reason === "after_update"}
         <button class="primary" type="button" onclick={() => void reset()}>
@@ -128,33 +128,17 @@
 
 <style>
   .row {
-    display: flex;
-    flex-direction: column;
     gap: 8px;
+    padding-bottom: 8px;
   }
 
-  .head {
+  .warning {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    min-height: 36px;
-  }
-
-  .text {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    text-align: left;
-  }
-
-  .name {
-    font-size: 13px;
-  }
-
-  .body {
+    gap: 6px;
+    margin: 0;
     font-size: 12px;
-    color: var(--text-secondary);
+    color: var(--warning);
   }
 
   .actions {
