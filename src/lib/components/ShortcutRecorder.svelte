@@ -11,11 +11,13 @@
     label,
     value,
     onchange,
+    disabled = false,
   }: {
     action: ShortcutAction;
     label: string;
     value: string;
     onchange: (profile: SettingsProfile) => void;
+    disabled?: boolean;
   } = $props();
 
   const mac = typeof navigator !== "undefined" && navigator.userAgent.includes("Mac");
@@ -139,6 +141,7 @@
   <button
     class="field"
     class:recording
+    {disabled}
     type="button"
     bind:this={field}
     onclick={() => void startRecording()}
@@ -157,6 +160,7 @@
   </button>
   <button
     class="mini"
+    {disabled}
     type="button"
     title={$t("shortcut.reset")}
     aria-label={$t("shortcut.reset")}
@@ -166,6 +170,7 @@
   </button>
   <button
     class="mini"
+    {disabled}
     type="button"
     title={$t("shortcut.clear")}
     aria-label={$t("shortcut.clear")}

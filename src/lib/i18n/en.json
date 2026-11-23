@@ -235,5 +235,8 @@
   "permission.screen_recording_body": "Verso needs the Screen Recording permission to read the text in the area you select. The image stays in memory and is never saved.",
   "permission.restart_hint": "macOS may need Verso to restart before the permission works.",
   "permission.restart": "Restart Verso",
-  "tray.translate_screen": "Translate Screen Region"
+  "tray.translate_screen": "Translate Screen Region",
+  "permission.accessibility_name": "Accessibility",
+  "permission.accessibility_body": "Lets Verso read the text you select in other apps.",
+  "permission.screen_recording_row_body": "Lets Verso read the text in the screen area you select. Images are never saved."
 }

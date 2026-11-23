@@ -281,3 +281,14 @@ fn a_work_area_with_a_negative_origin_is_handled() {
     let position = place_near_region(near_edge, area, popup, PLACEMENT_GAP);
     assert!(inside(area, position, popup));
 }
+
+// ---- spec 004: the update window's height follows its content ----
+
+#[test]
+fn the_update_window_height_is_clamped_to_220_and_560() {
+    use verso_lib::window_manager::clamp_update_height;
+    assert_eq!(clamp_update_height(100.0), 220.0);
+    assert_eq!(clamp_update_height(300.0), 300.0);
+    assert_eq!(clamp_update_height(900.0), 560.0);
+    assert_eq!(clamp_update_height(f64::NAN), 220.0);
+}

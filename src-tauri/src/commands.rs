@@ -197,14 +197,36 @@ pub fn update_settings(
     state: State<'_, AppState>,
     patch: Value,
 ) -> Result<SettingsProfile, String> {
+    // Switching the module on is refused where it cannot run (spec 004 FR-012): the value stays off.
+    let enabling = patch
+        .get("ocr")
+        .and_then(|ocr| ocr.get("enabled"))
+        .and_then(Value::as_bool)
+        == Some(true);
+    if enabling && !platform::services().supports("ocr") {
+        return Err("screen translation is not available on this system".into());
+    }
+    let was_enabled = state.settings.get().ocr.enabled;
     let profile = state
         .settings
         .update(&patch)
         .map_err(|error| error.to_string())?;
     let _ = app.emit("settings-changed", &profile);
     crate::appearance::refresh_with(&app);
+    // Re-registers every shortcut: the screen one only while the module is on (FR-010, FR-013).
     let _ = crate::shortcuts::register_all(&app);
     crate::autostart::apply(&app, profile.launch_at_login);
+    if profile.ocr.enabled != was_enabled {
+        if profile.ocr.enabled {
+            let handle = app.clone();
+            std::thread::spawn(move || window_manager::warm_overlay(&handle));
+        } else {
+            // Releasing the module also closes a picker that is still open, and the warm overlay.
+            crate::core::ocr::cancel(&app);
+            window_manager::release_warm_overlay(&app);
+        }
+        let _ = app.emit("ocr-changed", json!({ "enabled": profile.ocr.enabled }));
+    }
     Ok(profile)
 }
 
@@ -281,7 +303,7 @@ pub async fn start_screen_translate(app: AppHandle) -> &'static str {
 /// The overlay page has painted: the backend shows that window.
 #[tauri::command]
 pub fn overlay_ready(app: AppHandle, monitor: u32) {
-    window_manager::show_overlay(&app, monitor);
+    window_manager::overlay_page_ready(&app, monitor);
 }
 
 /// The drag ended: capture, read, translate, show the popup next to the region.
@@ -353,6 +375,12 @@ pub fn hide_update_window(app: AppHandle) {
     if let Some(window) = app.get_webview_window("update") {
         let _ = window.close();
     }
+}
+
+/// The update page reports the height its content needs.
+#[tauri::command]
+pub fn resize_update_window(app: AppHandle, height: f64) {
+    window_manager::resize_update_window(&app, height);
 }
 
 #[tauri::command]

@@ -18,6 +18,8 @@ const contents = new Map(files.map((name) => [name, read(name)]));
 // Some fields are written through a dedicated command instead of a patch object.
 const NEEDLES: Record<string, string> = {
   text_size_step: "setTextSizeStep(",
+  "ocr.enabled": "ocr: { enabled",
+  "ocr.language": "ocr: { language",
 };
 
 const OWNERS: Record<string, string> = {
@@ -36,6 +38,9 @@ const OWNERS: Record<string, string> = {
   ui_language: "General.svelte",
   text_size_step: "PopupPanel.svelte",
   check_updates: "About.svelte",
+  "ocr.enabled": "ScreenTranslate.svelte",
+  "ocr.language": "ScreenTranslate.svelte",
+  "shortcuts.screen": "ScreenTranslate.svelte",
 };
 
 describe("settings coverage (FR-019, SC-004)", () => {

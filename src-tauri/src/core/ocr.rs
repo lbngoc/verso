@@ -254,10 +254,25 @@ pub fn cancel(app: &AppHandle) {
     if was_selecting {
         debug!("screen translate cancelled");
     }
+    rewarm(app);
+}
+
+/// Keeps the next start fast: a hidden overlay is rebuilt a moment after each use.
+fn rewarm(app: &AppHandle) {
+    let handle = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(1500));
+        window_manager::warm_overlay(&handle);
+    });
 }
 
 /// The user released the drag: capture, read, translate and show the popup next to the region.
 pub async fn finish(app: AppHandle, monitor: u32, rect: Rect) {
+    finish_flow(app.clone(), monitor, rect).await;
+    rewarm(&app);
+}
+
+async fn finish_flow(app: AppHandle, monitor: u32, rect: Rect) {
     let region = match SESSION.lock().release(monitor, rect) {
         Release::Cancelled => {
             window_manager::close_overlays(&app);

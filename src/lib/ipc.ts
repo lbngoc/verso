@@ -132,8 +132,9 @@ export interface UpdateInfo {
 
 export interface UpdateProgress {
   downloaded: number;
-  total: number;
-  percent: number;
+  /** `null` when the server did not say how long the file is: the bar is indeterminate. */
+  total: number | null;
+  percent: number | null;
 }
 
 export interface EngineAvailability {
@@ -278,6 +279,8 @@ export const commands = {
   cancelRegion: () => invoke<void>("cancel_region"),
   permissionStepKind: () => invoke<PermissionKind>("permission_step_kind"),
   restartApp: () => invoke<void>("restart_app"),
+  /** The update window reports the height its content needs (clamped by the backend). */
+  resizeUpdateWindow: (height: number) => invoke<void>("resize_update_window", { height }),
 };
 
 export const events = {

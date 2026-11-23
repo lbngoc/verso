@@ -709,7 +709,28 @@ pub fn take_update_mode() -> String {
     }
 }
 
-/// Opens (or focuses) the update dialog: 600 × 460, not resizable, created hidden (R14).
+pub const UPDATE_WIDTH: f64 = 600.0;
+pub const UPDATE_MIN_HEIGHT: f64 = 220.0;
+pub const UPDATE_MAX_HEIGHT: f64 = 560.0;
+
+/// The height the update window takes for the content its page measured (spec 004 R11).
+pub fn clamp_update_height(requested: f64) -> f64 {
+    if requested.is_finite() {
+        requested.clamp(UPDATE_MIN_HEIGHT, UPDATE_MAX_HEIGHT)
+    } else {
+        UPDATE_MIN_HEIGHT
+    }
+}
+
+/// Fits the open update window to its content; the width stays, so does the top-left corner.
+pub fn resize_update_window(app: &AppHandle, height: f64) {
+    if let Some(window) = app.get_webview_window("update") {
+        let _ = window.set_size(LogicalSize::new(UPDATE_WIDTH, clamp_update_height(height)));
+    }
+}
+
+/// Opens (or focuses) the update dialog: 600 wide, as tall as its content (260 while checking, 460
+/// for an offer at first), not resizable by the user, created hidden (R14).
 pub fn open_update_window(app: &AppHandle, mode: &str) {
     note_main_requested();
     if focus_setup_if_open(app) {
@@ -730,8 +751,8 @@ pub fn open_update_window(app: &AppHandle, mode: &str) {
         app,
         crate::ui_text::Text::UpdateTitle,
     ))
-    .inner_size(600.0, 460.0)
-    .min_inner_size(600.0, 460.0)
+    .inner_size(UPDATE_WIDTH, if mode == "offer" { 460.0 } else { 260.0 })
+    .min_inner_size(UPDATE_WIDTH, UPDATE_MIN_HEIGHT)
     .resizable(false)
     .visible(false);
     match builder.build() {
@@ -934,7 +955,7 @@ pub fn onboarding_step() -> u8 {
 }
 
 /// Why the permission step is open, per permission kind (spec 010 data-model). Process memory only;
-/// back to `Missing` when the setup window closes.
+/// it lasts for the process so Settings › Permissions reads the same reason as the step (spec 004).
 static PERMISSION_REASONS: parking_lot::Mutex<
     Option<std::collections::HashMap<PermissionKind, PermissionReason>>,
 > = parking_lot::Mutex::new(None);
@@ -952,10 +973,6 @@ pub fn permission_reason(kind: PermissionKind) -> PermissionReason {
         .as_ref()
         .and_then(|reasons| reasons.get(&kind).copied())
         .unwrap_or_default()
-}
-
-fn clear_permission_reasons() {
-    *PERMISSION_REASONS.lock() = None;
 }
 
 /// Opens the onboarding directly at the Accessibility step, saying why: missing at runtime, or lost
@@ -1006,7 +1023,6 @@ pub fn show_onboarding(app: &AppHandle) {
             reveal_on_ready(app, &window);
             window.on_window_event(|event| {
                 if matches!(event, tauri::WindowEvent::Destroyed) {
-                    clear_permission_reasons();
                     *PERMISSION_STEP_KIND.lock() = PermissionKind::Accessibility;
                 }
             });
@@ -1119,47 +1135,169 @@ pub fn monitor_snapshots(app: &AppHandle) -> Vec<crate::core::ocr::MonitorInfo> 
         .collect()
 }
 
-/// Creates one hidden overlay per monitor. Each page calls `overlay_ready` once painted and is
-/// shown then. Returns false when no overlay could be created.
+/// A hidden overlay kept ready for the primary monitor while the module is on (spec 004 R5
+/// fallback, T054): the VM runs showed 245 ms to 1.7 s to create an overlay cold, over the 250 ms
+/// budget. `ready` is set once its page has painted.
+struct WarmOverlay {
+    frame: Rect,
+    ready: bool,
+}
+
+static WARM: parking_lot::Mutex<Option<(u32, WarmOverlay)>> = parking_lot::Mutex::new(None);
+
+fn build_overlay(
+    app: &AppHandle,
+    monitor: &crate::core::ocr::MonitorInfo,
+) -> Option<WebviewWindow> {
+    let label = format!("{OVERLAY_PREFIX}{}", monitor.index);
+    let builder = tauri::WebviewWindowBuilder::new(
+        app,
+        &label,
+        tauri::WebviewUrl::App("capture.html".into()),
+    )
+    .title("Verso")
+    .position(monitor.frame.x, monitor.frame.y)
+    .inner_size(monitor.frame.width, monitor.frame.height)
+    .visible(false)
+    .decorations(false)
+    .transparent(true)
+    .always_on_top(true)
+    .skip_taskbar(true)
+    .focused(false)
+    .resizable(false)
+    .maximizable(false)
+    .minimizable(false)
+    .shadow(false)
+    .accept_first_mouse(true);
+    match builder.build() {
+        Ok(window) => {
+            info!("overlay {label} created");
+            let styled = window.clone();
+            let _ = app.run_on_main_thread(move || {
+                platform::services().prepare_overlay(&styled);
+            });
+            Some(window)
+        }
+        Err(error) => {
+            warn!("could not create overlay {label}: {error}");
+            None
+        }
+    }
+}
+
+/// The monitor to keep a warm overlay for: the primary one (index in `monitor_snapshots`).
+fn warm_target(app: &AppHandle) -> Option<crate::core::ocr::MonitorInfo> {
+    let snapshots = monitor_snapshots(app);
+    let primary = app.primary_monitor().ok().flatten();
+    let index = primary
+        .and_then(|primary| {
+            let scale = primary.scale_factor();
+            let position = primary.position().to_logical::<f64>(scale);
+            snapshots.iter().position(|info| {
+                (info.frame.x - position.x).abs() < 1.0 && (info.frame.y - position.y).abs() < 1.0
+            })
+        })
+        .unwrap_or(0);
+    snapshots.get(index).copied()
+}
+
+/// Creates the hidden overlay for the primary monitor if the module is on and none exists. Called
+/// at start, when the module is switched on, and after each use; never while the picker is up.
+pub fn warm_overlay(app: &AppHandle) {
+    let enabled = app
+        .state::<crate::commands::AppState>()
+        .settings
+        .get()
+        .ocr
+        .enabled;
+    if !enabled
+        || !platform::services().supports("ocr")
+        || crate::core::ocr::is_selecting()
+        || WARM.lock().is_some()
+    {
+        return;
+    }
+    let Some(monitor) = warm_target(app) else {
+        return;
+    };
+    // Claim the slot first so two callers cannot build the same window.
+    *WARM.lock() = Some((
+        monitor.index,
+        WarmOverlay {
+            frame: monitor.frame,
+            ready: false,
+        },
+    ));
+    if build_overlay(app, &monitor).is_none() {
+        *WARM.lock() = None;
+    } else {
+        info!("warm overlay kept for monitor {}", monitor.index);
+    }
+}
+
+/// Drops the warm overlay (module switched off, or its frame no longer matches the monitor).
+fn discard_warm(app: &AppHandle) {
+    let taken = WARM.lock().take();
+    if let Some((index, _)) = taken {
+        if let Some(window) = app.get_webview_window(&format!("{OVERLAY_PREFIX}{index}")) {
+            let _ = app.run_on_main_thread(move || {
+                platform::services().close_overlay(&window);
+            });
+        }
+    }
+}
+
+/// Builds the overlays for every monitor, reusing the warm one when it still fits. Each page calls
+/// `overlay_ready` once painted and is shown then. Returns false when none could be created.
 pub fn open_overlays(app: &AppHandle, monitors: &[crate::core::ocr::MonitorInfo]) -> bool {
     let mut created = 0;
+    let mut show_now = Vec::new();
     for monitor in monitors {
-        let label = format!("{OVERLAY_PREFIX}{}", monitor.index);
-        let builder = tauri::WebviewWindowBuilder::new(
-            app,
-            &label,
-            tauri::WebviewUrl::App("capture.html".into()),
-        )
-        .title("Verso")
-        .position(monitor.frame.x, monitor.frame.y)
-        .inner_size(monitor.frame.width, monitor.frame.height)
-        .visible(false)
-        .decorations(false)
-        .transparent(true)
-        .always_on_top(true)
-        .skip_taskbar(true)
-        .focused(false)
-        .resizable(false)
-        .maximizable(false)
-        .minimizable(false)
-        .shadow(false)
-        .accept_first_mouse(true);
-        match builder.build() {
-            Ok(window) => {
-                info!("overlay {label} created");
-                created += 1;
-                let handle = app.clone();
-                let styled = window.clone();
-                let _ = app.run_on_main_thread(move || {
-                    let _ = &handle;
-                    platform::services().prepare_overlay(&styled);
-                });
+        let reuse = {
+            let warm = WARM.lock();
+            match warm.as_ref() {
+                Some((index, overlay))
+                    if *index == monitor.index
+                        && (overlay.frame.x - monitor.frame.x).abs() < 1.0
+                        && (overlay.frame.y - monitor.frame.y).abs() < 1.0
+                        && (overlay.frame.width - monitor.frame.width).abs() < 1.0
+                        && (overlay.frame.height - monitor.frame.height).abs() < 1.0 =>
+                {
+                    Some(overlay.ready)
+                }
+                _ => None,
             }
-            Err(error) => warn!("could not create overlay {label}: {error}"),
+        };
+        match reuse {
+            Some(ready) => {
+                info!("overlay {} reused (warm, ready: {ready})", monitor.index);
+                created += 1;
+                // The warm slot is spent: the window now belongs to this session.
+                WARM.lock().take();
+                if ready {
+                    show_now.push(monitor.index);
+                }
+            }
+            None => {
+                // A stale warm overlay for this monitor must go before a new one takes its label.
+                let stale = WARM
+                    .lock()
+                    .as_ref()
+                    .is_some_and(|(index, _)| *index == monitor.index);
+                if stale {
+                    discard_warm(app);
+                }
+                if build_overlay(app, monitor).is_some() {
+                    created += 1;
+                }
+            }
         }
     }
     if created > 0 {
         register_escape(app);
+        for index in show_now {
+            show_overlay(app, index);
+        }
         // Safety net: if a page never reports ready (a script error), show the overlays anyway.
         let late = app.clone();
         let indexes: Vec<u32> = monitors.iter().map(|monitor| monitor.index).collect();
@@ -1175,18 +1313,39 @@ pub fn open_overlays(app: &AppHandle, monitors: &[crate::core::ocr::MonitorInfo]
     created > 0
 }
 
-/// The overlay page has painted: show it (never a white flash).
+/// An overlay page reports it has painted. While the picker is up it is shown at once; otherwise
+/// it is the warm overlay and only its readiness is remembered.
+pub fn overlay_page_ready(app: &AppHandle, monitor: u32) {
+    if crate::core::ocr::is_selecting() {
+        show_overlay(app, monitor);
+        return;
+    }
+    if let Some((index, overlay)) = WARM.lock().as_mut() {
+        if *index == monitor {
+            overlay.ready = true;
+            info!("warm overlay {monitor} is ready");
+        }
+    }
+}
+
+/// Puts an overlay on screen and tells its page to reset (hint, selection).
 pub fn show_overlay(app: &AppHandle, monitor: u32) {
-    info!("overlay {monitor} painted; showing it");
+    info!("overlay {monitor} showing");
     let label = format!("{OVERLAY_PREFIX}{monitor}");
     let Some(window) = app.get_webview_window(&label) else {
         return;
     };
+    let _ = app.emit_to(label, "overlay-activate", ());
     let handle = app.clone();
     let _ = app.run_on_main_thread(move || {
         let _ = &handle;
         platform::services().show_overlay(&window);
     });
+}
+
+/// The module was switched off: the warm overlay goes too (no idle cost while it is off).
+pub fn release_warm_overlay(app: &AppHandle) {
+    discard_warm(app);
 }
 
 /// Destroys every overlay and gives the foreground back.
@@ -1195,6 +1354,8 @@ pub fn close_overlays(app: &AppHandle) {
     if labels.is_empty() {
         return;
     }
+    // Everything is destroyed below, a warm overlay included.
+    WARM.lock().take();
     let (sender, receiver) = std::sync::mpsc::channel();
     let handle = app.clone();
     let _ = app.run_on_main_thread(move || {

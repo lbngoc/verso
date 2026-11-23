@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { listen } from "@tauri-apps/api/event";
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { setUiLanguage, t as translator } from "$lib/i18n";
   import { commands } from "$lib/ipc";
@@ -80,9 +81,19 @@
       }
       setTimeout(() => void commands.overlayReady(monitor), 30);
     })();
-    const timer = setTimeout(() => (hint = false), 2000);
+    let timer = setTimeout(() => (hint = false), 2000);
+    // A kept-warm overlay is shown later: the hint and the selection start over then.
+    let unlisten: (() => void) | undefined;
+    void listen("overlay-activate", () => {
+      start = null;
+      current = null;
+      hint = true;
+      clearTimeout(timer);
+      timer = setTimeout(() => (hint = false), 2000);
+    }).then((off) => (unlisten = off));
     window.addEventListener("keydown", onKeydown);
     return () => {
+      unlisten?.();
       clearTimeout(timer);
       window.removeEventListener("keydown", onKeydown);
     };

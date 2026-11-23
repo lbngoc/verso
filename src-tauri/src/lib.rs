@@ -117,6 +117,15 @@ pub fn run() {
             let profile = state_settings(&handle);
             autostart::apply(&handle, profile.launch_at_login);
             tray::create(&handle)?;
+            // Screen translate: a hidden overlay for the primary monitor, so the picker opens at
+            // once (spec 004 R5 fallback); only while the module is on.
+            {
+                let warm_handle = handle.clone();
+                std::thread::spawn(move || {
+                    std::thread::sleep(std::time::Duration::from_secs(3));
+                    window_manager::warm_overlay(&warm_handle);
+                });
+            }
             // The tray shows the current bindings, so a settings change rebuilds it (spec 009 T034).
             {
                 let tray_handle = handle.clone();
@@ -232,6 +241,7 @@ pub fn run() {
             commands::open_update_window,
             commands::update_mode,
             commands::hide_update_window,
+            commands::resize_update_window,
             commands::list_languages,
             commands::get_appearance,
             commands::hide_popup,

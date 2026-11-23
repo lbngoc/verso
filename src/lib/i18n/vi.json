@@ -235,5 +235,8 @@
   "permission.screen_recording_body": "Verso cần quyền Ghi màn hình để đọc chữ trong vùng bạn chọn. Ảnh chỉ nằm trong bộ nhớ và không bao giờ được lưu.",
   "permission.restart_hint": "macOS có thể cần Verso khởi động lại thì quyền mới có hiệu lực.",
   "permission.restart": "Khởi động lại Verso",
-  "tray.translate_screen": "Dịch vùng màn hình"
+  "tray.translate_screen": "Dịch vùng màn hình",
+  "permission.accessibility_name": "Trợ năng",
+  "permission.accessibility_body": "Cho phép Verso đọc đoạn văn bạn chọn trong các ứng dụng khác.",
+  "permission.screen_recording_row_body": "Cho phép Verso đọc chữ trong vùng màn hình bạn chọn. Ảnh không bao giờ được lưu."
 }
