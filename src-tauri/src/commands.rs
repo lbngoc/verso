@@ -129,7 +129,7 @@ pub async fn translate_selection(
 
     if plan.open_quick || matches!(plan.popup, crate::core::capture::PopupState::Hidden) {
         window_manager::hide_popup(&app);
-        let _ = window_manager::show_quick(&app);
+        let _ = window_manager::show_quick(&app, window_manager::PanelAnchor::Shortcut);
         let _ = app.emit("popup-state", crate::core::capture::PopupState::Hidden);
         emit_quick_prefill(&app, state.settings.get().quick_paste_clipboard);
         return Ok(None);
@@ -421,7 +421,8 @@ fn emit_quick_prefill(app: &AppHandle, enabled: bool) {
 
 /// Tray left click: toggles the quick panel, prefilled from the clipboard when the option is on
 /// (FR-034). A click that arrives right after the panel hid (its own blur) just closes it.
-pub fn open_quick_from_tray(app: &AppHandle) {
+pub fn open_quick_from_tray(app: &AppHandle, icon: crate::platform::Rect) {
+    window_manager::remember_tray_icon(icon);
     if window_manager::quick_just_hidden() {
         log::info!("tray click: panel just hidden by this click; staying closed");
         return;
@@ -433,7 +434,7 @@ pub fn open_quick_from_tray(app: &AppHandle) {
     }
     log::info!("tray click: opening the panel");
     window_manager::hide_popup(app);
-    if window_manager::show_quick(app).is_err() {
+    if window_manager::show_quick(app, window_manager::PanelAnchor::TrayIcon(icon)).is_err() {
         return;
     }
     let enabled = app.state::<AppState>().settings.get().quick_paste_clipboard;
@@ -539,7 +540,7 @@ pub fn hide_popup(app: AppHandle) {
 // command deadlocks WebView2 on Windows.
 #[tauri::command]
 pub async fn show_quick(app: AppHandle) {
-    let _ = window_manager::show_quick(&app);
+    let _ = window_manager::show_quick(&app, window_manager::PanelAnchor::Shortcut);
 }
 
 /// The quick page mounted its listeners: a queued show or prefill can go now (T122).
@@ -551,6 +552,18 @@ pub fn quick_ready(app: AppHandle) {
 #[tauri::command]
 pub fn hide_quick(app: AppHandle) {
     window_manager::hide_quick(&app);
+}
+
+/// The panel rendered the "Reading the text…" state; the show may go on (spec 004 FR-021).
+#[tauri::command]
+pub fn quick_screen_prepared() {
+    window_manager::quick_screen_prepared();
+}
+
+/// The popup rendered the reset "Translating" state; the show may go on (FR-022).
+#[tauri::command]
+pub fn popup_prepared() {
+    window_manager::popup_prepared();
 }
 
 // Async on purpose: building a webview window inside a synchronous command deadlocks WebView2 on

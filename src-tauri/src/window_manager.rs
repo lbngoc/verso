@@ -103,10 +103,122 @@ pub fn place_near_region(region: Rect, work_area: Rect, size: Size, gap: f64) ->
             y: beside_y,
         };
     }
-    // Nothing fits (the region fills the screen): inside it, at the top.
+    // Nothing fits (the region fills the screen): over its lower part, where a result is read.
     Point {
         x: aligned_x,
-        y: region.y.clamp(min_y, max_y),
+        y: (region.bottom() - size.height).clamp(min_y, max_y),
+    }
+}
+
+/// What a panel is placed against (Revision 2, FR-024, R20).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum PanelAnchor {
+    /// The tray / menu-bar icon the user clicked (logical points, global).
+    TrayIcon(Rect),
+    /// A keyboard shortcut, the tray menu or anything else without a spot on screen.
+    Shortcut,
+    /// A screen region the user selected.
+    Region(Rect),
+}
+
+/// How a screen result is anchored: beside the selected region. To try the tray or shortcut rule
+/// instead (owner choice after trying 0.1.9, R20), return `PanelAnchor::Shortcut` here or the
+/// remembered tray icon in `screen_result_anchor`; `placement.rs` pins each rule.
+pub const SCREEN_RESULT_ANCHOR_RULE: ScreenResultRule = ScreenResultRule::Region;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ScreenResultRule {
+    Region,
+    TrayIcon,
+    Shortcut,
+}
+
+/// Places the quick panel for how it was opened. Pure; logical points; always inside the work
+/// area minus `EDGE_MARGIN`.
+pub fn place_panel(anchor: PanelAnchor, work_area: Rect, size: Size, gap: f64) -> Point {
+    let min_x = work_area.x + EDGE_MARGIN;
+    let max_x = (work_area.right() - size.width - EDGE_MARGIN).max(min_x);
+    let min_y = work_area.y + EDGE_MARGIN;
+    let max_y = (work_area.bottom() - size.height - EDGE_MARGIN).max(min_y);
+    match anchor {
+        PanelAnchor::Region(region) => place_near_region(region, work_area, size, gap),
+        PanelAnchor::Shortcut => Point {
+            x: (work_area.x + (work_area.width - size.width) / 2.0).clamp(min_x, max_x),
+            y: (work_area.y + (work_area.height - size.height) / 3.0).clamp(min_y, max_y),
+        },
+        PanelAnchor::TrayIcon(icon) => {
+            let centre_x = icon.x + icon.width / 2.0;
+            let centre_y = icon.y + icon.height / 2.0;
+            let beside_y = (centre_y - size.height / 2.0).clamp(min_y, max_y);
+            let across_x = (centre_x - size.width / 2.0).clamp(min_x, max_x);
+            // The work area excludes the menu bar and the taskbar, so where the icon sits relative
+            // to it says which edge the bar is on; an auto-hidden bar falls back to the halves.
+            if icon.right() <= work_area.x + 1.0 {
+                Point {
+                    x: work_area.x + gap,
+                    y: beside_y,
+                }
+            } else if icon.x >= work_area.right() - 1.0 {
+                Point {
+                    x: (work_area.right() - gap - size.width).max(min_x),
+                    y: beside_y,
+                }
+            } else if centre_y < work_area.y + work_area.height / 2.0 {
+                Point {
+                    x: across_x,
+                    y: work_area.y + gap,
+                }
+            } else {
+                Point {
+                    x: across_x,
+                    y: (work_area.bottom() - gap - size.height).max(min_y),
+                }
+            }
+        }
+    }
+}
+
+/// The corner a selection popup keeps from its pill to its result (FR-022, R17): its top-left
+/// when it sits below the cursor, its bottom-left when it flipped above (then it grows upward).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PopupSlot {
+    pub corner: Point,
+    pub grow_up: bool,
+}
+
+/// Chooses the slot with the default result size, so the pill is already where the result will be.
+pub fn popup_slot(input: &PlacementInput) -> PopupSlot {
+    let position = place_popup(input);
+    let grow_up = position.y + 0.001 < input.cursor.y;
+    PopupSlot {
+        corner: Point {
+            x: position.x,
+            y: if grow_up {
+                position.y + input.size.height
+            } else {
+                position.y
+            },
+        },
+        grow_up,
+    }
+}
+
+/// The frame of a popup of `size` hanging from `slot`, kept inside the work area.
+pub fn frame_in_slot(slot: PopupSlot, size: Size, work_area: Rect) -> Rect {
+    let min_x = work_area.x + EDGE_MARGIN;
+    let max_x = (work_area.right() - size.width - EDGE_MARGIN).max(min_x);
+    let min_y = work_area.y + EDGE_MARGIN;
+    let max_y = (work_area.bottom() - size.height - EDGE_MARGIN).max(min_y);
+    let y = if slot.grow_up {
+        slot.corner.y - size.height
+    } else {
+        slot.corner.y
+    };
+    Rect {
+        x: slot.corner.x.clamp(min_x, max_x),
+        y: y.clamp(min_y, max_y),
+        width: size.width,
+        height: size.height,
     }
 }
 
@@ -187,7 +299,7 @@ pub fn prepare_transient(app: &AppHandle, window: &WebviewWindow) {
                 log::info!("quick panel lost focus (visible: {visible})");
                 // A loading panel keeps its queued show; only a panel on screen closes (T134).
                 if QUICK.lock().blur(visible) {
-                    hide_quick(&handle);
+                    hide_quick_keep_focus(&handle);
                 }
                 return;
             }
@@ -208,7 +320,7 @@ static QUICK: parking_lot::Mutex<QuickQueue> = parking_lot::Mutex::new(QuickQueu
 
 /// The quick panel is built on its first open and then only hidden, so it costs no memory until
 /// the user wants it (T122, Constitution I). The popup stays pre-warmed for the 150 ms rule.
-fn ensure_quick(app: &AppHandle) -> Option<WebviewWindow> {
+pub fn ensure_quick(app: &AppHandle) -> Option<WebviewWindow> {
     if let Some(window) = quick_window(app) {
         return Some(window);
     }
@@ -257,18 +369,91 @@ fn ensure_quick(app: &AppHandle) -> Option<WebviewWindow> {
     }
 }
 
-/// The quick page reports that its listeners are in place: replay what waited for it.
+/// The quick page reports that its listeners are in place: replay what waited for it. A queued
+/// screen event goes before the show, so the panel never paints the previous content (FR-021).
 pub fn quick_page_ready(app: &AppHandle) {
     let replay = QUICK.lock().page_ready();
-    info!("quick page ready (queued show: {})", replay.present);
+    info!(
+        "quick page ready (queued show: {}, screen event: {})",
+        replay.present,
+        replay.screen.is_some()
+    );
+    if let Some(event) = replay.screen {
+        let _ = app.emit("quick-screen", event);
+    }
     if replay.present {
         if let Some(window) = quick_window(app) {
-            let _ = present_quick(&window);
+            let anchor = *QUICK_ANCHOR.lock();
+            let _ = present_quick(&window, anchor);
         }
     }
     if let Some(text) = replay.prefill {
         let _ = app.emit("quick-prefill", serde_json::json!({ "text": text }));
     }
+}
+
+/// How the next panel show is anchored; kept for a show that waits for the page.
+static QUICK_ANCHOR: parking_lot::Mutex<PanelAnchor> =
+    parking_lot::Mutex::new(PanelAnchor::Shortcut);
+
+/// The panel currently shows a screen result: closing it hands focus back (FR-023).
+static QUICK_SCREEN_MODE: AtomicBool = AtomicBool::new(false);
+
+/// The tray icon's frame at the last click, for the tray variant of the screen-result rule.
+static LAST_TRAY_ICON: parking_lot::Mutex<Option<Rect>> = parking_lot::Mutex::new(None);
+
+pub fn remember_tray_icon(rect: Rect) {
+    *LAST_TRAY_ICON.lock() = Some(rect);
+}
+
+fn screen_result_anchor(region: Rect) -> PanelAnchor {
+    match SCREEN_RESULT_ANCHOR_RULE {
+        ScreenResultRule::Region => PanelAnchor::Region(region),
+        ScreenResultRule::TrayIcon => LAST_TRAY_ICON
+            .lock()
+            .map_or(PanelAnchor::Shortcut, PanelAnchor::TrayIcon),
+        ScreenResultRule::Shortcut => PanelAnchor::Shortcut,
+    }
+}
+
+/// Sends a screen event to the panel, or keeps it until the panel's page is ready.
+pub fn send_quick_screen(app: &AppHandle, event: crate::core::quick_queue::QuickScreenEvent) {
+    let now = QUICK.lock().screen_event(event);
+    if let Some(event) = now {
+        let _ = app.emit("quick-screen", event);
+    }
+}
+
+/// True while the panel is showing a screen result.
+pub fn quick_in_screen_mode() -> bool {
+    QUICK_SCREEN_MODE.load(Ordering::SeqCst)
+}
+
+/// Shows the panel for a captured region: the page resets to "Reading the text…" first, the show
+/// waits for its acknowledgement (bounded), and the panel is placed by the screen-result rule
+/// (FR-021, FR-024).
+pub fn prepare_quick_screen(app: &AppHandle, region: Rect) {
+    let Some(window) = ensure_quick(app) else {
+        return;
+    };
+    let settings = app.state::<crate::commands::AppState>().settings.get();
+    let prepared = QUICK_SCREEN_ACK.arm();
+    send_quick_screen(
+        app,
+        crate::core::quick_queue::QuickScreenEvent::reading(
+            settings.source_lang.clone(),
+            settings.target_lang.clone(),
+        ),
+    );
+    if prepared
+        .recv_timeout(std::time::Duration::from_millis(300))
+        .is_err()
+    {
+        warn!("panel did not confirm its reading state in 300 ms; showing it anyway");
+    }
+    QUICK_SCREEN_MODE.store(true, Ordering::SeqCst);
+    let anchor = screen_result_anchor(region);
+    let _ = present_quick(&window, anchor);
 }
 
 /// Sends the clipboard prefill to the panel, or keeps it until the panel's page is ready.
@@ -294,12 +479,8 @@ pub fn prewarm(app: &AppHandle) {
     let _ = window.set_position(LogicalPosition::new(0.0, 0.0));
 }
 
-/// The cursor point the popup was placed at; content growth re-runs placement from it (R2/R3).
-static POPUP_ANCHOR: parking_lot::Mutex<Option<Point>> = parking_lot::Mutex::new(None);
-
-/// The screen region the popup was placed next to (spec 004); content growth re-runs placement
-/// from it instead of from the cursor.
-static POPUP_REGION: parking_lot::Mutex<Option<Rect>> = parking_lot::Mutex::new(None);
+/// The corner the popup keeps from its pill to its result (FR-022); growth re-runs placement from it.
+static POPUP_SLOT: parking_lot::Mutex<Option<PopupSlot>> = parking_lot::Mutex::new(None);
 
 /// The frame of a result popup once placed; later resizes only change the height (R20).
 static POPUP_LOCKED: parking_lot::Mutex<Option<Rect>> = parking_lot::Mutex::new(None);
@@ -318,7 +499,44 @@ pub fn quick_just_hidden() -> bool {
 /// Pin state (memory only): a pinned popup ignores blur and outside clicks; every show resets it.
 pub static POPUP_PINNED: AtomicBool = AtomicBool::new(false);
 
-/// Shows the popup as the compact status pill at the cursor without activating it (FR-002).
+/// A one-shot acknowledgement from a page: the backend arms it, emits the state the page must
+/// render, waits (bounded) for the page's command, then shows the window (FR-021, FR-022).
+struct Ack(parking_lot::Mutex<Option<std::sync::mpsc::Sender<()>>>);
+
+impl Ack {
+    const fn new() -> Self {
+        Self(parking_lot::Mutex::new(None))
+    }
+
+    fn arm(&self) -> std::sync::mpsc::Receiver<()> {
+        let (sender, receiver) = std::sync::mpsc::channel();
+        *self.0.lock() = Some(sender);
+        receiver
+    }
+
+    fn fire(&self) {
+        if let Some(sender) = self.0.lock().take() {
+            let _ = sender.send(());
+        }
+    }
+}
+
+static POPUP_ACK: Ack = Ack::new();
+static QUICK_SCREEN_ACK: Ack = Ack::new();
+
+/// The popup page has rendered the reset state (`popup_prepared`).
+pub fn popup_prepared() {
+    POPUP_ACK.fire();
+}
+
+/// The panel page has rendered the reading state (`quick_screen_prepared`).
+pub fn quick_screen_prepared() {
+    QUICK_SCREEN_ACK.fire();
+}
+
+/// Shows the popup as the compact status pill at the cursor without activating it (FR-002). The
+/// page renders the reset "Translating" state first so the previous result is never painted
+/// (FR-022).
 pub fn show_popup(app: &AppHandle) -> tauri::Result<()> {
     let Some(window) = popup_window(app) else {
         return Ok(());
@@ -326,22 +544,38 @@ pub fn show_popup(app: &AppHandle) -> tauri::Result<()> {
     let services = platform::services();
     let cursor = services.cursor_position();
     let work_area = services.monitor_work_area(cursor);
-    let size = popup_pill_size();
-    let position = place_popup(&PlacementInput {
+    let slot = popup_slot(&PlacementInput {
         cursor,
         work_area,
-        size,
+        size: Size {
+            width: POPUP_WIDTH,
+            height: POPUP_RESULT_HEIGHT,
+        },
         scale_factor: 1.0,
         gap: PLACEMENT_GAP,
     });
+    let frame = frame_in_slot(slot, popup_pill_size(), work_area);
 
-    *POPUP_ANCHOR.lock() = Some(cursor);
-    *POPUP_REGION.lock() = None;
+    *POPUP_SLOT.lock() = Some(slot);
     *POPUP_LOCKED.lock() = None;
     POPUP_PINNED.store(false, Ordering::SeqCst);
     platform::services().remember_capture_target();
-    window.set_size(LogicalSize::new(size.width, size.height))?;
-    window.set_position(LogicalPosition::new(position.x, position.y))?;
+    window.set_size(LogicalSize::new(frame.width, frame.height))?;
+    window.set_position(LogicalPosition::new(frame.x, frame.y))?;
+    // Reset first, show after the page answered: the previous result is never painted (FR-022).
+    let prepared = POPUP_ACK.arm();
+    app.emit(
+        "popup-state",
+        PopupState::Status {
+            kind: crate::core::capture::StatusKind::Translating,
+        },
+    )?;
+    if prepared
+        .recv_timeout(std::time::Duration::from_millis(150))
+        .is_err()
+    {
+        warn!("popup did not confirm its reset state in 150 ms; showing it anyway");
+    }
     // `orderFrontRegardless`/`ShowWindow` touch the platform UI thread. Wait until the show has
     // actually run, otherwise a fast capture failure can hide the window before this queued show
     // executes and leave a stale popup on screen.
@@ -355,51 +589,6 @@ pub fn show_popup(app: &AppHandle) -> tauri::Result<()> {
     register_escape(app);
     // Unpinned: a click outside closes the popup even before it ever took focus (R5).
     platform::services().start_outside_click_monitor(app.clone());
-    app.emit(
-        "popup-state",
-        PopupState::Status {
-            kind: crate::core::capture::StatusKind::Translating,
-        },
-    )?;
-    Ok(())
-}
-
-/// Shows the status pill next to a screen region (global logical points) without activating it
-/// (spec 004 US1). Later growth keeps the popup next to the region.
-pub fn show_popup_near(app: &AppHandle, region: Rect) -> tauri::Result<()> {
-    let Some(window) = popup_window(app) else {
-        return Ok(());
-    };
-    let services = platform::services();
-    let centre = Point {
-        x: region.x + region.width / 2.0,
-        y: region.y + region.height / 2.0,
-    };
-    let work_area = services.monitor_work_area(centre);
-    let size = popup_pill_size();
-    let position = place_near_region(region, work_area, size, PLACEMENT_GAP);
-
-    *POPUP_ANCHOR.lock() = Some(centre);
-    *POPUP_REGION.lock() = Some(region);
-    *POPUP_LOCKED.lock() = None;
-    POPUP_PINNED.store(false, Ordering::SeqCst);
-    window.set_size(LogicalSize::new(size.width, size.height))?;
-    window.set_position(LogicalPosition::new(position.x, position.y))?;
-    let (sender, receiver) = std::sync::mpsc::channel();
-    let show_window = window.clone();
-    let _ = app.run_on_main_thread(move || {
-        services_show(&show_window);
-        let _ = sender.send(());
-    });
-    let _ = receiver.recv_timeout(std::time::Duration::from_millis(300));
-    register_escape(app);
-    platform::services().start_outside_click_monitor(app.clone());
-    app.emit(
-        "popup-state",
-        PopupState::Status {
-            kind: crate::core::capture::StatusKind::Translating,
-        },
-    )?;
     Ok(())
 }
 
@@ -419,45 +608,22 @@ pub fn resize_popup_to(app: &AppHandle, width: f64, height: f64) {
         size.height
     );
     let services = platform::services();
-    let is_pill = size.width <= POPUP_PILL_WIDTH;
-    let locked = *POPUP_LOCKED.lock();
-    if let (false, Some(frame)) = (is_pill, locked) {
-        let work_area = services.monitor_work_area(Point {
-            x: frame.x,
-            y: frame.y,
-        });
-        let resized = locked_resize(frame, size.height, work_area);
-        let _ = window.set_size(LogicalSize::new(resized.width, resized.height));
-        *POPUP_LOCKED.lock() = Some(Rect {
-            height: resized.height,
-            ..frame
-        });
+    let Some(slot) = *POPUP_SLOT.lock() else {
         return;
-    }
-    let cursor = POPUP_ANCHOR
-        .lock()
-        .unwrap_or_else(|| services.cursor_position());
-    let work_area = services.monitor_work_area(cursor);
-    let region = *POPUP_REGION.lock();
-    let position = match region {
-        Some(region) => place_near_region(region, work_area, size, PLACEMENT_GAP),
-        None => place_popup(&PlacementInput {
-            cursor,
-            work_area,
-            size,
-            scale_factor: 1.0,
-            gap: PLACEMENT_GAP,
-        }),
     };
-    let _ = window.set_size(LogicalSize::new(size.width, size.height));
-    let _ = window.set_position(LogicalPosition::new(position.x, position.y));
+    let is_pill = size.width <= POPUP_PILL_WIDTH;
+    let work_area = services.monitor_work_area(slot.corner);
+    let locked = *POPUP_LOCKED.lock();
+    // After the first result only the height changes (R20); the corner of the slot never moves.
+    let size = match (is_pill, locked) {
+        (false, Some(frame)) => locked_resize(frame, size.height, work_area),
+        _ => size,
+    };
+    let frame = frame_in_slot(slot, size, work_area);
+    let _ = window.set_size(LogicalSize::new(frame.width, frame.height));
+    let _ = window.set_position(LogicalPosition::new(frame.x, frame.y));
     if !is_pill {
-        *POPUP_LOCKED.lock() = Some(Rect {
-            x: position.x,
-            y: position.y,
-            width: size.width,
-            height: size.height,
-        });
+        *POPUP_LOCKED.lock() = Some(frame);
     }
 }
 
@@ -539,45 +705,50 @@ pub fn hide_popup(app: &AppHandle) {
         platform::services().restore_capture_target();
     }
     POPUP_PINNED.store(false, Ordering::SeqCst);
-    *POPUP_ANCHOR.lock() = None;
-    *POPUP_REGION.lock() = None;
+    *POPUP_SLOT.lock() = None;
     *POPUP_LOCKED.lock() = None;
     unregister_escape(app);
     let _ = app.emit("popup-state", PopupState::Hidden);
 }
 
-/// Opens the quick panel and gives it focus (the user is about to type).
-pub fn show_quick(app: &AppHandle) -> tauri::Result<()> {
+/// Opens the quick panel and gives it focus (the user is about to type). `anchor` says where it
+/// goes: under the tray icon, upper-centre for a shortcut, or beside a screen region (FR-024).
+pub fn show_quick(app: &AppHandle, anchor: PanelAnchor) -> tauri::Result<()> {
     if focus_setup_if_open(app) {
         return Ok(());
     }
     let Some(window) = ensure_quick(app) else {
         return Ok(());
     };
+    QUICK_SCREEN_MODE.store(false, Ordering::SeqCst);
+    *QUICK_ANCHOR.lock() = anchor;
     // A new panel shows once its page is ready, never as a blank frame.
     let now = QUICK.lock().request_show();
     if !now {
         return Ok(());
     }
-    present_quick(&window)
+    present_quick(&window, anchor)
 }
 
-fn present_quick(window: &WebviewWindow) -> tauri::Result<()> {
+fn anchor_point(anchor: PanelAnchor, cursor: Point) -> Point {
+    match anchor {
+        PanelAnchor::TrayIcon(rect) | PanelAnchor::Region(rect) => Point {
+            x: rect.x + rect.width / 2.0,
+            y: rect.y + rect.height / 2.0,
+        },
+        PanelAnchor::Shortcut => cursor,
+    }
+}
+
+fn present_quick(window: &WebviewWindow, anchor: PanelAnchor) -> tauri::Result<()> {
     log::info!("quick panel: present");
     let services = platform::services();
-    let cursor = services.cursor_position();
-    let work_area = services.monitor_work_area(cursor);
+    let work_area = services.monitor_work_area(anchor_point(anchor, services.cursor_position()));
     let size = Size {
         width: QUICK_WIDTH,
         height: QUICK_HEIGHT,
     };
-    let position = place_popup(&PlacementInput {
-        cursor,
-        work_area,
-        size,
-        scale_factor: 1.0,
-        gap: PLACEMENT_GAP,
-    });
+    let position = place_panel(anchor, work_area, size, PLACEMENT_GAP);
     window.set_size(LogicalSize::new(size.width, size.height))?;
     window.set_position(LogicalPosition::new(position.x, position.y))?;
     window.show()?;
@@ -587,13 +758,28 @@ fn present_quick(window: &WebviewWindow) -> tauri::Result<()> {
     Ok(())
 }
 
+/// Closes the panel. After a screen result the app that was in front before the capture gets the
+/// focus back (FR-023).
 pub fn hide_quick(app: &AppHandle) {
+    hide_quick_with(app, true);
+}
+
+/// Closes the panel without handing the focus back (a blur, or a new capture about to start).
+pub fn hide_quick_keep_focus(app: &AppHandle) {
+    hide_quick_with(app, false);
+}
+
+fn hide_quick_with(app: &AppHandle, restore: bool) {
     QUICK.lock().hide();
+    let was_screen = QUICK_SCREEN_MODE.swap(false, Ordering::SeqCst);
     if let Some(window) = quick_window(app) {
         if window.is_visible().unwrap_or(false) {
             *QUICK_HIDDEN_AT.lock() = Some(std::time::Instant::now());
         }
         let _ = window.hide();
+    }
+    if was_screen && restore {
+        platform::services().restore_capture_target();
     }
     // Escape belongs to the popup: hiding the panel must not unregister it.
 }
@@ -603,7 +789,7 @@ pub fn toggle_quick(app: &AppHandle) {
     if quick_is_visible(app) || pending {
         hide_quick(app);
     } else {
-        let _ = show_quick(app);
+        let _ = show_quick(app, PanelAnchor::Shortcut);
     }
 }
 
@@ -1370,6 +1556,12 @@ pub fn release_warm_overlay(app: &AppHandle) {
 
 /// Destroys every overlay and gives the foreground back.
 pub fn close_overlays(app: &AppHandle) {
+    close_overlays_with(app, true);
+}
+
+/// Closes the overlays; `restore_focus` hands the foreground back to the app that was in front
+/// (not when a panel is about to take it).
+pub fn close_overlays_with(app: &AppHandle, restore_focus: bool) {
     let labels = overlay_labels(app);
     if labels.is_empty() {
         return;
@@ -1396,7 +1588,9 @@ pub fn close_overlays(app: &AppHandle) {
     } else {
         unregister_escape(app);
     }
-    platform::services().restore_capture_target();
+    if restore_focus {
+        platform::services().restore_capture_target();
+    }
 }
 
 #[cfg(test)]

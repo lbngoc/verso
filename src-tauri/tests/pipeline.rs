@@ -178,12 +178,15 @@ async fn screen_text_goes_through_the_same_engines_with_the_screen_origin() {
         common::FakeResponse::ok("xin chào", Some("en")),
     ));
     let (pipeline, _settings, _dir) = pipeline_with(vec![engine.clone()], None);
+    // The panel sends the recognised text through `translate` with the screen origin.
     let result = pipeline
-        .translate_screen_text("hello there")
+        .translate("hello there", "auto", "vi", Origin::Screen)
         .await
         .expect("translates");
     assert_eq!(result.text, "xin chào");
     assert_eq!(engine.calls(), 1);
-    let empty = pipeline.translate_screen_text("   ").await;
+    let empty = pipeline
+        .translate("   ", "auto", "vi", Origin::Screen)
+        .await;
     assert!(matches!(empty, Err(EngineError::EmptyInput)));
 }

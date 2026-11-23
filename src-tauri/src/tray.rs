@@ -292,7 +292,7 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
             "screen" => shortcuts::trigger_screen(app),
             "speak" => shortcuts::trigger_speak(app),
             "quick" => {
-                let _ = window_manager::show_quick(app);
+                let _ = window_manager::show_quick(app, window_manager::PanelAnchor::Shortcut);
             }
             "settings" => window_manager::show_settings(app),
             "about" => window_manager::show_settings_section(app, "about"),
@@ -309,15 +309,36 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
             if let tauri::tray::TrayIconEvent::Click {
                 button: tauri::tray::MouseButton::Left,
                 button_state: tauri::tray::MouseButtonState::Up,
+                rect,
                 ..
             } = event
             {
-                crate::commands::open_quick_from_tray(tray.app_handle());
+                let icon = tray_icon_rect(tray.app_handle(), rect);
+                crate::commands::open_quick_from_tray(tray.app_handle(), icon);
             }
         })
         .build(app)?;
 
     Ok(())
+}
+
+/// The tray icon's frame from a click event, in the logical points the placement maths uses
+/// (physical pixels divided by the scale of the monitor the icon is on).
+fn tray_icon_rect(app: &AppHandle, rect: tauri::Rect) -> crate::platform::Rect {
+    let position = rect.position.to_physical::<f64>(1.0);
+    let size = rect.size.to_physical::<f64>(1.0);
+    let scale = app
+        .monitor_from_point(position.x, position.y)
+        .ok()
+        .flatten()
+        .map_or(1.0, |monitor| monitor.scale_factor())
+        .max(0.5);
+    crate::platform::Rect {
+        x: position.x / scale,
+        y: position.y / scale,
+        width: size.width / scale,
+        height: size.height / scale,
+    }
 }
 
 #[cfg(test)]

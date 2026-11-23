@@ -9,15 +9,12 @@ use std::time::Instant;
 
 use log::{debug, info, warn};
 use parking_lot::Mutex;
-use serde_json::json;
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Manager};
 
 use crate::commands::AppState;
-use crate::core::capture::PopupState;
 use crate::core::ocr_text;
-use crate::platform::{
-    self, CaptureError, CaptureFailure, CaptureRegion, PermissionKind, PermissionStatus, Rect,
-};
+use crate::core::quick_queue::QuickScreenEvent;
+use crate::platform::{self, CaptureError, CaptureRegion, PermissionKind, PermissionStatus, Rect};
 use crate::window_manager;
 
 /// A drag smaller than this many points on a side is a click, which cancels.
@@ -230,8 +227,15 @@ pub fn start(app: &AppHandle) -> StartResult {
     }
 
     let started = Instant::now();
-    // A popup from the previous capture is closed first so it cannot sit under the overlay.
+    // A popup or panel from the previous capture is closed first so it cannot sit under the
+    // overlay. A panel showing a screen result keeps the app that was in front before it as the
+    // focus target, so closing it later still returns there (FR-023).
     window_manager::hide_popup(app);
+    let was_screen_result = window_manager::quick_in_screen_mode();
+    window_manager::hide_quick_keep_focus(app);
+    if !was_screen_result {
+        services.remember_capture_target();
+    }
     let monitors = window_manager::monitor_snapshots(app);
     if SESSION.lock().try_start(monitors.clone()) != StartResult::Opened {
         return StartResult::Ignored;
@@ -243,6 +247,8 @@ pub fn start(app: &AppHandle) -> StartResult {
         return StartResult::Ignored;
     }
     info!("overlays created in {} ms", started.elapsed().as_millis());
+    // The panel is built hidden while the user drags, so the result shows without a cold start.
+    let _ = window_manager::ensure_quick(app);
     StartResult::Opened
 }
 
@@ -266,7 +272,8 @@ fn rewarm(app: &AppHandle) {
     });
 }
 
-/// The user released the drag: capture, read, translate and show the popup next to the region.
+/// The user released the drag: capture, read, and hand the text to the quick panel, which shows
+/// it next to the region, editable, and translates it (spec 004 Revision 2, FR-004, FR-018).
 pub async fn finish(app: AppHandle, monitor: u32, rect: Rect) {
     finish_flow(app.clone(), monitor, rect).await;
     rewarm(&app);
@@ -280,8 +287,9 @@ async fn finish_flow(app: AppHandle, monitor: u32, rect: Rect) {
         }
         Release::Capture(region) => region,
     };
-    // The overlays go first so the shot shows the screen as it is at the moment of release.
-    window_manager::close_overlays(&app);
+    // The overlays go first so the shot shows the screen as it is at the moment of release. The
+    // focus is not handed back: the panel takes it next, and a permission step does not need it.
+    window_manager::close_overlays_with(&app, false);
     let services = platform::services();
     if !services.overlay_excluded_from_capture() {
         // The compositor needs a frame to draw the screen without the overlay.
@@ -297,6 +305,7 @@ async fn finish_flow(app: AppHandle, monitor: u32, rect: Rect) {
             )))
         });
     let capture_ms = started.elapsed().as_millis();
+    let captured_at = Instant::now();
 
     match classify_capture(&captured) {
         FinishOutcome::Permission => {
@@ -308,7 +317,9 @@ async fn finish_flow(app: AppHandle, monitor: u32, rect: Rect) {
         }
         FinishOutcome::Failed => {
             warn!("screen capture failed");
-            show_failure(&app, region.logical, CaptureFailure::ReadFailed);
+            // The panel shows in its reading state first, then the failure.
+            show_panel(&app, region.logical, captured_at);
+            window_manager::send_quick_screen(&app, QuickScreenEvent::read_failed());
             SESSION.lock().finish();
             return;
         }
@@ -320,8 +331,8 @@ async fn finish_flow(app: AppHandle, monitor: u32, rect: Rect) {
     };
     SESSION.lock().advance();
 
-    // Shown only after the capture: on Windows the popup would otherwise be in the picture.
-    let _ = window_manager::show_popup_near(&app, region.logical);
+    // Shown only after the capture: on Windows the panel would otherwise be in the picture.
+    show_panel(&app, region.logical, captured_at);
 
     let settings = app.state::<AppState>().settings.get();
     let language = recognition_language(&settings.ocr.language);
@@ -343,7 +354,7 @@ async fn finish_flow(app: AppHandle, monitor: u32, rect: Rect) {
         Ok(lines) => lines,
         Err(error) => {
             warn!("text recognition failed: {}", error.0);
-            show_failure_in_place(&app, CaptureFailure::ReadFailed);
+            window_manager::send_quick_screen(&app, QuickScreenEvent::read_failed());
             SESSION.lock().finish();
             return;
         }
@@ -356,47 +367,23 @@ async fn finish_flow(app: AppHandle, monitor: u32, rect: Rect) {
     if text.trim().is_empty() {
         // Nothing readable: no engine request is made (FR-005).
         info!("capture {capture_ms} ms, ocr {ocr_ms} ms, lines 0, chars 0: no text in the region");
-        show_failure_in_place(&app, CaptureFailure::NoTextInRegion);
+        window_manager::send_quick_screen(&app, QuickScreenEvent::no_text());
         SESSION.lock().finish();
         return;
     }
 
     let char_count = text.chars().count();
-    let translating = Instant::now();
-    let _ = app.emit(
-        "translation-started",
-        json!({
-            "origin": crate::core::engine::Origin::Screen,
-            "truncated": char_count > crate::core::pipeline::MAX_INPUT_CHARS,
-            "original_length": if char_count > crate::core::pipeline::MAX_INPUT_CHARS { Some(char_count) } else { None },
-        }),
-    );
-    let result = app
-        .state::<AppState>()
-        .pipeline
-        .translate_screen_text(&text)
-        .await;
-    drop(text);
-    info!(
-        "capture {capture_ms} ms, ocr {ocr_ms} ms, lines {line_count}, chars {char_count}, translate {} ms",
-        translating.elapsed().as_millis()
-    );
-    match &result {
-        Ok(value) => {
-            let _ = app.emit("translation-finished", value);
-            let _ = app.emit("popup-state", PopupState::Result);
-        }
-        Err(error) => {
-            let _ = app.emit("translation-finished", json!({ "error": error }));
-            let _ = app.emit(
-                "popup-state",
-                PopupState::Error {
-                    error: error.clone(),
-                },
-            );
-        }
-    }
+    info!("capture {capture_ms} ms, ocr {ocr_ms} ms, lines {line_count}, chars {char_count}");
+    // The panel translates it (origin `screen`) and the user may correct the text first.
+    window_manager::send_quick_screen(&app, QuickScreenEvent::text(text));
     SESSION.lock().finish();
+}
+
+/// Resets the panel to "Reading the text…", places it by the screen-result rule and shows it;
+/// logs how long after the capture it became visible (never any text).
+fn show_panel(app: &AppHandle, region: Rect, captured_at: Instant) {
+    window_manager::prepare_quick_screen(app, region);
+    info!("panel shown in {} ms", captured_at.elapsed().as_millis());
 }
 
 /// An unknown code falls back to "auto" (logged, the setting is kept), data-model OcrSettings.
@@ -421,15 +408,6 @@ pub fn resolve_language(configured: &str, known: &[platform::OcrLanguage]) -> St
         info!("recognition language {configured} is not available; using auto");
         "auto".into()
     }
-}
-
-fn show_failure(app: &AppHandle, region: Rect, failure: CaptureFailure) {
-    let _ = window_manager::show_popup_near(app, region);
-    show_failure_in_place(app, failure);
-}
-
-fn show_failure_in_place(app: &AppHandle, failure: CaptureFailure) {
-    let _ = app.emit("popup-state", PopupState::CaptureFailed { failure });
 }
 
 fn open_permission_step(app: &AppHandle) {

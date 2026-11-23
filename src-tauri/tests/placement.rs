@@ -234,13 +234,15 @@ fn a_tall_region_gets_the_popup_to_the_right_then_the_left() {
 }
 
 #[test]
-fn a_region_filling_the_screen_gets_the_popup_inside_its_top_clamped() {
+fn a_region_filling_the_screen_gets_the_popup_inside_its_lower_part() {
+    // Revision 2: the result panel sits over the bottom of a region that fills the screen, where
+    // a result is read, not over its top.
     let area = work_area();
     let popup = size(POPUP_WIDTH);
     let target = region(area.x, area.y, area.width, area.height);
     let position = place_near_region(target, area, popup, PLACEMENT_GAP);
     assert!(inside(area, position, popup));
-    assert!(position.y <= area.y + EDGE_MARGIN + 0.001);
+    assert!(position.y + popup.height >= area.bottom() - EDGE_MARGIN - 0.001);
 }
 
 #[test]
@@ -291,4 +293,132 @@ fn the_update_window_height_is_clamped_to_220_and_560() {
     assert_eq!(clamp_update_height(300.0), 300.0);
     assert_eq!(clamp_update_height(900.0), 560.0);
     assert_eq!(clamp_update_height(f64::NAN), 220.0);
+}
+
+// ---- spec 004 Revision 2 (T068): the panel is placed by how it was opened ----
+
+use verso_lib::window_manager::{
+    frame_in_slot, place_panel, popup_slot, PanelAnchor, QUICK_HEIGHT, QUICK_WIDTH,
+};
+
+fn panel() -> Size {
+    Size {
+        width: QUICK_WIDTH,
+        height: QUICK_HEIGHT,
+    }
+}
+
+/// A macOS screen with a notch-height menu bar (work area top at 38).
+fn notch_area() -> Rect {
+    region(0.0, 38.0, 1512.0, 944.0)
+}
+
+#[test]
+fn a_tray_icon_in_the_menu_bar_puts_the_panel_just_below_it_centred() {
+    let area = notch_area();
+    let icon = region(1000.0, 0.0, 24.0, 24.0);
+    let position = place_panel(PanelAnchor::TrayIcon(icon), area, panel(), PLACEMENT_GAP);
+    assert_eq!(position.y, area.y + PLACEMENT_GAP);
+    assert_eq!(position.x, 1012.0 - QUICK_WIDTH / 2.0);
+}
+
+#[test]
+fn a_tray_icon_at_the_right_edge_is_clamped_inside() {
+    let area = notch_area();
+    let icon = region(area.right() - 30.0, 0.0, 24.0, 24.0);
+    let position = place_panel(PanelAnchor::TrayIcon(icon), area, panel(), PLACEMENT_GAP);
+    assert_eq!(position.x, area.right() - QUICK_WIDTH - EDGE_MARGIN);
+}
+
+#[test]
+fn a_tray_icon_on_a_bottom_taskbar_puts_the_panel_just_above_it() {
+    let area = region(0.0, 0.0, 1920.0, 1040.0);
+    let icon = region(1200.0, 1040.0, 24.0, 40.0);
+    let position = place_panel(PanelAnchor::TrayIcon(icon), area, panel(), PLACEMENT_GAP);
+    assert_eq!(position.y, area.bottom() - PLACEMENT_GAP - QUICK_HEIGHT);
+    assert_eq!(position.x, 1212.0 - QUICK_WIDTH / 2.0);
+}
+
+#[test]
+fn a_tray_icon_on_a_side_taskbar_puts_the_panel_beside_it_centred() {
+    let left = region(48.0, 0.0, 1872.0, 1080.0);
+    let icon = region(8.0, 500.0, 32.0, 32.0);
+    let position = place_panel(PanelAnchor::TrayIcon(icon), left, panel(), PLACEMENT_GAP);
+    assert_eq!(position.x, left.x + PLACEMENT_GAP);
+    assert_eq!(position.y, 516.0 - QUICK_HEIGHT / 2.0);
+
+    let right = region(0.0, 0.0, 1872.0, 1080.0);
+    let icon = region(1880.0, 20.0, 32.0, 32.0);
+    let position = place_panel(PanelAnchor::TrayIcon(icon), right, panel(), PLACEMENT_GAP);
+    assert_eq!(position.x, right.right() - PLACEMENT_GAP - QUICK_WIDTH);
+    assert!(position.y >= right.y + EDGE_MARGIN, "clamped at the top");
+}
+
+#[test]
+fn the_shortcut_puts_the_panel_centred_in_the_upper_third() {
+    let area = notch_area();
+    let position = place_panel(PanelAnchor::Shortcut, area, panel(), PLACEMENT_GAP);
+    assert_eq!(position.x, (area.width - QUICK_WIDTH) / 2.0);
+    assert_eq!(position.y, area.y + (area.height - QUICK_HEIGHT) / 3.0);
+}
+
+#[test]
+fn the_shortcut_on_a_monitor_with_a_negative_origin_stays_on_it() {
+    let area = region(-1440.0, 25.0, 1440.0, 875.0);
+    let position = place_panel(PanelAnchor::Shortcut, area, panel(), PLACEMENT_GAP);
+    assert!(inside(area, position, panel()));
+    assert_eq!(position.x, area.x + (area.width - QUICK_WIDTH) / 2.0);
+}
+
+#[test]
+fn a_region_anchor_follows_the_region_rules() {
+    let area = notch_area();
+    let target = region(300.0, 200.0, 200.0, 60.0);
+    let position = place_panel(PanelAnchor::Region(target), area, panel(), PLACEMENT_GAP);
+    assert_eq!(position.x, 300.0);
+    assert_eq!(position.y, target.bottom() + PLACEMENT_GAP);
+
+    let low = region(300.0, 880.0, 200.0, 60.0);
+    let position = place_panel(PanelAnchor::Region(low), area, panel(), PLACEMENT_GAP);
+    assert_eq!(position.y, low.y - PLACEMENT_GAP - QUICK_HEIGHT);
+
+    let filling = region(area.x, area.y, area.width, area.height);
+    let position = place_panel(PanelAnchor::Region(filling), area, panel(), PLACEMENT_GAP);
+    assert!(inside(area, position, panel()));
+    assert!(position.y + QUICK_HEIGHT >= area.bottom() - EDGE_MARGIN - 0.001);
+}
+
+// ---- T080: the popup's pill and its result share one corner ----
+
+fn slot_input(cursor: Point, area: Rect) -> PlacementInput {
+    PlacementInput {
+        cursor,
+        work_area: area,
+        size: size(POPUP_WIDTH),
+        scale_factor: 1.0,
+        gap: PLACEMENT_GAP,
+    }
+}
+
+#[test]
+fn the_pill_and_the_result_share_the_top_left_when_placed_below() {
+    let area = work_area();
+    let slot = popup_slot(&slot_input(Point { x: 500.0, y: 300.0 }, area));
+    assert!(!slot.grow_up);
+    let pill = frame_in_slot(slot, verso_lib::window_manager::popup_pill_size(), area);
+    let result = frame_in_slot(slot, size(POPUP_WIDTH), area);
+    assert_eq!((pill.x, pill.y), (result.x, result.y));
+    assert_eq!(pill.y, 300.0 + PLACEMENT_GAP);
+}
+
+#[test]
+fn the_pill_and_the_result_share_the_bottom_left_when_placed_above() {
+    let area = work_area();
+    let slot = popup_slot(&slot_input(Point { x: 500.0, y: 940.0 }, area));
+    assert!(slot.grow_up);
+    let pill = frame_in_slot(slot, verso_lib::window_manager::popup_pill_size(), area);
+    let result = frame_in_slot(slot, size(POPUP_WIDTH), area);
+    assert_eq!(pill.x, result.x);
+    assert!((pill.bottom() - result.bottom()).abs() < 0.001);
+    assert!(result.y >= area.y + EDGE_MARGIN - 0.001);
 }

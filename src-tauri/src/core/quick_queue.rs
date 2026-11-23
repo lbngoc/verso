@@ -2,11 +2,62 @@
 //! show or a clipboard prefill asked for before its page is ready waits here and is replayed once
 //! the page reports ready. Pure state, so the ordering rules are tested without windows.
 
+/// A screen capture reaching the panel (`quick-screen`, contracts/screen-result-panel.md).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct QuickScreenEvent {
+    /// `reading`, `text`, `no_text` or `read_failed`.
+    pub phase: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_lang: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_lang: Option<String>,
+}
+
+impl QuickScreenEvent {
+    pub fn reading(source_lang: String, target_lang: String) -> Self {
+        Self {
+            phase: "reading",
+            text: None,
+            source_lang: Some(source_lang),
+            target_lang: Some(target_lang),
+        }
+    }
+
+    pub fn text(text: String) -> Self {
+        Self {
+            phase: "text",
+            text: Some(text),
+            source_lang: None,
+            target_lang: None,
+        }
+    }
+
+    pub fn no_text() -> Self {
+        Self::bare("no_text")
+    }
+
+    pub fn read_failed() -> Self {
+        Self::bare("read_failed")
+    }
+
+    fn bare(phase: &'static str) -> Self {
+        Self {
+            phase,
+            text: None,
+            source_lang: None,
+            target_lang: None,
+        }
+    }
+}
+
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct QuickQueue {
     ready: bool,
     pending_show: bool,
     pending_prefill: Option<String>,
+    pending_screen: Option<QuickScreenEvent>,
 }
 
 /// What the window layer must do after `page_ready`.
@@ -14,6 +65,8 @@ pub struct QuickQueue {
 pub struct Replay {
     pub present: bool,
     pub prefill: Option<String>,
+    /// Sent before the show, so the panel never paints the previous capture or typed text.
+    pub screen: Option<QuickScreenEvent>,
 }
 
 impl QuickQueue {
@@ -22,6 +75,7 @@ impl QuickQueue {
             ready: false,
             pending_show: false,
             pending_prefill: None,
+            pending_screen: None,
         }
     }
 
@@ -58,12 +112,28 @@ impl QuickQueue {
         }
     }
 
+    /// A screen capture event. `Some`: send it now; `None`: it waits for the page (a newer event
+    /// replaces an older waiting one). A `reading` event replaces typed content, so a waiting
+    /// clipboard prefill is dropped.
+    pub fn screen_event(&mut self, event: QuickScreenEvent) -> Option<QuickScreenEvent> {
+        if event.phase == "reading" {
+            self.pending_prefill = None;
+        }
+        if self.ready {
+            Some(event)
+        } else {
+            self.pending_screen = Some(event);
+            None
+        }
+    }
+
     /// The page has its listeners: hand back what waited for it.
     pub fn page_ready(&mut self) -> Replay {
         self.ready = true;
         Replay {
             present: std::mem::take(&mut self.pending_show),
             prefill: self.pending_prefill.take(),
+            screen: self.pending_screen.take(),
         }
     }
 
@@ -71,6 +141,7 @@ impl QuickQueue {
     pub fn hide(&mut self) {
         self.pending_show = false;
         self.pending_prefill = None;
+        self.pending_screen = None;
     }
 
     /// The panel lost focus. Only a panel on screen closes; a panel still loading keeps its queue,
@@ -140,7 +211,8 @@ mod tests {
             queue.page_ready(),
             Replay {
                 present: false,
-                prefill: None
+                prefill: None,
+                screen: None
             }
         );
     }
@@ -151,5 +223,48 @@ mod tests {
         queue.page_ready();
         queue.created();
         assert!(!queue.request_show());
+    }
+
+    #[test]
+    fn a_screen_event_before_ready_waits_and_comes_before_the_show() {
+        let mut queue = QuickQueue::new();
+        queue.created();
+        queue.request_show();
+        let event = QuickScreenEvent::reading("auto".into(), "vi".into());
+        assert_eq!(queue.screen_event(event.clone()), None);
+        let replay = queue.page_ready();
+        assert_eq!(replay.screen, Some(event));
+        assert!(
+            replay.present,
+            "the show follows the event in the same replay"
+        );
+        assert_eq!(
+            queue.screen_event(QuickScreenEvent::no_text()),
+            Some(QuickScreenEvent::no_text()),
+            "once ready, an event is immediate"
+        );
+    }
+
+    #[test]
+    fn a_newer_screen_event_replaces_an_older_waiting_one() {
+        let mut queue = QuickQueue::new();
+        queue.created();
+        queue.screen_event(QuickScreenEvent::reading("auto".into(), "vi".into()));
+        queue.screen_event(QuickScreenEvent::text("hello".into()));
+        assert_eq!(
+            queue.page_ready().screen,
+            Some(QuickScreenEvent::text("hello".into()))
+        );
+    }
+
+    #[test]
+    fn a_capture_drops_a_waiting_clipboard_prefill() {
+        let mut queue = QuickQueue::new();
+        queue.created();
+        queue.prefill("typed".into());
+        queue.screen_event(QuickScreenEvent::reading("auto".into(), "vi".into()));
+        let replay = queue.page_ready();
+        assert_eq!(replay.prefill, None);
+        assert!(replay.screen.is_some());
     }
 }

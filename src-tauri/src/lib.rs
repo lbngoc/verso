@@ -238,6 +238,8 @@ pub fn run() {
             commands::hide_popup,
             commands::show_quick,
             commands::quick_ready,
+            commands::quick_screen_prepared,
+            commands::popup_prepared,
             commands::hide_quick,
             commands::open_settings,
             commands::open_onboarding,

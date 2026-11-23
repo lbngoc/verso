@@ -11,6 +11,7 @@
   import { isRtl, type NoticeItem } from "$lib/notices";
   import { buildNotices } from "$lib/notices";
   import { quickKey, type QuickFocus } from "./keymap";
+  import { initialSession, screenSession, type SessionEvent } from "./screenSession";
   import {
     commands,
     events,
@@ -19,6 +20,8 @@
     type CaptureOutcome,
     type EngineError,
     type Language,
+    type Origin,
+    type QuickScreenEvent,
     type SettingsProfile,
     type TranslationResult,
   } from "$lib/ipc";
@@ -46,7 +49,11 @@
   let captureFailure = $state<CaptureFailure | null>(null);
   let lastTranslated = "";
   let lastRequestAt = 0;
-  let requestSeq = 0;
+  // One capture's state (reset rules in screenSession.ts); the fields below mirror it.
+  let session = $state(initialSession("auto", "vi"));
+  // The first translation of a capture carries the `screen` origin; later edits are typed.
+  let nextOrigin: Origin = "typed";
+  let copiedSource = $state(false);
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
   let throttleTimer: ReturnType<typeof setTimeout> | null = null;
   let slowTimer: ReturnType<typeof setTimeout> | null = null;
@@ -81,6 +88,76 @@
     notices.length ? $translator(notices[0].key, notices[0].params ?? {}) : "",
   );
 
+  // Applies the reducer's state to the page fields it mirrors.
+  function dispatch(event: SessionEvent): void {
+    session = screenSession(session, event);
+    if (event.phase === "reading" || event.phase === "text" || event.phase === "no_text") {
+      text = session.text;
+      result = session.result;
+      error = session.error;
+      detected = session.detected;
+      captureFailure = session.capture_note;
+    }
+    if (event.phase === "reading") {
+      source = session.source_lang;
+      target = session.target_lang;
+    }
+  }
+
+  function clearTimers(): void {
+    if (debounceTimer) clearTimeout(debounceTimer);
+    if (throttleTimer) clearTimeout(throttleTimer);
+    debounceTimer = null;
+    throttleTimer = null;
+    clearSlow();
+  }
+
+  async function onQuickScreen(event: QuickScreenEvent): Promise<void> {
+    if (event.phase === "reading") {
+      clearTimers();
+      loading = false;
+      copied = false;
+      copiedSource = false;
+      speaking = false;
+      focus = "input";
+      lastTranslated = "";
+      lastRequestAt = 0;
+      nextOrigin = "typed";
+      dispatch(event);
+      // The backend shows the panel once the reset state is on screen (FR-021).
+      await tick();
+      void commands.quickScreenPrepared().catch(() => undefined);
+      return;
+    }
+    dispatch(event);
+    if (event.phase === "text" && event.text) {
+      nextOrigin = "screen";
+      lastTranslated = "";
+      commands
+        .detectLanguage(text)
+        .then((language) => {
+          if (language) detected = language;
+        })
+        .catch(() => undefined);
+      void runTranslation();
+      await tick();
+      textarea?.focus();
+      textarea?.setSelectionRange(text.length, text.length);
+    }
+  }
+
+  async function copySource(): Promise<void> {
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      textarea?.select();
+      document.execCommand("copy");
+    }
+    copiedSource = true;
+    setTimeout(() => (copiedSource = false), 1500);
+  }
+
   function clearSlow(): void {
     if (slowTimer) clearTimeout(slowTimer);
     slowTimer = null;
@@ -109,7 +186,10 @@
       return;
     }
 
-    const seq = ++requestSeq;
+    dispatch({ phase: "request" });
+    const seq = session.request_seq;
+    const origin = nextOrigin;
+    nextOrigin = "typed";
     lastRequestAt = Date.now();
     lastTranslated = value;
     loading = true;
@@ -118,19 +198,19 @@
     slowTimer = setTimeout(() => (stillTranslating = true), 3000);
 
     try {
-      const translated = await commands.translate(value, source, target, "typed");
-      if (seq !== requestSeq) return;
+      const translated = await commands.translate(value, source, target, origin);
+      if (seq !== session.request_seq) return;
       result = translated;
       if (translated.direction_used.source !== "auto") {
         detected = translated.direction_used.source;
       }
       void refreshVoice();
     } catch (failure) {
-      if (seq !== requestSeq) return;
+      if (seq !== session.request_seq) return;
       error = failure as EngineError;
       result = null;
     } finally {
-      if (seq === requestSeq) {
+      if (seq === session.request_seq) {
         loading = false;
         clearSlow();
       }
@@ -151,6 +231,11 @@
   function onInput(): void {
     lastTranslated = "";
     captureFailure = null;
+    nextOrigin = "typed";
+    // Typing replaces the "nothing found" note: the user is writing the text instead.
+    if (session.phase === "no_text" || session.phase === "read_failed") {
+      session = { ...session, phase: "idle" };
+    }
     schedule();
   }
 
@@ -285,6 +370,7 @@
         source = settings.source_lang;
         target = settings.target_lang;
         step = settings.text_size_step ?? 0;
+        session = initialSession(settings.source_lang, settings.target_lang);
       }
 
       // Settings changed elsewhere (the language and size apply without reopening the panel).
@@ -295,6 +381,8 @@
           step = next.text_size_step ?? 0;
         }),
       );
+
+      unlisteners.push(await events.onQuickScreen((payload) => void onQuickScreen(payload)));
 
       unlisteners.push(
         await events.onCaptureFinished((payload: CaptureOutcome) => {
@@ -307,6 +395,7 @@
         await events.onQuickPrefill((payload) => {
           text = payload.text;
           lastTranslated = "";
+          nextOrigin = "typed";
           result = null;
           focus = "input";
           void tick().then(() => {
@@ -384,18 +473,38 @@
     </button>
   </header>
 
-  <textarea
-    bind:this={textarea}
-    bind:value={text}
-    oninput={onInput}
-    rows="3"
-    placeholder={$translator("quick.placeholder")}
-    aria-label={$translator("quick.input_label")}
-    spellcheck="false"
-  ></textarea>
+  <div class="source">
+    <textarea
+      bind:this={textarea}
+      bind:value={text}
+      oninput={onInput}
+      rows="3"
+      placeholder={$translator("quick.placeholder")}
+      aria-label={$translator("quick.input_label")}
+      spellcheck="false"
+    ></textarea>
+    <button
+      class="copy-source"
+      type="button"
+      disabled={!text}
+      title={copiedSource ? $translator("quick.copied_source") : $translator("quick.copy_source")}
+      aria-label={$translator("quick.copy_source")}
+      onclick={() => void copySource()}
+    >
+      <Icon name={copiedSource ? "check" : "copy"} />
+    </button>
+  </div>
 
   {#if captureFailure}
     <p class="capture-note" role="status">{$translator(`capture.${captureFailure}`)}</p>
+  {/if}
+  {#if session.phase === "no_text" || session.phase === "read_failed"}
+    <p class="capture-note" role="status">
+      {$translator(session.phase === "no_text" ? "ocr.no_text" : "ocr.read_failed")}
+      <button class="link" type="button" onclick={() => void commands.startScreenTranslate()}>
+        {$translator("ocr.try_again")}
+      </button>
+    </p>
   {/if}
 
   <section
@@ -406,7 +515,12 @@
     aria-live="polite"
     aria-busy={loading}
   >
-    {#if error}
+    {#if session.phase === "reading"}
+      <div class="loading">
+        <span class="spinner" aria-hidden="true"></span>
+        <span>{$translator("ocr.reading")}</span>
+      </div>
+    {:else if error}
       <ErrorBanner
         {error}
         onsettings={() => commands.openSettings()}
@@ -475,8 +589,46 @@
     margin-right: 4px;
   }
 
+  .source {
+    position: relative;
+    flex: none;
+  }
+
+  .copy-source {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    padding: 4px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-secondary);
+  }
+
+  .copy-source:disabled {
+    opacity: 0.35;
+  }
+
+  .copy-source:not(:disabled):hover {
+    background: var(--surface-opaque);
+    color: var(--text);
+  }
+
+  .link {
+    border: none;
+    background: none;
+    padding: 0 0 0 6px;
+    color: var(--accent);
+    font-size: 11px;
+  }
+
+  .link:hover {
+    text-decoration: underline;
+  }
+
   textarea {
     width: 100%;
+    box-sizing: border-box;
     resize: none;
     min-height: 72px;
     max-height: 104px;
@@ -484,7 +636,7 @@
     border-radius: 10px;
     background: var(--surface-raised);
     box-shadow: inset 0 0 0 1px var(--stroke);
-    padding: 10px 12px;
+    padding: 10px 36px 10px 12px;
     font: inherit;
     color: var(--text);
     user-select: text;

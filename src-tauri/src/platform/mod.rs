@@ -38,10 +38,6 @@ pub enum CaptureFailure {
     TerminalTui,
     ElevatedWindow,
     Timeout,
-    /// Screen translate (spec 004): the region held no readable text.
-    NoTextInRegion,
-    /// Screen translate: the region could not be captured or read.
-    ReadFailed,
 }
 
 /// Result of one capture attempt; drives the popup, the quick panel and FR-018 messages.

@@ -319,16 +319,11 @@ pub fn trigger_translate(app: &AppHandle) {
     });
 }
 
-/// The screen translate shortcut, the tray item and the "try another region" button. Inside the
-/// quick panel or Setup it follows spec 009: Setup comes to the front, the panel closes, and no
-/// overlay opens.
+/// The screen translate shortcut, the tray item and the "try another region" button. Setup comes
+/// to the front and nothing opens; with the quick panel open, `start` hides it and the overlay
+/// opens (spec 004 Revision 2, FR-023).
 pub fn trigger_screen(app: &AppHandle) {
     if window_manager::focus_setup_if_open(app) {
-        return;
-    }
-    if window_manager::quick_is_open(app) {
-        log::debug!("screen translate closes the open quick panel");
-        window_manager::hide_quick(app);
         return;
     }
     // Off the event-loop thread: creating the overlay windows from a hotkey handler can deadlock

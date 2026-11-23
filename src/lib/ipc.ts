@@ -2,6 +2,14 @@ import { invoke } from "@tauri-apps/api/core";
 import { emit, listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
+/** A screen capture reaching the panel (contracts/screen-result-panel.md). */
+export interface QuickScreenEvent {
+  phase: "reading" | "text" | "no_text" | "read_failed";
+  text?: string;
+  source_lang?: string;
+  target_lang?: string;
+}
+
 export type Origin = "selection" | "typed" | "screen";
 export type Theme = "system" | "light" | "dark";
 export type Material = "glass" | "vibrancy" | "acrylic" | "opaque";
@@ -177,9 +185,7 @@ export type CaptureFailure =
   | "secure_field"
   | "terminal_tui"
   | "elevated_window"
-  | "timeout"
-  | "no_text_in_region"
-  | "read_failed";
+  | "timeout";
 
 export interface CaptureOutcome {
   method: "accessibility" | "copy" | "none";
@@ -279,6 +285,10 @@ export const commands = {
   cancelRegion: () => invoke<void>("cancel_region"),
   permissionStepKind: () => invoke<PermissionKind>("permission_step_kind"),
   restartApp: () => invoke<void>("restart_app"),
+  /** The panel has rendered the reset "reading" state; the backend may show it (spec 004 FR-021). */
+  quickScreenPrepared: () => invoke<void>("quick_screen_prepared"),
+  /** The popup has rendered the reset "Translating" state; the backend may show it (FR-022). */
+  popupPrepared: () => invoke<void>("popup_prepared"),
   /** The update window reports the height its content needs (clamped by the backend). */
   resizeUpdateWindow: (height: number) => invoke<void>("resize_update_window", { height }),
 };
@@ -313,6 +323,8 @@ export const events = {
     listen<SettingsProfile>("settings-changed", (event) => handler(event.payload)),
   onQuickPrefill: (handler: (payload: { text: string }) => void): Promise<UnlistenFn> =>
     listen<{ text: string }>("quick-prefill", (event) => handler(event.payload)),
+  onQuickScreen: (handler: (payload: QuickScreenEvent) => void): Promise<UnlistenFn> =>
+    listen<QuickScreenEvent>("quick-screen", (event) => handler(event.payload)),
   onOcrChanged: (handler: (payload: { enabled: boolean }) => void): Promise<UnlistenFn> =>
     listen<{ enabled: boolean }>("ocr-changed", (event) => handler(event.payload)),
   onSettingsSection: (handler: (payload: string) => void): Promise<UnlistenFn> =>

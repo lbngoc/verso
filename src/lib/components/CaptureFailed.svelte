@@ -1,6 +1,6 @@
 <script lang="ts">
   import { t as translator } from "$lib/i18n";
-  import { commands, type CaptureFailure } from "$lib/ipc";
+  import type { CaptureFailure } from "$lib/ipc";
 
   let {
     failure,
@@ -16,13 +16,7 @@
     onquick?: () => void;
   } = $props();
 
-  const messageKey = $derived(
-    failure === "no_text_in_region"
-      ? "ocr.no_text"
-      : failure === "read_failed"
-        ? "ocr.read_failed"
-        : `capture.${failure}`,
-  );
+  const messageKey = $derived(`capture.${failure}`);
   const modifierLabel = $derived(
     terminalModifier === "shift"
       ? $translator("capture.terminal_shift")
@@ -43,12 +37,6 @@
     {#if onquick}
       <button class="primary" type="button" onclick={onquick}>{$translator("tray.quick")}</button>
     {/if}
-  {/if}
-
-  {#if failure === "no_text_in_region" || failure === "read_failed"}
-    <button class="primary" type="button" onclick={() => void commands.startScreenTranslate()}>
-      {$translator("ocr.try_again")}
-    </button>
   {/if}
 
   {#if failure === "permission_missing"}
