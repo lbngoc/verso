@@ -98,12 +98,49 @@ fn fit(image: CapturedImage, limit: u32) -> (CapturedImage, f64) {
     )
 }
 
+/// The recogniser returns nothing for a very thin or small picture (a one-line selection is only
+/// ~25 px tall, found in Windows 11 1): the picture is centred on a larger canvas of its own
+/// background colour, and the boxes are moved back afterwards. Returns the offsets that were added.
+fn pad_to_minimum(image: CapturedImage, minimum: u32) -> (CapturedImage, u32, u32) {
+    if image.width >= minimum && image.height >= minimum {
+        return (image, 0, 0);
+    }
+    let width = image.width.max(minimum);
+    let height = image.height.max(minimum);
+    let (dx, dy) = ((width - image.width) / 2, (height - image.height) / 2);
+    // The top-left pixel stands for the background; text rarely touches the corner of a selection.
+    let background: [u8; 4] = image.bgra[..4].try_into().unwrap_or([255, 255, 255, 255]);
+    let mut canvas = Vec::with_capacity(width as usize * height as usize * 4);
+    for _ in 0..(width as usize * height as usize) {
+        canvas.extend_from_slice(&background);
+    }
+    for row in 0..image.height as usize {
+        let from = row * image.width as usize * 4;
+        let to = ((row + dy as usize) * width as usize + dx as usize) * 4;
+        canvas[to..to + image.width as usize * 4]
+            .copy_from_slice(&image.bgra[from..from + image.width as usize * 4]);
+    }
+    (
+        CapturedImage {
+            width,
+            height,
+            bgra: canvas,
+        },
+        dx,
+        dy,
+    )
+}
+
+/// Both sides at least this many pixels (a margin around a one-line selection).
+const MINIMUM_SIDE: u32 = 120;
+
 pub fn recognise(image: RegionImage, language: &str) -> Result<Vec<RecognisedLine>, OcrError> {
     let Some(image) = image.into_payload::<CapturedImage>() else {
         return Err(OcrError("the image is not a Windows capture".into()));
     };
     let engine = engine_for(language)?;
     let limit = OcrEngine::MaxImageDimension().unwrap_or(2600);
+    let (image, pad_x, pad_y) = pad_to_minimum(image, MINIMUM_SIDE);
     let (image, factor) = fit(image, limit);
 
     let writer = DataWriter::new().map_err(|cause| error("buffer", cause))?;
@@ -162,8 +199,8 @@ pub fn recognise(image: RegionImage, language: &str) -> Result<Vec<RecognisedLin
         lines.push(RecognisedLine {
             text,
             rect: Rect {
-                x: left / factor,
-                y: top / factor,
+                x: left / factor - pad_x as f64,
+                y: top / factor - pad_y as f64,
                 width: (right - left) / factor,
                 height: (bottom - top) / factor,
             },

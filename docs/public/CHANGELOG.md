@@ -5,6 +5,15 @@ the release tag, so a tag needs its section before it is pushed.
 
 ## Unreleased
 
+## 0.1.9 — 2026-11-23
+
+A fix for screen translation on Windows.
+
+### Fixed
+
+- On Windows, screen translation found no text when you selected a single line closely (the picture was
+  too thin for the system's recogniser). It now reads thin selections as well as larger ones.
+
 ## 0.1.8 — 2026-11-23
 
 Verso can now translate text on the screen that cannot be selected, and the update window and Permissions

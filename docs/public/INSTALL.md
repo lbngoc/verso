@@ -1,6 +1,6 @@
 # Installing Verso
 
-Written for **Verso 0.1.8** (macOS 13 or later; Windows 10 or 11, 64-bit). The macOS build is signed with
+Written for **Verso 0.1.9** (macOS 13 or later; Windows 10 or 11, 64-bit). The macOS build is signed with
 Verso's own (self-signed) certificate but not notarized, and the Windows build is unsigned, so both systems ask for one confirmation on the first
 launch; the steps below cover it.
 
