@@ -4,7 +4,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 
 /** A screen capture reaching the panel (contracts/screen-result-panel.md). */
 export interface QuickScreenEvent {
-  phase: "reading" | "text" | "no_text" | "read_failed";
+  phase: "reading" | "text" | "no_text" | "read_failed" | "reset";
   text?: string;
   source_lang?: string;
   target_lang?: string;

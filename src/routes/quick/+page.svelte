@@ -91,7 +91,12 @@
   // Applies the reducer's state to the page fields it mirrors.
   function dispatch(event: SessionEvent): void {
     session = screenSession(session, event);
-    if (event.phase === "reading" || event.phase === "text" || event.phase === "no_text") {
+    if (
+      event.phase === "reading" ||
+      event.phase === "reset" ||
+      event.phase === "text" ||
+      event.phase === "no_text"
+    ) {
       text = session.text;
       result = session.result;
       error = session.error;
@@ -113,6 +118,19 @@
   }
 
   async function onQuickScreen(event: QuickScreenEvent): Promise<void> {
+    if (event.phase === "reset") {
+      clearTimers();
+      loading = false;
+      copied = false;
+      copiedSource = false;
+      speaking = false;
+      lastTranslated = "";
+      nextOrigin = "typed";
+      dispatch(event);
+      await tick();
+      textarea?.focus();
+      return;
+    }
     if (event.phase === "reading") {
       clearTimers();
       loading = false;

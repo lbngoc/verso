@@ -61,6 +61,11 @@ export function screenSession(state: SessionState, event: SessionEvent): Session
       };
     case "text":
       return { ...state, phase: "text", text: event.text ?? "" };
+    case "reset":
+      return {
+        ...initialSession(state.source_lang, state.target_lang),
+        request_seq: state.request_seq + 1,
+      };
     case "no_text":
     case "read_failed":
       return { ...state, phase: event.phase, text: "" };

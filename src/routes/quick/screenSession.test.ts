@@ -90,4 +90,14 @@ describe("screenSession", () => {
     expect(next.request_seq).toBe(5);
     expect(next.error).toBeNull();
   });
+
+  it("a reset returns to a clean typed session and drops answers still in flight", () => {
+    const next = screenSession(typed(), { phase: "reset" });
+    expect(next.mode).toBe("typed");
+    expect(next.phase).toBe("idle");
+    expect(next.text).toBe("");
+    expect(next.result).toBeNull();
+    expect(next.capture_note).toBeNull();
+    expect(next.request_seq).toBe(5);
+  });
 });

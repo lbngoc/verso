@@ -5,7 +5,7 @@
 /// A screen capture reaching the panel (`quick-screen`, contracts/screen-result-panel.md).
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct QuickScreenEvent {
-    /// `reading`, `text`, `no_text` or `read_failed`.
+    /// `reading`, `text`, `no_text`, `read_failed` or `reset`.
     pub phase: &'static str,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub text: Option<String>,
@@ -32,6 +32,11 @@ impl QuickScreenEvent {
             source_lang: None,
             target_lang: None,
         }
+    }
+
+    /// The panel was opened normally after a screen capture: back to a fresh typed session.
+    pub fn reset() -> Self {
+        Self::bare("reset")
     }
 
     pub fn no_text() -> Self {

@@ -297,7 +297,11 @@ pub fn prepare_transient(app: &AppHandle, window: &WebviewWindow) {
             let visible = watched.is_visible().unwrap_or(false);
             if !is_popup {
                 log::info!("quick panel lost focus (visible: {visible})");
-                // A loading panel keeps its queued show; only a panel on screen closes (T134).
+                // A loading panel keeps its queued show; only a panel on screen closes (T134). A
+                // capture still being read keeps its panel (a system prompt may take the focus).
+                if QUICK_READING.load(Ordering::SeqCst) {
+                    return;
+                }
                 if QUICK.lock().blur(visible) {
                     hide_quick_keep_focus(&handle);
                 }
@@ -399,6 +403,12 @@ static QUICK_ANCHOR: parking_lot::Mutex<PanelAnchor> =
 /// The panel currently shows a screen result: closing it hands focus back (FR-023).
 static QUICK_SCREEN_MODE: AtomicBool = AtomicBool::new(false);
 
+/// The panel page still holds the last capture's state; a normal open resets it first.
+static QUICK_SCREEN_STALE: AtomicBool = AtomicBool::new(false);
+
+/// A capture is being read: a blur (a system prompt, a click elsewhere) must not drop the result.
+static QUICK_READING: AtomicBool = AtomicBool::new(false);
+
 /// The tray icon's frame at the last click, for the tray variant of the screen-result rule.
 static LAST_TRAY_ICON: parking_lot::Mutex<Option<Rect>> = parking_lot::Mutex::new(None);
 
@@ -418,6 +428,12 @@ fn screen_result_anchor(region: Rect) -> PanelAnchor {
 
 /// Sends a screen event to the panel, or keeps it until the panel's page is ready.
 pub fn send_quick_screen(app: &AppHandle, event: crate::core::quick_queue::QuickScreenEvent) {
+    // The capture is "being read" from its reading event until a text or failure event arrives.
+    match event.phase {
+        "reading" => QUICK_READING.store(true, Ordering::SeqCst),
+        "reset" => {}
+        _ => QUICK_READING.store(false, Ordering::SeqCst),
+    }
     let now = QUICK.lock().screen_event(event);
     if let Some(event) = now {
         let _ = app.emit("quick-screen", event);
@@ -452,6 +468,7 @@ pub fn prepare_quick_screen(app: &AppHandle, region: Rect) {
         warn!("panel did not confirm its reading state in 300 ms; showing it anyway");
     }
     QUICK_SCREEN_MODE.store(true, Ordering::SeqCst);
+    QUICK_SCREEN_STALE.store(true, Ordering::SeqCst);
     let anchor = screen_result_anchor(region);
     let _ = present_quick(&window, anchor);
 }
@@ -721,6 +738,10 @@ pub fn show_quick(app: &AppHandle, anchor: PanelAnchor) -> tauri::Result<()> {
         return Ok(());
     };
     QUICK_SCREEN_MODE.store(false, Ordering::SeqCst);
+    if QUICK_SCREEN_STALE.swap(false, Ordering::SeqCst) {
+        // The page still shows the last capture (note, text, result): start from a clean panel.
+        send_quick_screen(app, crate::core::quick_queue::QuickScreenEvent::reset());
+    }
     *QUICK_ANCHOR.lock() = anchor;
     // A new panel shows once its page is ready, never as a blank frame.
     let now = QUICK.lock().request_show();
