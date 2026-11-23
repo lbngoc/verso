@@ -84,7 +84,7 @@ Bộ cài không cần quyền quản trị.
 
 - ⌨️ **Chọn, nhấn, đọc** — `Alt+Shift+Z` hiện tooltip nhỏ cạnh vùng chọn rồi lớn dần thành bản dịch
 - 🔊 **Đọc** — `Alt+Shift+S` đọc văn bản đã chọn mà không mở cửa sổ
-- 🖼️ **Dịch một vùng màn hình** (tuỳ chọn) — `Alt+Shift+X` làm tối màn hình; kéo quanh chữ trong ảnh, video hay ứng dụng không chọn được chữ, bản dịch hiện ngay cạnh. Mặc định tắt, bật ở **Cài đặt › Dịch màn hình**; ảnh chỉ nằm trong bộ nhớ
+- 🖼️ **Dịch một vùng màn hình** (tuỳ chọn) — `Alt+Shift+X` làm tối màn hình; kéo quanh chữ trong ảnh, video hay ứng dụng không chọn được chữ, chữ đọc được mở trong bảng dịch ngay cạnh để bạn sửa trước khi dịch. Mặc định tắt, bật ở **Cài đặt › Chung › Dịch màn hình**; ảnh chỉ nằm trong bộ nhớ
 - 🪟 **Bảng dịch nhanh** — `Alt+Shift+T` (hoặc bấm biểu tượng khay) mở bảng cho văn bản bạn tự nhập; `Tab` đổi ngôn ngữ
 - 🔁 **Hai engine, tự chuyển khi lỗi** — Google Translate và Microsoft Translator (Bing); không cần tài khoản hay API key
 - 🎯 **Popup bấm phím là dùng** — nhận phím ngay khi có kết quả: `c` sao chép, `s` đọc, `-` `=` `0` cỡ chữ

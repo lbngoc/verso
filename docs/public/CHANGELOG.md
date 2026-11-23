@@ -7,10 +7,28 @@ the release tag, so a tag needs its section before it is pushed.
 
 ## 0.1.9 — 2026-11-23
 
-A fix for screen translation on Windows.
+Screen translation now shows its result in the translation panel, where you can correct the text, and
+the panel, Settings and popup are tidied up.
+
+### Changed
+
+- **Screen translation opens the translation panel.** After you drag around some text, the panel opens next
+  to the area with the text Verso read, already being translated. Fix a misread word and the translation
+  follows; **Copy** and **Speak** work as usual, and **Esc** returns you to the app you were in.
+- **The panel opens where you would look for it:** under the tray icon when you click it, upper-centre of
+  the screen for `⌥⇧T`, and beside the selected area for a screen result.
+- **Screen translation options moved into the existing sections:** the switch and recognition language are
+  in **General**, the shortcut is in **Shortcuts**, and the Screen Recording grant stays in **Permissions**.
+- The Accessibility and Screen Recording rows in **Permissions** line up with every other setting.
+
+### Added
+
+- A **Copy** button on the original text in the panel.
 
 ### Fixed
 
+- The selection popup no longer flashes the previous translation when it opens, and no longer jumps
+  between "Translating…" and the result.
 - On Windows, screen translation found no text when you selected a single line closely (the picture was
   too thin for the system's recogniser). It now reads thin selections as well as larger ones.
 

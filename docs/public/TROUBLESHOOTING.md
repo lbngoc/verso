@@ -65,7 +65,8 @@ right-clicking Verso in Applications and choosing **Open**.)
   with +).
 - **"No text found in that area."** Drag a larger area around the text. Protected content (some video
   players, secure windows) is captured black on purpose and has no text to read. Pick the recognition language
-  in **Settings › Screen translation** if Automatic guesses wrong.
+  in **Settings › General › Screen translation** if Automatic guesses wrong. You can also type the text
+  into the panel yourself, or choose **Try another region**.
 
 ## Where the logs are
 

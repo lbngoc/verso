@@ -95,8 +95,10 @@ the clipboard into the panel when nothing is selected.
 
 ## Screen translation (optional)
 
-**Settings › Screen translation** turns on a fourth action, `⌥⇧X` (`Alt+Shift+X`): the screen dims, you drag
-around some text, and the translation appears next to it. It is off until you switch it on.
+Switch on **Settings › General › Screen translation** to get a fourth action, `⌥⇧X` (`Alt+Shift+X`; change
+it in **Settings › Shortcuts**): the screen dims, you drag around some text, and the translation panel opens
+next to it with the text it read, which you can correct before it is translated. It is off until you switch
+it on.
 
 - **macOS 14 or later.** Verso needs the **Screen Recording** permission (**System Settings › Privacy &
   Security › Screen & System Audio Recording**). Verso opens the right pane; after you switch it on, macOS
