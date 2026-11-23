@@ -1,6 +1,5 @@
 <script lang="ts">
   import { onDestroy, onMount } from "svelte";
-  import SettingRow from "./SettingRow.svelte";
   import StatusBadge from "./StatusBadge.svelte";
   import Switch from "./Switch.svelte";
   import { t } from "$lib/i18n";
@@ -85,13 +84,17 @@
 </script>
 
 <div class="row">
-  <SettingRow label={name} helper={body}>
+  <div class="head">
+    <div class="text">
+      <span class="name">{name}</span>
+      <span class="body">{body}</span>
+    </div>
     {#if granted}
       {#key switchKey}
         <Switch checked={true} label={name} onchange={() => void openPane()} />
       {/key}
     {/if}
-  </SettingRow>
+  </div>
 
   {#if !granted}
     <StatusBadge kind="warn" text={$t("settings.permission_missing")} />
@@ -128,6 +131,30 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
+  }
+
+  .head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 36px;
+  }
+
+  .text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    text-align: left;
+  }
+
+  .name {
+    font-size: 13px;
+  }
+
+  .body {
+    font-size: 12px;
+    color: var(--text-secondary);
   }
 
   .actions {
