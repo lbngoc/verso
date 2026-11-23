@@ -1141,7 +1141,12 @@ pub fn monitor_snapshots(app: &AppHandle) -> Vec<crate::core::ocr::MonitorInfo> 
 struct WarmOverlay {
     frame: Rect,
     ready: bool,
+    created: std::time::Instant,
 }
+
+/// How long an unused warm overlay is kept. A kept-ready webview costs ~45 MB, so it lives only for
+/// a burst of captures; an idle Verso goes back to its module-off footprint (spec 004 S20).
+const WARM_LIFETIME: std::time::Duration = std::time::Duration::from_secs(120);
 
 static WARM: parking_lot::Mutex<Option<(u32, WarmOverlay)>> = parking_lot::Mutex::new(None);
 
@@ -1220,18 +1225,33 @@ pub fn warm_overlay(app: &AppHandle) {
     let Some(monitor) = warm_target(app) else {
         return;
     };
+    let created = std::time::Instant::now();
     // Claim the slot first so two callers cannot build the same window.
     *WARM.lock() = Some((
         monitor.index,
         WarmOverlay {
             frame: monitor.frame,
             ready: false,
+            created,
         },
     ));
     if build_overlay(app, &monitor).is_none() {
         *WARM.lock() = None;
     } else {
         info!("warm overlay kept for monitor {}", monitor.index);
+        // Expire it if nobody used it: the slot still holding this very overlay means it is idle.
+        let handle = app.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(WARM_LIFETIME);
+            let idle = WARM
+                .lock()
+                .as_ref()
+                .is_some_and(|(_, overlay)| overlay.created == created);
+            if idle && !crate::core::ocr::is_selecting() {
+                info!("warm overlay expired unused");
+                discard_warm(&handle);
+            }
+        });
     }
 }
 

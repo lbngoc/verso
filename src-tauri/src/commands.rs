@@ -217,10 +217,7 @@ pub fn update_settings(
     let _ = crate::shortcuts::register_all(&app);
     crate::autostart::apply(&app, profile.launch_at_login);
     if profile.ocr.enabled != was_enabled {
-        if profile.ocr.enabled {
-            let handle = app.clone();
-            std::thread::spawn(move || window_manager::warm_overlay(&handle));
-        } else {
+        if !profile.ocr.enabled {
             // Releasing the module also closes a picker that is still open, and the warm overlay.
             crate::core::ocr::cancel(&app);
             window_manager::release_warm_overlay(&app);

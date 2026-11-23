@@ -5,6 +5,28 @@ the release tag, so a tag needs its section before it is pushed.
 
 ## Unreleased
 
+## 0.1.8 — 2026-11-23
+
+Verso can now translate text on the screen that cannot be selected, and the update window and Permissions
+list are fixed up.
+
+### Added
+
+- **Screen translation** (optional, off by default): press `⌥⇧X` / `Alt+Shift+X`, drag around some text, and
+  the translation appears next to it, with its engine and a Copy and Speak button. The picture is read in
+  memory by the system's recogniser (Vision on macOS 14+, Windows OCR on Windows) and is never saved or sent
+  anywhere. Turn it on, change its shortcut or choose the recognition language in **Settings › Screen
+  translation**; the tray menu gains **Translate Screen Region** while it is on. On macOS it needs the
+  **Screen Recording** permission, which Verso guides you through (macOS may ask to quit and reopen Verso).
+- **Settings › Permissions** now lists each permission as its own row that switches to "granted" by itself.
+
+### Fixed
+
+- The update progress bar stayed near 0 % while a download ran. It now follows the real download (and shows
+  a moving bar when the size is unknown), reaches 100 % before "installing", and the update window is as tall
+  as its content instead of leaving an empty area.
+- The tray icon is larger and easier to see in the menu bar and taskbar.
+
 ## 0.1.7 — 2026-11-22
 
 When an update leaves macOS no longer trusting Verso, setup says so and fixes it with one click; Settings

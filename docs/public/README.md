@@ -84,6 +84,7 @@ The Windows build is not code-signed yet. On "Windows protected your PC" choose 
 
 - ⌨️ **Select, press, read** — `Alt+Shift+Z` shows a small tooltip next to the selection that grows into the translation
 - 🔊 **Speak** — `Alt+Shift+S` reads the selection aloud without opening a window
+- 🖼️ **Translate a screen region** (optional) — `Alt+Shift+X` dims the screen; drag around text in an image, a video or an app that cannot be selected, and the translation appears next to it. Off until you turn it on in **Settings › Screen translation**; the picture never leaves your computer's memory
 - 🪟 **Quick panel** — `Alt+Shift+T` (or a click on the tray mark) opens a panel for text you type; `Tab` swaps the languages
 - 🔁 **Two engines, automatic fallback** — Google Translate and Microsoft Translator (Bing); no account or API key
 - 🎯 **Keyboard-first popup** — it takes keys as soon as the result shows: `c` copy, `s` speak, `-` `=` `0` text size

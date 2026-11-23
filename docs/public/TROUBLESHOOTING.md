@@ -55,6 +55,18 @@ right-clicking Verso in Applications and choosing **Open**.)
 - If macOS shows the Accessibility entry switched on but Verso still reports it as missing, remove and
   re-add Verso as described above.
 
+## Screen translation does not start, or finds no text
+
+- **The option is greyed out.** macOS before 14, or Windows with no text-recognition language: the line
+  under the switch says which. On Windows add a language in **Settings › Time & language › Language & region**.
+- **macOS keeps asking for Screen Recording.** Switch Verso on in **Privacy & Security › Screen & System
+  Audio Recording**, then choose **Quit & Reopen**. After an update, if it is switched on but still not
+  allowed, use **Settings › Permissions › Reset and grant again** (or remove Verso with − and add it again
+  with +).
+- **"No text found in that area."** Drag a larger area around the text. Protected content (some video
+  players, secure windows) is captured black on purpose and has no text to read. Pick the recognition language
+  in **Settings › Screen translation** if Automatic guesses wrong.
+
 ## Where the logs are
 
 - macOS: `~/Library/Logs/app.versotranslate/verso.log`

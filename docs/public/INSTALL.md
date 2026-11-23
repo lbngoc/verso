@@ -1,6 +1,6 @@
 # Installing Verso
 
-Written for **Verso 0.1.7** (macOS 13 or later; Windows 10 or 11, 64-bit). The macOS build is signed with
+Written for **Verso 0.1.8** (macOS 13 or later; Windows 10 or 11, 64-bit). The macOS build is signed with
 Verso's own (self-signed) certificate but not notarized, and the Windows build is unsigned, so both systems ask for one confirmation on the first
 launch; the steps below cover it.
 
@@ -92,6 +92,20 @@ Shortcuts can be changed in **Settings › Shortcuts**: click a field and type t
 and Quick panel. On macOS a global shortcut needs no permission beyond Accessibility; if another app owns
 the combination, Verso says so and asks for another. The same card has an off-by-default option to paste
 the clipboard into the panel when nothing is selected.
+
+## Screen translation (optional)
+
+**Settings › Screen translation** turns on a fourth action, `⌥⇧X` (`Alt+Shift+X`): the screen dims, you drag
+around some text, and the translation appears next to it. It is off until you switch it on.
+
+- **macOS 14 or later.** Verso needs the **Screen Recording** permission (**System Settings › Privacy &
+  Security › Screen & System Audio Recording**). Verso opens the right pane; after you switch it on, macOS
+  may ask Verso to quit and reopen before the permission works (**Quit & Reopen**, or **Restart Verso** in
+  Verso's own window). macOS 13 shows the option as unavailable.
+- **Windows** needs no permission, but a language with text recognition must be installed in **Settings ›
+  Time & language › Language & region** (English is usually there). Without one the option says so.
+- The picture is read in memory by the system's own recogniser and dropped at once: it is never saved, never
+  sent anywhere; only the recognised text goes to your chosen translation service.
 
 ## Updates
 

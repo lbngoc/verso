@@ -274,6 +274,8 @@
             clearSlowTimer();
           }
           requestSize();
+          // A failure message (no text found, permission) grows after the first measure.
+          if (payload.state === "capture_failed") setTimeout(requestSize, 150);
         }),
       );
 
