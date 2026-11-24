@@ -13,15 +13,22 @@ pub struct QuickScreenEvent {
     pub source_lang: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub target_lang: Option<String>,
+    /// The number the page sends back once the reading state is painted (`AckGate`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub seq: Option<u64>,
 }
 
 impl QuickScreenEvent {
-    pub fn reading(source_lang: String, target_lang: String) -> Self {
+    /// A new capture: the panel resets to "Reading the text…". The source is always `auto`: text
+    /// read from the screen is in an unknown language, whatever the user's default source is
+    /// (FR-007; the removed `translate_screen_text` did the same). `seq` numbers the show.
+    pub fn reading(target_lang: String, seq: u64) -> Self {
         Self {
             phase: "reading",
             text: None,
-            source_lang: Some(source_lang),
+            source_lang: Some("auto".into()),
             target_lang: Some(target_lang),
+            seq: Some(seq),
         }
     }
 
@@ -31,6 +38,7 @@ impl QuickScreenEvent {
             text: Some(text),
             source_lang: None,
             target_lang: None,
+            seq: None,
         }
     }
 
@@ -53,6 +61,7 @@ impl QuickScreenEvent {
             text: None,
             source_lang: None,
             target_lang: None,
+            seq: None,
         }
     }
 }
@@ -62,7 +71,8 @@ pub struct QuickQueue {
     ready: bool,
     pending_show: bool,
     pending_prefill: Option<String>,
-    pending_screen: Option<QuickScreenEvent>,
+    /// At most a `reading` event and the capture's last event, in that order.
+    pending_screen: Vec<QuickScreenEvent>,
 }
 
 /// What the window layer must do after `page_ready`.
@@ -71,7 +81,7 @@ pub struct Replay {
     pub present: bool,
     pub prefill: Option<String>,
     /// Sent before the show, so the panel never paints the previous capture or typed text.
-    pub screen: Option<QuickScreenEvent>,
+    pub screen: Vec<QuickScreenEvent>,
 }
 
 impl QuickQueue {
@@ -80,7 +90,7 @@ impl QuickQueue {
             ready: false,
             pending_show: false,
             pending_prefill: None,
-            pending_screen: None,
+            pending_screen: Vec::new(),
         }
     }
 
@@ -127,7 +137,16 @@ impl QuickQueue {
         if self.ready {
             Some(event)
         } else {
-            self.pending_screen = Some(event);
+            // A capture's reading event is kept with its last event, so a page that loads late
+            // still resets (automatic source, reading state) before it gets the text. A new
+            // `reading` or `reset` starts over; a later last event replaces an earlier one.
+            if matches!(event.phase, "reading" | "reset") {
+                self.pending_screen.clear();
+            } else {
+                self.pending_screen
+                    .retain(|waiting| matches!(waiting.phase, "reading" | "reset"));
+            }
+            self.pending_screen.push(event);
             None
         }
     }
@@ -138,7 +157,7 @@ impl QuickQueue {
         Replay {
             present: std::mem::take(&mut self.pending_show),
             prefill: self.pending_prefill.take(),
-            screen: self.pending_screen.take(),
+            screen: std::mem::take(&mut self.pending_screen),
         }
     }
 
@@ -146,7 +165,7 @@ impl QuickQueue {
     pub fn hide(&mut self) {
         self.pending_show = false;
         self.pending_prefill = None;
-        self.pending_screen = None;
+        self.pending_screen.clear();
     }
 
     /// The panel lost focus. Only a panel on screen closes; a panel still loading keeps its queue,
@@ -160,9 +179,136 @@ impl QuickQueue {
     }
 }
 
+/// What to do with a capture's last event (text, no text, read failed) once reading ends.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReadingEnd {
+    /// Send it to the panel.
+    Deliver,
+    /// The user closed the panel while it was reading: nothing more reaches the page, so no
+    /// recognised text is translated after the user dismissed it (FR-006, FR-023).
+    Drop,
+    /// The panel lost the focus while reading and still has not got it back (a system prompt such
+    /// as macOS's private-window-picker question, or a click elsewhere): send the event and give the
+    /// panel the focus again, so a later click outside closes it as usual (code review: it used to
+    /// stay on screen without focus and could not be dismissed by clicking away).
+    DeliverAndFocus,
+}
+
+/// The reading phase of one capture in the panel, from its `reading` event to its last event. A
+/// blur is not acted on while reading (a system prompt may take the focus for a moment), but it is
+/// remembered, and a close during reading abandons the capture.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct ReadingTracker {
+    reading: bool,
+    blurred: bool,
+    abandoned: bool,
+}
+
+impl ReadingTracker {
+    pub const fn new() -> Self {
+        Self {
+            reading: false,
+            blurred: false,
+            abandoned: false,
+        }
+    }
+
+    /// A new capture started reading.
+    pub fn start(&mut self) {
+        *self = Self {
+            reading: true,
+            ..Self::new()
+        };
+    }
+
+    pub fn is_reading(&self) -> bool {
+        self.reading
+    }
+
+    /// The panel lost the focus. `true`: ignore it for now (reading), it is remembered.
+    pub fn blur(&mut self) -> bool {
+        if self.reading {
+            self.blurred = true;
+        }
+        self.reading
+    }
+
+    /// The panel was closed. During reading the capture is abandoned.
+    pub fn hide(&mut self) {
+        if self.reading {
+            self.reading = false;
+            self.abandoned = true;
+        }
+    }
+
+    /// Reading ended; `panel_focused` is whether the panel has the focus now.
+    pub fn finish(&mut self, panel_focused: bool) -> ReadingEnd {
+        let was = *self;
+        *self = Self::new();
+        if was.abandoned {
+            ReadingEnd::Drop
+        } else if was.reading && was.blurred && !panel_focused {
+            ReadingEnd::DeliverAndFocus
+        } else {
+            ReadingEnd::Deliver
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn reading_always_asks_for_automatic_source_detection() {
+        // Code review: the panel translated screen text from the user's default source language.
+        let event = QuickScreenEvent::reading("vi".into(), 7);
+        assert_eq!(event.source_lang.as_deref(), Some("auto"));
+        assert_eq!(event.target_lang.as_deref(), Some("vi"));
+        assert_eq!(event.seq, Some(7));
+    }
+
+    #[test]
+    fn a_close_during_reading_drops_the_capture() {
+        let mut tracker = ReadingTracker::new();
+        tracker.start();
+        tracker.hide();
+        assert_eq!(tracker.finish(false), ReadingEnd::Drop);
+        assert!(!tracker.is_reading());
+    }
+
+    #[test]
+    fn a_blur_during_reading_is_kept_and_gives_the_focus_back_when_reading_ends() {
+        let mut tracker = ReadingTracker::new();
+        tracker.start();
+        assert!(tracker.blur(), "ignored while reading");
+        assert_eq!(tracker.finish(false), ReadingEnd::DeliverAndFocus);
+    }
+
+    #[test]
+    fn a_blur_during_reading_is_forgotten_when_the_focus_came_back() {
+        let mut tracker = ReadingTracker::new();
+        tracker.start();
+        tracker.blur();
+        assert_eq!(tracker.finish(true), ReadingEnd::Deliver);
+    }
+
+    #[test]
+    fn without_reading_blur_and_close_are_not_held() {
+        let mut tracker = ReadingTracker::new();
+        assert!(!tracker.blur());
+        tracker.hide();
+        assert_eq!(tracker.finish(false), ReadingEnd::Deliver);
+    }
+
+    #[test]
+    fn a_new_capture_clears_the_previous_one() {
+        let mut tracker = ReadingTracker::new();
+        tracker.start();
+        tracker.hide();
+        tracker.start();
+        assert_eq!(tracker.finish(true), ReadingEnd::Deliver);
+    }
 
     #[test]
     fn a_show_before_ready_waits_and_is_replayed() {
@@ -217,7 +363,7 @@ mod tests {
             Replay {
                 present: false,
                 prefill: None,
-                screen: None
+                screen: Vec::new()
             }
         );
     }
@@ -235,10 +381,10 @@ mod tests {
         let mut queue = QuickQueue::new();
         queue.created();
         queue.request_show();
-        let event = QuickScreenEvent::reading("auto".into(), "vi".into());
+        let event = QuickScreenEvent::reading("vi".into(), 1);
         assert_eq!(queue.screen_event(event.clone()), None);
         let replay = queue.page_ready();
-        assert_eq!(replay.screen, Some(event));
+        assert_eq!(replay.screen, vec![event]);
         assert!(
             replay.present,
             "the show follows the event in the same replay"
@@ -251,15 +397,29 @@ mod tests {
     }
 
     #[test]
-    fn a_newer_screen_event_replaces_an_older_waiting_one() {
+    fn a_waiting_reading_event_is_kept_before_the_text_of_its_capture() {
+        // A page that loads after recognition still gets the reset (automatic source) first.
         let mut queue = QuickQueue::new();
         queue.created();
-        queue.screen_event(QuickScreenEvent::reading("auto".into(), "vi".into()));
+        let reading = QuickScreenEvent::reading("vi".into(), 1);
+        queue.screen_event(reading.clone());
+        queue.screen_event(QuickScreenEvent::no_text());
         queue.screen_event(QuickScreenEvent::text("hello".into()));
         assert_eq!(
             queue.page_ready().screen,
-            Some(QuickScreenEvent::text("hello".into()))
+            vec![reading, QuickScreenEvent::text("hello".into())]
         );
+    }
+
+    #[test]
+    fn a_new_capture_replaces_everything_still_waiting() {
+        let mut queue = QuickQueue::new();
+        queue.created();
+        queue.screen_event(QuickScreenEvent::reading("vi".into(), 1));
+        queue.screen_event(QuickScreenEvent::text("old".into()));
+        let second = QuickScreenEvent::reading("vi".into(), 2);
+        queue.screen_event(second.clone());
+        assert_eq!(queue.page_ready().screen, vec![second]);
     }
 
     #[test]
@@ -267,9 +427,9 @@ mod tests {
         let mut queue = QuickQueue::new();
         queue.created();
         queue.prefill("typed".into());
-        queue.screen_event(QuickScreenEvent::reading("auto".into(), "vi".into()));
+        queue.screen_event(QuickScreenEvent::reading("vi".into(), 1));
         let replay = queue.page_ready();
         assert_eq!(replay.prefill, None);
-        assert!(replay.screen.is_some());
+        assert!(!replay.screen.is_empty());
     }
 }

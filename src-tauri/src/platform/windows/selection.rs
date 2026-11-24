@@ -47,6 +47,18 @@ static CAPTURE_TARGET: AtomicIsize = AtomicIsize::new(0);
 
 pub fn remember_capture_target() {
     let hwnd = unsafe { GetForegroundWindow() };
+    let foreground_pid = if hwnd.0.is_null() {
+        None
+    } else {
+        let mut pid = 0u32;
+        unsafe { GetWindowThreadProcessId(hwnd, Some(&mut pid)) };
+        (pid != 0).then_some(pid)
+    };
+    if crate::platform::keeps_previous_target(foreground_pid, std::process::id()) {
+        // Verso's own window (the panel just hidden for a new capture) is never the target.
+        debug!("foreground window is Verso's; keeping the previous capture target");
+        return;
+    }
     CAPTURE_TARGET.store(hwnd.0 as isize, Ordering::SeqCst);
     debug!("remembered the capture target window");
 }

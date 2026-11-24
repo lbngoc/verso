@@ -8,6 +8,8 @@ export interface QuickScreenEvent {
   text?: string;
   source_lang?: string;
   target_lang?: string;
+  /** Numbers the show; sent back with `quickScreenPrepared` (reading only). */
+  seq?: number;
 }
 
 export type Origin = "selection" | "typed" | "screen";
@@ -286,9 +288,9 @@ export const commands = {
   permissionStepKind: () => invoke<PermissionKind>("permission_step_kind"),
   restartApp: () => invoke<void>("restart_app"),
   /** The panel has rendered the reset "reading" state; the backend may show it (spec 004 FR-021). */
-  quickScreenPrepared: () => invoke<void>("quick_screen_prepared"),
+  quickScreenPrepared: (seq: number) => invoke<void>("quick_screen_prepared", { seq }),
   /** The popup has rendered the reset "Translating" state; the backend may show it (FR-022). */
-  popupPrepared: () => invoke<void>("popup_prepared"),
+  popupPrepared: (seq: number) => invoke<void>("popup_prepared", { seq }),
   /** The update window reports the height its content needs (clamped by the backend). */
   resizeUpdateWindow: (height: number) => invoke<void>("resize_update_window", { height }),
 };
@@ -296,6 +298,9 @@ export const commands = {
 export const events = {
   onPopupState: (handler: (payload: PopupState) => void): Promise<UnlistenFn> =>
     listen<PopupState>("popup-state", (event) => handler(event.payload)),
+  /** Sent right after the reset state of a show; the page answers `popupPrepared(seq)` once painted. */
+  onPopupPrepare: (handler: (payload: { seq: number }) => void): Promise<UnlistenFn> =>
+    listen<{ seq: number }>("popup-prepare", (event) => handler(event.payload)),
   onTranslationStarted: (
     handler: (payload: {
       origin: Origin;

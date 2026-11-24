@@ -231,11 +231,13 @@ pub fn start(app: &AppHandle) -> StartResult {
     // overlay. A panel showing a screen result keeps the app that was in front before it as the
     // focus target, so closing it later still returns there (FR-023).
     window_manager::hide_popup(app);
+    // The target is taken before the panel hides (it may still be in front a moment after), and
+    // the platform never takes one of Verso's own windows as the target.
     let was_screen_result = window_manager::quick_in_screen_mode();
-    window_manager::hide_quick_keep_focus(app);
     if !was_screen_result {
         services.remember_capture_target();
     }
+    window_manager::hide_quick_keep_focus(app);
     let monitors = window_manager::monitor_snapshots(app);
     if SESSION.lock().try_start(monitors.clone()) != StartResult::Opened {
         return StartResult::Ignored;

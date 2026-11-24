@@ -385,6 +385,21 @@ pub trait PlatformServices: Send + Sync {
     }
 }
 
+/// The colour a too-small capture is padded with: its first pixel (BGRA), or white when the
+/// capture is empty (code review: slicing an empty buffer panicked before the fallback).
+pub fn background_pixel(bgra: &[u8]) -> [u8; 4] {
+    bgra.get(..4)
+        .and_then(|pixel| pixel.try_into().ok())
+        .unwrap_or([255, 255, 255, 255])
+}
+
+/// Whether remembering the foreground window as the capture target must keep the previous one:
+/// when the foreground belongs to Verso itself (the quick panel just hidden for a new capture),
+/// handing the focus back to it later would leave the user's app without focus (code review).
+pub fn keeps_previous_target(foreground_pid: Option<u32>, own_pid: u32) -> bool {
+    foreground_pid == Some(own_pid)
+}
+
 static SERVICES: OnceLock<Box<dyn PlatformServices>> = OnceLock::new();
 
 pub fn install(services: Box<dyn PlatformServices>) {
@@ -412,4 +427,23 @@ pub fn native_services() -> Box<dyn PlatformServices> {
 pub fn init() -> &'static dyn PlatformServices {
     install(native_services());
     services()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn an_empty_capture_pads_with_white() {
+        assert_eq!(background_pixel(&[]), [255, 255, 255, 255]);
+        assert_eq!(background_pixel(&[1, 2]), [255, 255, 255, 255]);
+        assert_eq!(background_pixel(&[1, 2, 3, 4, 5]), [1, 2, 3, 4]);
+    }
+
+    #[test]
+    fn a_verso_window_in_front_is_never_the_capture_target() {
+        assert!(keeps_previous_target(Some(42), 42));
+        assert!(!keeps_previous_target(Some(7), 42));
+        assert!(!keeps_previous_target(None, 42));
+    }
 }

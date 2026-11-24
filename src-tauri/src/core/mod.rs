@@ -1,3 +1,4 @@
+pub mod ack;
 pub mod capture;
 pub mod engine;
 pub mod errors;

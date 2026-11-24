@@ -4,7 +4,7 @@
 use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::Arc;
 
-use log::{info, warn};
+use log::{debug, info, warn};
 use tauri::{AppHandle, Emitter, Listener, LogicalPosition, LogicalSize, Manager, WebviewWindow};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 
@@ -108,6 +108,13 @@ pub fn place_near_region(region: Rect, work_area: Rect, size: Size, gap: f64) ->
         x: aligned_x,
         y: (region.bottom() - size.height).clamp(min_y, max_y),
     }
+}
+
+/// Whether opening the panel records the app in front as the capture target: from the keyboard
+/// the user's app is in front; a tray click puts the taskbar there (nothing worth returning to),
+/// and a screen result keeps the target taken when the capture started.
+pub fn records_capture_target(anchor: PanelAnchor) -> bool {
+    matches!(anchor, PanelAnchor::Shortcut)
 }
 
 /// What a panel is placed against (Revision 2, FR-024, R20).
@@ -261,6 +268,21 @@ pub fn locked_resize(frame: Rect, requested_height: f64, work_area: Rect) -> Siz
     }
 }
 
+/// The height a placed result may take: below its top edge when it hangs down, above its bottom
+/// edge when it grows up from a flipped slot (code review: a flipped popup was capped by the room
+/// below it and could hardly grow).
+pub fn slot_resize(slot: PopupSlot, frame: Rect, requested_height: f64, work_area: Rect) -> Size {
+    if !slot.grow_up {
+        return locked_resize(frame, requested_height, work_area);
+    }
+    let room = slot.corner.y - work_area.y - EDGE_MARGIN;
+    let max = POPUP_MAX_HEIGHT.min(room).max(POPUP_MIN_HEIGHT);
+    Size {
+        width: frame.width,
+        height: requested_height.clamp(POPUP_MIN_HEIGHT, max),
+    }
+}
+
 pub fn popup_window(app: &AppHandle) -> Option<WebviewWindow> {
     app.get_webview_window("popup")
 }
@@ -299,7 +321,16 @@ pub fn prepare_transient(app: &AppHandle, window: &WebviewWindow) {
                 log::info!("quick panel lost focus (visible: {visible})");
                 // A loading panel keeps its queued show; only a panel on screen closes (T134). A
                 // capture still being read keeps its panel (a system prompt may take the focus).
-                if QUICK_READING.load(Ordering::SeqCst) {
+                // Only a blur of the panel on screen counts as the user leaving it; a hidden,
+                // loading panel can also report one.
+                let held = if visible {
+                    READING.lock().blur()
+                } else {
+                    READING.lock().is_reading()
+                };
+                if held {
+                    // Remembered: if the panel has not got the focus back when reading ends, it
+                    // closes then (code review: it used to stay on screen without focus).
                     return;
                 }
                 if QUICK.lock().blur(visible) {
@@ -378,11 +409,11 @@ pub fn ensure_quick(app: &AppHandle) -> Option<WebviewWindow> {
 pub fn quick_page_ready(app: &AppHandle) {
     let replay = QUICK.lock().page_ready();
     info!(
-        "quick page ready (queued show: {}, screen event: {})",
+        "quick page ready (queued show: {}, screen events: {})",
         replay.present,
-        replay.screen.is_some()
+        replay.screen.len()
     );
-    if let Some(event) = replay.screen {
+    for event in replay.screen {
         let _ = app.emit("quick-screen", event);
     }
     if replay.present {
@@ -406,8 +437,9 @@ static QUICK_SCREEN_MODE: AtomicBool = AtomicBool::new(false);
 /// The panel page still holds the last capture's state; a normal open resets it first.
 static QUICK_SCREEN_STALE: AtomicBool = AtomicBool::new(false);
 
-/// A capture is being read: a blur (a system prompt, a click elsewhere) must not drop the result.
-static QUICK_READING: AtomicBool = AtomicBool::new(false);
+/// The reading phase of the current capture: a blur is held while reading, a close abandons it.
+static READING: parking_lot::Mutex<crate::core::quick_queue::ReadingTracker> =
+    parking_lot::Mutex::new(crate::core::quick_queue::ReadingTracker::new());
 
 /// The tray icon's frame at the last click, for the tray variant of the screen-result rule.
 static LAST_TRAY_ICON: parking_lot::Mutex<Option<Rect>> = parking_lot::Mutex::new(None);
@@ -430,9 +462,30 @@ fn screen_result_anchor(region: Rect) -> PanelAnchor {
 pub fn send_quick_screen(app: &AppHandle, event: crate::core::quick_queue::QuickScreenEvent) {
     // The capture is "being read" from its reading event until a text or failure event arrives.
     match event.phase {
-        "reading" => QUICK_READING.store(true, Ordering::SeqCst),
+        "reading" => READING.lock().start(),
         "reset" => {}
-        _ => QUICK_READING.store(false, Ordering::SeqCst),
+        _ => {
+            let focused = quick_window(app)
+                .map(|window| window.is_focused().unwrap_or(false))
+                .unwrap_or(false);
+            let end = READING.lock().finish(focused);
+            match end {
+                crate::core::quick_queue::ReadingEnd::Deliver => {}
+                crate::core::quick_queue::ReadingEnd::Drop => {
+                    info!("capture dropped: the panel was closed while reading");
+                    return;
+                }
+                crate::core::quick_queue::ReadingEnd::DeliverAndFocus => {
+                    // The focus went away while reading (a system prompt, a click elsewhere): the
+                    // result is shown and the panel takes the focus again, so the next click
+                    // outside closes it as usual.
+                    info!("panel lost the focus while reading; giving it back with the result");
+                    if let Some(window) = quick_window(app) {
+                        let _ = window.set_focus();
+                    }
+                }
+            }
+        }
     }
     let now = QUICK.lock().screen_event(event);
     if let Some(event) = now {
@@ -453,23 +506,28 @@ pub fn prepare_quick_screen(app: &AppHandle, region: Rect) {
         return;
     };
     let settings = app.state::<crate::commands::AppState>().settings.get();
-    let prepared = QUICK_SCREEN_ACK.arm();
-    send_quick_screen(
-        app,
-        crate::core::quick_queue::QuickScreenEvent::reading(
-            settings.source_lang.clone(),
-            settings.target_lang.clone(),
-        ),
-    );
+    let (seq, prepared) = QUICK_SCREEN_ACK.lock().arm();
+    QUICK_SCREEN_MODE.store(true, Ordering::SeqCst);
+    QUICK_SCREEN_STALE.store(true, Ordering::SeqCst);
+    let anchor = screen_result_anchor(region);
+    *QUICK_ANCHOR.lock() = anchor;
+    let event = crate::core::quick_queue::QuickScreenEvent::reading(settings.target_lang, seq);
+    if !QUICK.lock().is_ready() {
+        // The page is still loading (first capture after launch, a quick drag): the reading event
+        // and the show wait in the queue and `quick_page_ready` replays them in that order, so the
+        // panel never shows as a blank frame (code review).
+        send_quick_screen(app, event);
+        QUICK.lock().request_show();
+        info!("panel page still loading; its show waits for the page");
+        return;
+    }
+    send_quick_screen(app, event);
     if prepared
         .recv_timeout(std::time::Duration::from_millis(300))
         .is_err()
     {
         warn!("panel did not confirm its reading state in 300 ms; showing it anyway");
     }
-    QUICK_SCREEN_MODE.store(true, Ordering::SeqCst);
-    QUICK_SCREEN_STALE.store(true, Ordering::SeqCst);
-    let anchor = screen_result_anchor(region);
     let _ = present_quick(&window, anchor);
 }
 
@@ -516,39 +574,24 @@ pub fn quick_just_hidden() -> bool {
 /// Pin state (memory only): a pinned popup ignores blur and outside clicks; every show resets it.
 pub static POPUP_PINNED: AtomicBool = AtomicBool::new(false);
 
-/// A one-shot acknowledgement from a page: the backend arms it, emits the state the page must
-/// render, waits (bounded) for the page's command, then shows the window (FR-021, FR-022).
-struct Ack(parking_lot::Mutex<Option<std::sync::mpsc::Sender<()>>>);
+/// Acknowledgements from the pages, numbered per show (`core::ack`, FR-021, FR-022).
+static POPUP_ACK: parking_lot::Mutex<crate::core::ack::AckGate> =
+    parking_lot::Mutex::new(crate::core::ack::AckGate::new());
+static QUICK_SCREEN_ACK: parking_lot::Mutex<crate::core::ack::AckGate> =
+    parking_lot::Mutex::new(crate::core::ack::AckGate::new());
 
-impl Ack {
-    const fn new() -> Self {
-        Self(parking_lot::Mutex::new(None))
-    }
-
-    fn arm(&self) -> std::sync::mpsc::Receiver<()> {
-        let (sender, receiver) = std::sync::mpsc::channel();
-        *self.0.lock() = Some(sender);
-        receiver
-    }
-
-    fn fire(&self) {
-        if let Some(sender) = self.0.lock().take() {
-            let _ = sender.send(());
-        }
+/// The popup page has rendered the reset state of show `seq` (`popup_prepared`).
+pub fn popup_prepared(seq: u64) {
+    if !POPUP_ACK.lock().fire(seq) {
+        debug!("popup acknowledgement {seq} is stale; ignored");
     }
 }
 
-static POPUP_ACK: Ack = Ack::new();
-static QUICK_SCREEN_ACK: Ack = Ack::new();
-
-/// The popup page has rendered the reset state (`popup_prepared`).
-pub fn popup_prepared() {
-    POPUP_ACK.fire();
-}
-
-/// The panel page has rendered the reading state (`quick_screen_prepared`).
-pub fn quick_screen_prepared() {
-    QUICK_SCREEN_ACK.fire();
+/// The panel page has rendered the reading state of show `seq` (`quick_screen_prepared`).
+pub fn quick_screen_prepared(seq: u64) {
+    if !QUICK_SCREEN_ACK.lock().fire(seq) {
+        debug!("panel acknowledgement {seq} is stale; ignored");
+    }
 }
 
 /// Shows the popup as the compact status pill at the cursor without activating it (FR-002). The
@@ -580,13 +623,16 @@ pub fn show_popup(app: &AppHandle) -> tauri::Result<()> {
     window.set_size(LogicalSize::new(frame.width, frame.height))?;
     window.set_position(LogicalPosition::new(frame.x, frame.y))?;
     // Reset first, show after the page answered: the previous result is never painted (FR-022).
-    let prepared = POPUP_ACK.arm();
+    let (seq, prepared) = POPUP_ACK.lock().arm();
     app.emit(
         "popup-state",
         PopupState::Status {
             kind: crate::core::capture::StatusKind::Translating,
         },
     )?;
+    // Sent after the state, so the page answers only once that state is rendered (`seq` lets a
+    // late answer from an earlier show be told apart).
+    app.emit("popup-prepare", serde_json::json!({ "seq": seq }))?;
     if prepared
         .recv_timeout(std::time::Duration::from_millis(150))
         .is_err()
@@ -633,7 +679,7 @@ pub fn resize_popup_to(app: &AppHandle, width: f64, height: f64) {
     let locked = *POPUP_LOCKED.lock();
     // After the first result only the height changes (R20); the corner of the slot never moves.
     let size = match (is_pill, locked) {
-        (false, Some(frame)) => locked_resize(frame, size.height, work_area),
+        (false, Some(frame)) => slot_resize(slot, frame, size.height, work_area),
         _ => size,
     };
     let frame = frame_in_slot(slot, size, work_area);
@@ -737,6 +783,12 @@ pub fn show_quick(app: &AppHandle, anchor: PanelAnchor) -> tauri::Result<()> {
     let Some(window) = ensure_quick(app) else {
         return Ok(());
     };
+    if records_capture_target(anchor) {
+        // The app the user is in, so a screen capture started from this panel can hand the focus
+        // back to it later (VM run 2026-11-24: it fell to the desktop). The platform never takes
+        // one of Verso's own windows as the target.
+        platform::services().remember_capture_target();
+    }
     QUICK_SCREEN_MODE.store(false, Ordering::SeqCst);
     if QUICK_SCREEN_STALE.swap(false, Ordering::SeqCst) {
         // The page still shows the last capture (note, text, result): start from a clean panel.
@@ -792,6 +844,8 @@ pub fn hide_quick_keep_focus(app: &AppHandle) {
 
 fn hide_quick_with(app: &AppHandle, restore: bool) {
     QUICK.lock().hide();
+    // Closed while a capture is read: its text must not reach the page (code review, FR-006).
+    READING.lock().hide();
     let was_screen = QUICK_SCREEN_MODE.swap(false, Ordering::SeqCst);
     if let Some(window) = quick_window(app) {
         if window.is_visible().unwrap_or(false) {

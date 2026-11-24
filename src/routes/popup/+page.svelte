@@ -251,6 +251,25 @@
         }),
       );
 
+      // The backend shows the popup once the reset state it just sent is painted, so the previous
+      // result is never seen (FR-022). `popup-prepare` follows that state, and its number lets the
+      // backend ignore a late answer from an earlier show. A hidden WebKit view pauses animation
+      // frames, so a short timer stands in for the frame.
+      unlisteners.push(
+        await events.onPopupPrepare(({ seq }) => {
+          void tick().then(() => {
+            let answered = false;
+            const answer = () => {
+              if (answered) return;
+              answered = true;
+              void commands.popupPrepared(seq).catch(() => undefined);
+            };
+            requestAnimationFrame(answer);
+            setTimeout(answer, 40);
+          });
+        }),
+      );
+
       unlisteners.push(
         await events.onPopupState((payload) => {
           popupState = payload;
@@ -263,19 +282,6 @@
               resultWidth = 380;
               clearSlowTimer();
               slowTimer = setTimeout(() => (stillTranslating = true), 3000);
-              // The backend shows the popup once this reset state is painted, so the previous
-              // result is never seen (FR-022). A hidden WebKit view pauses animation frames, so a
-              // short timer stands in for the frame.
-              void tick().then(() => {
-                let answered = false;
-                const answer = () => {
-                  if (answered) return;
-                  answered = true;
-                  void commands.popupPrepared().catch(() => undefined);
-                };
-                requestAnimationFrame(answer);
-                setTimeout(answer, 40);
-              });
             } else {
               // "Nothing selected" (Speak): no slow-translating hint.
               result = null;

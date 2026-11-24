@@ -144,7 +144,9 @@
       dispatch(event);
       // The backend shows the panel once the reset state is on screen (FR-021).
       await tick();
-      void commands.quickScreenPrepared().catch(() => undefined);
+      if (event.seq !== undefined) {
+        void commands.quickScreenPrepared(event.seq).catch(() => undefined);
+      }
       return;
     }
     dispatch(event);

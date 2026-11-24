@@ -556,14 +556,14 @@ pub fn hide_quick(app: AppHandle) {
 
 /// The panel rendered the "Reading the text…" state; the show may go on (spec 004 FR-021).
 #[tauri::command]
-pub fn quick_screen_prepared() {
-    window_manager::quick_screen_prepared();
+pub fn quick_screen_prepared(seq: u64) {
+    window_manager::quick_screen_prepared(seq);
 }
 
 /// The popup rendered the reset "Translating" state; the show may go on (FR-022).
 #[tauri::command]
-pub fn popup_prepared() {
-    window_manager::popup_prepared();
+pub fn popup_prepared(seq: u64) {
+    window_manager::popup_prepared(seq);
 }
 
 // Async on purpose: building a webview window inside a synchronous command deadlocks WebView2 on

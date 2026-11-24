@@ -422,3 +422,49 @@ fn the_pill_and_the_result_share_the_bottom_left_when_placed_above() {
     assert!((pill.bottom() - result.bottom()).abs() < 0.001);
     assert!(result.y >= area.y + EDGE_MARGIN - 0.001);
 }
+
+#[test]
+fn a_popup_flipped_above_grows_into_the_room_above_it() {
+    // Code review: the cap used the room below the top edge, so near the bottom of the screen a
+    // flipped popup could hardly grow although the space above was free.
+    use verso_lib::window_manager::{slot_resize, POPUP_MAX_HEIGHT};
+    let area = work_area();
+    let slot = popup_slot(&slot_input(Point { x: 500.0, y: 835.0 }, area));
+    assert!(slot.grow_up);
+    let first = frame_in_slot(slot, size(POPUP_WIDTH), area);
+    let grown = slot_resize(slot, first, 300.0, area);
+    assert_eq!(grown.height, 300.0);
+    let tallest = slot_resize(slot, first, 2000.0, area);
+    assert_eq!(tallest.height, POPUP_MAX_HEIGHT);
+    let frame = frame_in_slot(slot, grown, area);
+    assert!(
+        (frame.bottom() - first.bottom()).abs() < 0.001,
+        "the bottom edge stays"
+    );
+}
+
+#[test]
+fn a_popup_hanging_down_keeps_the_room_below_as_its_cap() {
+    use verso_lib::window_manager::{locked_resize, slot_resize};
+    let area = work_area();
+    let slot = popup_slot(&slot_input(Point { x: 500.0, y: 300.0 }, area));
+    let first = frame_in_slot(slot, size(POPUP_WIDTH), area);
+    assert_eq!(
+        slot_resize(slot, first, 900.0, area),
+        locked_resize(first, 900.0, area)
+    );
+}
+
+#[test]
+fn only_a_keyboard_open_records_the_app_in_front() {
+    use verso_lib::window_manager::records_capture_target;
+    let rect = Rect {
+        x: 0.0,
+        y: 0.0,
+        width: 10.0,
+        height: 10.0,
+    };
+    assert!(records_capture_target(PanelAnchor::Shortcut));
+    assert!(!records_capture_target(PanelAnchor::TrayIcon(rect)));
+    assert!(!records_capture_target(PanelAnchor::Region(rect)));
+}

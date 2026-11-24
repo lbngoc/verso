@@ -109,7 +109,7 @@ fn pad_to_minimum(image: CapturedImage, minimum: u32) -> (CapturedImage, u32, u3
     let height = image.height.max(minimum);
     let (dx, dy) = ((width - image.width) / 2, (height - image.height) / 2);
     // The top-left pixel stands for the background; text rarely touches the corner of a selection.
-    let background: [u8; 4] = image.bgra[..4].try_into().unwrap_or([255, 255, 255, 255]);
+    let background = crate::platform::background_pixel(&image.bgra);
     let mut canvas = Vec::with_capacity(width as usize * height as usize * 4);
     for _ in 0..(width as usize * height as usize) {
         canvas.extend_from_slice(&background);

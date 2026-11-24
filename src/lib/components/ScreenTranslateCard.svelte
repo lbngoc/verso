@@ -33,7 +33,9 @@
 
   const available = $derived(availability?.available ?? false);
   const enabled = $derived(settings.ocr.enabled);
-  const unsupported = $derived(availability?.reason === "unsupported");
+  // Shown only once the platform said it supports the module: never on Linux, not even while the
+  // query runs or when it fails (code review).
+  const supported = $derived(availability !== null && availability.reason !== "unsupported");
   const reasonKey = $derived(
     availability?.reason === "os_too_old"
       ? "ocr.unavailable_os_too_old"
@@ -80,7 +82,7 @@
   });
 </script>
 
-{#if !unsupported}
+{#if supported}
   <Card title={$t("ocr.card_title")}>
     <SettingRow label={$t("ocr.enable")} helper={$t("ocr.enable_hint")}>
       <Switch
