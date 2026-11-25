@@ -5,6 +5,36 @@ the release tag, so a tag needs its section before it is pushed.
 
 ## Unreleased
 
+## 0.1.10 — 2026-11-25
+
+Verso's windows now fit on every display of a Mac with a Retina screen and an external monitor, the
+panel is easier to type in, and updates are checked more often.
+
+### Fixed
+
+- **Windows fit on every display.** With a Retina display and an external monitor, the panel, popup,
+  Settings and update window could open half their size or with their content cut off after being shown
+  on the other display. They now keep their size and show all their content on either display.
+- **The panel opens under the icon you click**, on the menu bar of the display you clicked, right below it
+  (it could open in the wrong place, or too low on an external display above the built-in one).
+- **The update window shows its buttons** again; its bottom row was cut off.
+- **Input methods:** panel keys (Enter, Tab, Esc…) no longer act in the middle of a composition, and Verso
+  becomes the active app while you type in the panel. With VietTelex, set Verso to **Gạch chân** if
+  accents get lost (see Troubleshooting).
+
+### Changed
+
+- **The panel's original text and translation look alike:** same box, same system text size (13 px on
+  macOS, 14 px on Windows), scaled together by the text size buttons.
+- **A status bar at the bottom of the panel and popup:** **Copy** and **Speak** with their keys on the left;
+  on the right, what applies now — in the panel the automatic-translation mode (click to switch), in the
+  popup the Esc key. Engines are shown by name (Google, Microsoft), and Verso no longer reports that one
+  service answered after another failed.
+- **Translate as you type** in **Settings › Popup & panel**: Fast, **Slow** (the default: fewer requests,
+  so the free services make you wait less often) or Off (press Enter). Enter always translates at once.
+- **Update checks** run about every 4 hours (they were daily and could slip while the Mac slept); a failed
+  check is tried again after 30 minutes.
+
 ## 0.1.9 — 2026-11-25
 
 Screen translation now shows its result in the translation panel, where you can correct the text, and
