@@ -206,3 +206,55 @@ describe("Settings colour levels on the card fill (spec 011 R2, data-model § Te
     }
   });
 });
+
+describe("text over Liquid Glass that went the other way (popup and panel)", () => {
+  const css = readFileSync(resolve(__dirname, "tokens.css"), "utf8");
+  function surface(selector: string): [number, number, number, number] {
+    const start = css.indexOf(`${selector} {`);
+    expect(start, selector).toBeGreaterThanOrEqual(0);
+    const body = css.slice(start, css.indexOf("}", start));
+    const match = body.match(/--surface:\s*rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/);
+    expect(match, `${selector} --surface`).not.toBeNull();
+    return [Number(match![1]), Number(match![2]), Number(match![3]), Number(match![4])];
+  }
+  function over([r, g, b, a]: [number, number, number, number], backdrop: string): string {
+    const under = [1, 3, 5].map((at) => parseInt(backdrop.slice(at, at + 2), 16));
+    return `#${[r, g, b]
+      .map((value, index) => Math.round(value * a + under[index] * (1 - a)))
+      .map((value) => value.toString(16).padStart(2, "0"))
+      .join("")}`;
+  }
+  const colours = (theme: "light" | "dark") =>
+    MATERIAL_COLOURS.find((entry) => entry.material === "glass" && entry.theme === theme)!;
+
+  // Measured on the owner's Mac (macOS 26, dark mode, bright window behind the panel): the glass
+  // went #dddde3 despite its dark tint. The light theme is checked against the mirror case.
+  const cases = [
+    {
+      theme: "dark" as const,
+      fill: surface('[data-os="macos"][data-material="glass"][data-theme="dark"]'),
+      glass: "#dddde3",
+    },
+    {
+      theme: "light" as const,
+      fill: surface('[data-os="macos"][data-material="glass"]'),
+      glass: "#2a2a2c",
+    },
+  ];
+
+  it("primary and secondary text keep 4.5:1, hints 3:1", () => {
+    for (const { theme, fill, glass } of cases) {
+      const background = over(fill, glass);
+      const text = colours(theme);
+      expect(contrastRatio(text.text, background), `${theme} primary`).toBeGreaterThanOrEqual(4.5);
+      expect(
+        contrastRatio(text.secondaryText, background),
+        `${theme} secondary on ${background}`,
+      ).toBeGreaterThanOrEqual(4.5);
+      expect(
+        contrastRatio(text.tertiaryText, background),
+        `${theme} tertiary on ${background}`,
+      ).toBeGreaterThanOrEqual(3);
+    }
+  });
+});

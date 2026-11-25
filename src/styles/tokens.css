@@ -242,11 +242,16 @@
   --surface: rgba(38, 38, 42, 0.74);
 }
 
+/* Liquid Glass adapts its shade to what lies behind it, whatever its tint: over a bright window in
+   dark mode it measured #dddde3 on the owner's Mac, leaving the dark theme's light text unreadable.
+   The page therefore paints its own theme surface over the glass, opaque enough to keep the text
+   readable on either shade (contrast.test.ts, "glass that went the other way"); the glass shows
+   through at the edges and softly behind. */
 [data-os="macos"][data-material="glass"] {
-  --surface: rgba(250, 250, 252, 0.55);
+  --surface: rgba(246, 246, 248, 0.86);
 }
 [data-os="macos"][data-material="glass"][data-theme="dark"] {
-  --surface: rgba(28, 28, 30, 0.5);
+  --surface: rgba(28, 28, 30, 0.88);
 }
 
 [data-os="windows"][data-material="acrylic"] {
@@ -386,10 +391,7 @@ select {
   overflow: hidden;
 }
 
-/* The native glass already tints the window; a CSS fill over it shows as a light rim. */
-[data-material="glass"] .material-surface {
-  background: transparent;
-}
+/* Over glass the surface is the translucent theme fill above (radius 22, the native corner). */
 
 [data-material="opaque"] .material-surface {
   border: 1px solid var(--stroke);
