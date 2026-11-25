@@ -5,6 +5,8 @@ the release tag, so a tag needs its section before it is pushed.
 
 ## Unreleased
 
+## 0.1.11 — 2026-11-25
+
 Settings now looks like the system's own settings, and updates are shown right in Settings.
 
 ### Changed
