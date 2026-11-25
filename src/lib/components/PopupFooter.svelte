@@ -1,16 +1,18 @@
 <script lang="ts">
-  import Icon from "./Icon.svelte";
   import Keycap from "./Keycap.svelte";
   import { t } from "$lib/i18n";
+  import type { FooterStatus } from "$lib/footerStatus";
 
-  // Footer of the result popup and the quick panel: Copy (c) / Speak (s), plus one notice line.
+  // The status bar of the result popup and the quick panel (spec 004 FR-034): on the left, always,
+  // the Copy (c) and Speak (s) shortcuts; on the right, what applies right now (a notice, the
+  // auto-translate mode or the Enter tip, the close key). Small text so more fits.
+
   let {
     copied = false,
     speaking = false,
     canSpeak = true,
-    notice = "",
-    hint = "",
-    keys = [],
+    canCopy = true,
+    status = null,
     keysActive = true,
     oncopy,
     onspeak,
@@ -18,10 +20,8 @@
     copied?: boolean;
     speaking?: boolean;
     canSpeak?: boolean;
-    notice?: string;
-    hint?: string;
-    /** Keys worth showing next to the actions, e.g. Enter and Esc in the quick panel. */
-    keys?: Array<{ label: string; text: string; active?: boolean }>;
+    canCopy?: boolean;
+    status?: FooterStatus | null;
     /** Whether the c and s keys act right now (in the panel only while the result has focus). */
     keysActive?: boolean;
     oncopy: () => void;
@@ -30,30 +30,32 @@
 </script>
 
 <footer class="popup-footer">
-  <button class="action" type="button" onclick={oncopy}>
-    <Icon name="copy" />
+  <button class="action" type="button" disabled={!canCopy} onclick={oncopy}>
     <span>{copied ? $t("popup.copied") : $t("popup.copy")}</span>
-    <Keycap label="c" active={keysActive} muted={!keysActive} />
+    <Keycap label="c" active={keysActive && canCopy} muted={!keysActive || !canCopy} />
   </button>
   <button class="action" type="button" disabled={!canSpeak} onclick={onspeak}>
-    <Icon name="speak" />
     <span>{speaking ? $t("popup.speaking") : $t("popup.speak")}</span>
     <Keycap label="s" active={keysActive && canSpeak} muted={!keysActive || !canSpeak} />
   </button>
   <span class="spacer"></span>
-  {#if notice}
-    <span class="notice" title={notice}>{notice}</span>
-  {:else if keys.length}
-    <span class="keys">
-      {#each keys as key (key.label)}
-        <span class="key">
-          <Keycap label={key.label} active={key.active ?? false} />
-          <span>{key.text}</span>
-        </span>
-      {/each}
-    </span>
-  {:else if hint}
-    <span class="hint">{hint}</span>
+  {#if status}
+    {#if status.onclick}
+      <button
+        class="status status-button"
+        type="button"
+        title={status.title}
+        onclick={status.onclick}
+      >
+        {#if status.key}<Keycap label={status.key} />{/if}
+        <span class="status-text">{status.text}</span>
+      </button>
+    {:else}
+      <span class="status" title={status.title ?? status.text}>
+        {#if status.key}<Keycap label={status.key} />{/if}
+        <span class="status-text">{status.text}</span>
+      </span>
+    {/if}
   {/if}
 </footer>
 
@@ -61,28 +63,30 @@
   .popup-footer {
     display: flex;
     align-items: center;
-    gap: 6px;
-    height: 40px;
-    padding: 0 12px;
+    gap: 4px;
+    height: 32px;
+    padding: 0 10px;
     border-top: 1px solid var(--separator);
     flex: none;
+    font-size: 11px;
   }
 
   .action {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    height: 28px;
-    padding: 0 8px;
+    gap: 5px;
+    height: 22px;
+    padding: 0 6px;
     border: none;
-    border-radius: 6px;
+    border-radius: 5px;
     background: transparent;
-    color: var(--text);
-    font-size: 12px;
+    color: var(--text-secondary);
+    font: inherit;
   }
 
   .action:hover:not(:disabled) {
     background: var(--hover);
+    color: var(--text);
   }
 
   .action:disabled {
@@ -93,31 +97,33 @@
     flex: 1;
   }
 
-  .notice {
-    max-width: 55%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 11px;
-    color: var(--text-secondary);
-  }
-
-  .hint {
-    font-size: 11px;
-    color: var(--text-tertiary);
-  }
-
-  .keys {
-    display: inline-flex;
-    align-items: center;
-    gap: 12px;
-  }
-
-  .key {
+  .status {
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    font-size: 11px;
+    min-width: 0;
+    max-width: 60%;
     color: var(--text-secondary);
+  }
+
+  .status-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .status-button {
+    height: 22px;
+    padding: 0 6px;
+    border: none;
+    border-radius: 5px;
+    background: transparent;
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .status-button:hover {
+    background: var(--hover);
+    color: var(--text);
   }
 </style>

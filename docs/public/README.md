@@ -31,7 +31,7 @@
 brew install --cask lbngoc/verso/verso
 ```
 
-> **Updates:** Verso updates itself once you agree to the daily check, so `brew upgrade` is not needed
+> **Updates:** Verso updates itself once you agree to the automatic check, so `brew upgrade` is not needed
 > (the cask is marked `auto_updates`).
 
 ### 🪟 winget (Windows)
@@ -40,7 +40,7 @@ brew install --cask lbngoc/verso/verso
 winget install lbngoc.Verso
 ```
 
-> **Updates:** Verso updates itself once you agree to the daily check, so `winget upgrade` is not needed.
+> **Updates:** Verso updates itself once you agree to the automatic check, so `winget upgrade` is not needed.
 > Windows SmartScreen still asks for one confirmation, because the installer is not code-signed yet.
 
 ### 📦 Manual download
@@ -88,7 +88,7 @@ The Windows build is not code-signed yet. On "Windows protected your PC" choose 
 - 🪟 **Quick panel** — `Alt+Shift+T` (or a click on the tray mark) opens a panel for text you type; `Tab` swaps the languages
 - 🔁 **Two engines, automatic fallback** — Google Translate and Microsoft Translator (Bing); no account or API key
 - 🎯 **Keyboard-first popup** — it takes keys as soon as the result shows: `c` copy, `s` speak, `-` `=` `0` text size
-- 🔄 **Updates itself** — signed, verified downloads, once you agree to the daily check
+- 🔄 **Updates itself** — signed, verified downloads, once you agree to the automatic check
 
 ### 📋 Everything
 

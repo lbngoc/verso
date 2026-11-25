@@ -13,6 +13,15 @@ const key = (
 });
 
 describe("quickKey", () => {
+  it("does nothing while an input method is composing (spec 004 FR-030)", () => {
+    for (const name of ["Enter", "Tab", "Escape", "c", "s", "-"]) {
+      expect(quickKey("input", { ...key(name), isComposing: true }, true)).toEqual({
+        type: "none",
+      });
+      expect(quickKey("result", { ...key(name), keyCode: 229 }, true)).toEqual({ type: "none" });
+    }
+  });
+
   it("Tab swaps in both places and never moves focus", () => {
     expect(quickKey("input", key("Tab"), false)).toEqual({ type: "swap" });
     expect(quickKey("input", key("Tab", { shiftKey: true }), true)).toEqual({ type: "swap" });

@@ -238,3 +238,24 @@ fn the_screen_shortcut_cannot_share_another_binding() {
     );
     assert_eq!(profile.shortcuts.translate, "Alt+Shift+Z");
 }
+
+// ---- spec 004 Revision 3 (FR-033): translate as you type ----
+
+#[test]
+fn translate_as_you_type_defaults_to_slow_and_tolerates_odd_values() {
+    use verso_lib::core::settings::{AutoTranslate, SettingsProfile};
+    assert_eq!(
+        SettingsProfile::default().auto_translate,
+        AutoTranslate::Slow
+    );
+    // An existing profile without the field, and a hand-edited unknown value, both read as slow.
+    let old: SettingsProfile = serde_json::from_str(r#"{"schema":1}"#).unwrap();
+    assert_eq!(old.auto_translate, AutoTranslate::Slow);
+    let odd: SettingsProfile =
+        serde_json::from_str(r#"{"schema":1,"auto_translate":"warp"}"#).unwrap();
+    assert_eq!(odd.auto_translate, AutoTranslate::Slow);
+    let off: SettingsProfile =
+        serde_json::from_str(r#"{"schema":1,"auto_translate":"off"}"#).unwrap();
+    assert_eq!(off.auto_translate, AutoTranslate::Off);
+    assert_eq!(serde_json::to_value(AutoTranslate::Fast).unwrap(), "fast");
+}

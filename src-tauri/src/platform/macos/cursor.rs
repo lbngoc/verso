@@ -53,10 +53,16 @@ fn screens() -> Vec<(NSRect, NSRect, f64)> {
     }
 }
 
+/// Height of the primary display: the first entry of `NSScreen.screens`, whose bottom-left corner
+/// is the origin of Cocoa's global coordinates. Not `NSScreen.mainScreen`, which is the display with
+/// the key window or the active menu bar: with an external display in use it is that display, and
+/// every conversion was off by the height difference (spec 004 R25: 98 points on the owner's
+/// Retina 982 pt + external 1080 pt setup, the tray panel opened 98 points below the menu bar).
 fn main_screen_height() -> f64 {
     unsafe {
-        let screen: Option<Retained<NSScreen>> = msg_send![objc2::class!(NSScreen), mainScreen];
-        match screen {
+        let screens: Retained<objc2_foundation::NSArray<NSScreen>> =
+            msg_send![objc2::class!(NSScreen), screens];
+        match screens.iter().next() {
             Some(screen) => {
                 let frame: NSRect = msg_send![&*screen, frame];
                 frame.size.height

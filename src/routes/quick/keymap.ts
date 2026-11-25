@@ -38,9 +38,16 @@ export function quickKey(
     metaKey?: boolean;
     ctrlKey?: boolean;
     altKey?: boolean;
+    /** An input method is composing (marked text): the key belongs to it. */
+    isComposing?: boolean;
+    keyCode?: number;
   },
   hasResult: boolean,
 ): QuickAction {
+  // Spec 004 FR-030: while an input method composes (Vietnamese Telex/VNI, CJK…), Enter, Tab, Esc
+  // and the letter keys commit or edit the composition; the panel must not act on them. WebKit
+  // reports such keys with `isComposing` or the IME key code 229.
+  if (event.isComposing || event.keyCode === 229) return { type: "none" };
   const key = event.key;
 
   if (key === "Tab") return { type: "swap" };

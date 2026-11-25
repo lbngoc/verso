@@ -4,7 +4,7 @@
   import SettingRow from "$lib/components/SettingRow.svelte";
   import Stepper from "$lib/components/Stepper.svelte";
   import { t } from "$lib/i18n";
-  import { commands, type SettingsProfile } from "$lib/ipc";
+  import { commands, type AutoTranslate, type SettingsProfile } from "$lib/ipc";
   import { canEnlarge, canShrink, clampStep, fontPx, label } from "$lib/textSize";
 
   // Settings → Input → Popup & panel: shared text size and the key reference (FR-038, FR-039).
@@ -38,9 +38,31 @@
   $effect(() => () => {
     if (saveTimer) clearTimeout(saveTimer);
   });
+
+  // Translate as you type in the panel (spec 004 FR-033).
+  const AUTO_MODES: AutoTranslate[] = ["fast", "slow", "off"];
+
+  async function setAutoTranslate(mode: AutoTranslate): Promise<void> {
+    const saved = await commands.updateSettings({ auto_translate: mode }).catch(() => null);
+    if (saved) onchange(saved);
+  }
 </script>
 
 <div class="stack">
+  <Card title={$t("settings.card_typing")}>
+    <SettingRow label={$t("settings.auto_translate")} helper={$t("settings.auto_translate_hint")}>
+      <select
+        value={settings.auto_translate}
+        aria-label={$t("settings.auto_translate")}
+        onchange={(event) => void setAutoTranslate(event.currentTarget.value as AutoTranslate)}
+      >
+        {#each AUTO_MODES as mode (mode)}
+          <option value={mode}>{$t(`settings.auto_translate_${mode}`)}</option>
+        {/each}
+      </select>
+    </SettingRow>
+  </Card>
+
   <Card title={$t("settings.card_text_size")}>
     <SettingRow label={$t("settings.text_size_row")}>
       <Stepper

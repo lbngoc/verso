@@ -75,20 +75,8 @@
   color: var(--text-tertiary);
 }
 
-[data-os="macos"] .quick textarea {
-  font-size: 15px;
-  background: transparent;
-  border: 0;
-  padding: 4px 0;
-}
-
 [data-os="macos"] .quick .picker {
   font-size: 12px;
-}
-
-[data-os="macos"] .quick .result {
-  font-size: 15px;
-  color: var(--text);
 }
 
 [data-os="macos"] .settings-card {

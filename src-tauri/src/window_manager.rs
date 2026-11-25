@@ -620,8 +620,10 @@ pub fn show_popup(app: &AppHandle) -> tauri::Result<()> {
     *POPUP_LOCKED.lock() = None;
     POPUP_PINNED.store(false, Ordering::SeqCst);
     platform::services().remember_capture_target();
-    window.set_size(LogicalSize::new(frame.width, frame.height))?;
+    // Position first, so the size is applied in the points of the display the window lands on
+    // (FR-025: sizing before a move to a display with another scale kept the old pixel size).
     window.set_position(LogicalPosition::new(frame.x, frame.y))?;
+    window.set_size(LogicalSize::new(frame.width, frame.height))?;
     // Reset first, show after the page answered: the previous result is never painted (FR-022).
     let (seq, prepared) = POPUP_ACK.lock().arm();
     app.emit(
@@ -649,6 +651,7 @@ pub fn show_popup(app: &AppHandle) -> tauri::Result<()> {
         let _ = sender.send(());
     });
     let _ = receiver.recv_timeout(std::time::Duration::from_millis(300));
+    log_window_frame(&window, "popup");
     register_escape(app);
     // Unpinned: a click outside closes the popup even before it ever took focus (R5).
     platform::services().start_outside_click_monitor(app.clone());
@@ -683,8 +686,8 @@ pub fn resize_popup_to(app: &AppHandle, width: f64, height: f64) {
         _ => size,
     };
     let frame = frame_in_slot(slot, size, work_area);
-    let _ = window.set_size(LogicalSize::new(frame.width, frame.height));
     let _ = window.set_position(LogicalPosition::new(frame.x, frame.y));
+    let _ = window.set_size(LogicalSize::new(frame.width, frame.height));
     if !is_pill {
         *POPUP_LOCKED.lock() = Some(frame);
     }
@@ -813,6 +816,35 @@ fn anchor_point(anchor: PanelAnchor, cursor: Point) -> Point {
     }
 }
 
+/// Spec 004 FR-028: where a window really landed — its display, scale and frame — read a moment
+/// after it was shown (a move to a display with another scale settles asynchronously). No content.
+pub fn log_window_frame(window: &WebviewWindow, what: &'static str) {
+    let window = window.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(400));
+        let scale = window.scale_factor().unwrap_or(1.0);
+        let outer = window.outer_position().ok().map(|p| (p.x, p.y));
+        let inner = window.inner_size().ok();
+        let points = inner.map(|size| {
+            let size = size.to_logical::<f64>(scale);
+            (size.width.round(), size.height.round())
+        });
+        let monitor = window.current_monitor().ok().flatten().map(|monitor| {
+            (
+                monitor.position().x,
+                monitor.position().y,
+                monitor.size().width,
+                monitor.size().height,
+                monitor.scale_factor(),
+            )
+        });
+        info!(
+            "window shown: {what} scale={scale} outer_px={outer:?} inner_px={:?} inner_pt={points:?} monitor(px,scale)={monitor:?}",
+            inner.map(|size| (size.width, size.height))
+        );
+    });
+}
+
 fn present_quick(window: &WebviewWindow, anchor: PanelAnchor) -> tauri::Result<()> {
     log::info!("quick panel: present");
     let services = platform::services();
@@ -822,11 +854,19 @@ fn present_quick(window: &WebviewWindow, anchor: PanelAnchor) -> tauri::Result<(
         height: QUICK_HEIGHT,
     };
     let position = place_panel(anchor, work_area, size, PLACEMENT_GAP);
-    window.set_size(LogicalSize::new(size.width, size.height))?;
     window.set_position(LogicalPosition::new(position.x, position.y))?;
+    window.set_size(LogicalSize::new(size.width, size.height))?;
+    info!("panel placement: anchor={anchor:?} work_area={work_area:?} position={position:?}");
     window.show()?;
     window.set_focus()?;
-    nudge_layout(window);
+    // Spec 004 FR-030: Verso becomes the active app while the panel takes typing, so input methods
+    // (VietTelex, EVKey, OpenKey…) work on the panel instead of the app that was in front.
+    let _ = window.run_on_main_thread(|| platform::services().activate_for_typing());
+    // The intended size, not one read back from the window: right after a move to a display with
+    // another scale the pixel size and the scale disagree for a moment (0.1.9 on the owner's Mac:
+    // 560 × 320 became 280 × 160 points on the Retina display after a show on the 1x one).
+    nudge_layout(window, Some(size));
+    log_window_frame(window, "panel");
     // The focused panel handles Escape itself; only the popup needs the global registration (T056).
     Ok(())
 }
@@ -855,6 +895,14 @@ fn hide_quick_with(app: &AppHandle, restore: bool) {
     }
     if was_screen && restore {
         platform::services().restore_capture_target();
+    }
+    // Give activation back to the app that was active before the panel (FR-030), unless a main
+    // window (Settings from ⌘,, the update window, Setup) is being opened and takes over.
+    let main_window_taking_over =
+        main_window_keeps_focus(*MAIN_REQUESTED_AT.lock(), std::time::Instant::now())
+            || any_main_window(app, |window| window.is_visible().unwrap_or(false));
+    if !main_window_taking_over {
+        let _ = app.run_on_main_thread(|| platform::services().end_typing());
     }
     // Escape belongs to the popup: hiding the panel must not unregister it.
 }
@@ -985,9 +1033,107 @@ pub fn clamp_update_height(requested: f64) -> f64 {
 
 /// Fits the open update window to its content; the width stays, so does the top-left corner.
 pub fn resize_update_window(app: &AppHandle, height: f64) {
+    *UPDATE_CONTENT_HEIGHT.lock() = Some(height);
+    apply_update_height(app);
+}
+
+/// The content height the update page asked for last (CSS px = points).
+static UPDATE_CONTENT_HEIGHT: parking_lot::Mutex<Option<f64>> = parking_lot::Mutex::new(None);
+
+/// Points of the window that the page cannot use (the title bar area over the webview), learned
+/// from the page's own viewport report: 0.1.9 sized the window to the content and lost the bottom
+/// 32 points (FR-027).
+static UPDATE_CHROME: parking_lot::Mutex<f64> = parking_lot::Mutex::new(0.0);
+
+/// The window height that shows `content` points of page when `chrome` points are not the page's.
+pub fn update_window_height(content: f64, chrome: f64) -> f64 {
+    // The limits are for the page; the chrome comes on top, or a page at the cap is cut again.
+    clamp_update_height(content) + chrome.clamp(0.0, 120.0)
+}
+
+fn apply_update_height(app: &AppHandle) {
+    let Some(content) = *UPDATE_CONTENT_HEIGHT.lock() else {
+        return;
+    };
     if let Some(window) = app.get_webview_window("update") {
-        let _ = window.set_size(LogicalSize::new(UPDATE_WIDTH, clamp_update_height(height)));
+        let height = update_window_height(content, *UPDATE_CHROME.lock());
+        let _ = window.set_size(LogicalSize::new(UPDATE_WIDTH, height));
+        info!("update window: content {content} pt -> window {height} pt");
+        log_window_frame(&window, "update (resized)");
     }
+}
+
+/// A page reported its viewport (FR-028). For the update window the gap between the window's
+/// height and the page's height is the chrome; when it changes, the last request is re-applied.
+pub fn note_viewport(app: &AppHandle, window: &WebviewWindow, css_height: f64) {
+    if window.label() != "update" {
+        return;
+    }
+    let (Ok(size), Ok(scale)) = (window.inner_size(), window.scale_factor()) else {
+        return;
+    };
+    let chrome = (size.to_logical::<f64>(scale).height - css_height).max(0.0);
+    let changed = {
+        let mut known = UPDATE_CHROME.lock();
+        let changed = (*known - chrome).abs() >= 1.0;
+        if changed {
+            *known = chrome;
+        }
+        changed
+    };
+    if changed {
+        info!("update window: page area is {chrome} pt shorter than the window");
+        apply_update_height(app);
+    }
+}
+
+/// `--layout-probe` (spec 004 Revision 3 diagnosis): opens the panel under a tray-like anchor at the
+/// top of every display, then the update window, logging where each lands; quits at the end.
+pub fn layout_probe(app: &AppHandle) {
+    std::thread::sleep(std::time::Duration::from_secs(4));
+    let monitors = monitor_snapshots(app);
+    info!(
+        "layout probe: monitors (logical frame, scale) = {:?}",
+        monitors
+            .iter()
+            .map(|m| (m.frame, m.scale))
+            .collect::<Vec<_>>()
+    );
+    for round in 0..2 {
+        for monitor in &monitors {
+            let icon = Rect {
+                x: monitor.frame.x + monitor.frame.width - 200.0,
+                y: monitor.frame.y,
+                width: 22.0,
+                height: 24.0,
+            };
+            info!(
+                "layout probe: round {round}, panel on monitor {} (scale {})",
+                monitor.index, monitor.scale
+            );
+            let _ = show_quick(app, PanelAnchor::TrayIcon(icon));
+            std::thread::sleep(std::time::Duration::from_millis(2500));
+            hide_quick_keep_focus(app);
+            std::thread::sleep(std::time::Duration::from_millis(800));
+        }
+    }
+    info!("layout probe: settings");
+    show_settings(app);
+    std::thread::sleep(std::time::Duration::from_secs(4));
+    if let Some(window) = app.get_webview_window("settings") {
+        log_window_frame(&window, "settings (probe)");
+        std::thread::sleep(std::time::Duration::from_millis(600));
+        let _ = window.close();
+    }
+    info!("layout probe: update window");
+    open_update_window(app, "check");
+    std::thread::sleep(std::time::Duration::from_secs(6));
+    if let Some(window) = app.get_webview_window("update") {
+        log_window_frame(&window, "update (probe end)");
+    }
+    std::thread::sleep(std::time::Duration::from_secs(1));
+    info!("layout probe: done");
+    app.exit(0);
 }
 
 /// Opens (or focuses) the update dialog: 600 wide, as tall as its content (260 while checking, 460
@@ -1148,7 +1294,8 @@ fn show_ready_window(app: &AppHandle, window: &WebviewWindow) {
         }
         let _ = window.show();
         let _ = window.set_focus();
-        nudge_layout(&window);
+        nudge_layout(&window, None);
+        log_window_frame(&window, "main window");
         // The popup that asked for this window stayed until now, so Verso still owned the
         // foreground when the window took the focus (T035).
         if MAIN_WINDOWS.contains(&window.label()) && POPUP_HIDE_PENDING.load(Ordering::SeqCst) {
@@ -1162,12 +1309,19 @@ fn show_ready_window(app: &AppHandle, window: &WebviewWindow) {
 
 /// 1-pt nudge: forces a layout pass on a webview that painted before being shown, so its first
 /// frame is never blank (R13). Used by the main windows and the quick panel (T137).
-fn nudge_layout(window: &WebviewWindow) {
-    if let Ok(size) = window.inner_size() {
-        let scale = window.scale_factor().unwrap_or(1.0);
-        let logical = size.to_logical::<f64>(scale);
-        let _ = window.set_size(LogicalSize::new(logical.width, logical.height - 1.0));
-        let _ = window.set_size(LogicalSize::new(logical.width, logical.height));
+fn nudge_layout(window: &WebviewWindow, intended: Option<Size>) {
+    // A window that may just have changed display passes its intended size; reading the pixel size
+    // back and dividing by the scale is only safe for a window that stays where it was created.
+    let logical = match intended {
+        Some(size) => Some((size.width, size.height)),
+        None => window.inner_size().ok().map(|size| {
+            let size = size.to_logical::<f64>(window.scale_factor().unwrap_or(1.0));
+            (size.width, size.height)
+        }),
+    };
+    if let Some((width, height)) = logical {
+        let _ = window.set_size(LogicalSize::new(width, height - 1.0));
+        let _ = window.set_size(LogicalSize::new(width, height));
     }
 }
 

@@ -343,6 +343,15 @@ pub trait PlatformServices: Send + Sync {
     /// Draws the Settings sidebar material (macOS sidebar vibrancy, Windows Mica).
     fn apply_settings_material(&self, _window: &tauri::WebviewWindow, _appearance: &Appearance) {}
 
+    /// Spec 004 FR-030: the panel opened for typing. On macOS Verso becomes the active app (input
+    /// methods such as VietTelex follow the active app), remembering the app that was active.
+    /// Main thread.
+    fn activate_for_typing(&self) {}
+
+    /// The panel closed: the remembered app becomes active again, but only while Verso is still the
+    /// active app (a click into another app already chose that app). Main thread.
+    fn end_typing(&self) {}
+
     // ---- spec 004: screen translate. Every method defaults to "unsupported". ----
 
     fn ocr_availability(&self) -> OcrAvailability {

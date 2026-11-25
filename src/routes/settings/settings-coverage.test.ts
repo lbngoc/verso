@@ -37,6 +37,7 @@ const OWNERS: Record<string, string> = {
   "shortcuts.speak": "Shortcuts.svelte",
   "shortcuts.quick": "Shortcuts.svelte",
   quick_paste_clipboard: "Shortcuts.svelte",
+  auto_translate: "PopupPanel.svelte",
   theme: "Appearance.svelte",
   accent: "Appearance.svelte",
   launch_at_login: "General.svelte",

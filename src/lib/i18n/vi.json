@@ -1,6 +1,6 @@
 {
   "about.automatic": "Tự động kiểm tra bản cập nhật",
-  "about.automatic_hint": "Mỗi ngày một lần, Verso hỏi GitHub phiên bản mới nhất. Yêu cầu không chứa văn bản hay mã nhận dạng nào.",
+  "about.automatic_hint": "Khoảng 4 tiếng một lần, Verso hỏi GitHub phiên bản mới nhất. Yêu cầu không chứa văn bản hay mã nhận dạng nào.",
   "about.available": "Đã có phiên bản {version}.",
   "about.check_failed": "Không kết nối được dịch vụ cập nhật. Hãy thử lại sau.",
   "about.check_now": "Kiểm tra ngay",
@@ -47,7 +47,6 @@
   "error.report_problem": "Báo lỗi",
   "error.timeout": "Dịch vụ dịch phản hồi quá lâu. Hãy thử lại.",
   "error.unsupported_pair": "Engine không hỗ trợ cặp ngôn ngữ này.",
-  "notice.fallback": "{to} đã trả lời sau khi {from} lỗi ({reason}).",
   "notice.not_restored": "Không thể khôi phục bộ nhớ tạm.",
   "notice.partial_restore": "Bộ nhớ tạm chỉ được khôi phục một phần; bỏ qua các định dạng: {formats}",
   "notice.redirected": "Đã dịch sang {target} vì văn bản nguồn đã là {source}.",
@@ -69,7 +68,7 @@
   "onboarding.step_permission": "Bước 2/2",
   "onboarding.subtitle": "Dịch văn bản đã chọn hoặc tự nhập ngay lập tức, không cần rời ứng dụng đang dùng.",
   "onboarding.title": "Chào mừng đến Verso",
-  "onboarding.updates_body": "Mỗi ngày một lần, Verso hỏi GitHub phiên bản mới nhất. Yêu cầu không chứa văn bản hay mã nhận dạng nào.",
+  "onboarding.updates_body": "Khoảng 4 tiếng một lần, Verso hỏi GitHub phiên bản mới nhất. Yêu cầu không chứa văn bản hay mã nhận dạng nào.",
   "onboarding.updates_title": "Tự động kiểm tra bản cập nhật",
   "popup.close": "Đóng",
   "popup.copied": "Đã sao chép",
@@ -244,5 +243,17 @@
   "tray.translate_screen": "Dịch vùng màn hình",
   "permission.accessibility_name": "Trợ năng",
   "permission.accessibility_body": "Cho phép Verso đọc đoạn văn bạn chọn trong các ứng dụng khác.",
-  "permission.screen_recording_row_body": "Cho phép Verso đọc chữ trong vùng màn hình bạn chọn. Ảnh không bao giờ được lưu."
+  "permission.screen_recording_row_body": "Cho phép Verso đọc chữ trong vùng màn hình bạn chọn. Ảnh không bao giờ được lưu.",
+  "quick.auto_cycle": "Tự dịch khi gõ: bấm để đổi nhanh / chậm / tắt",
+  "quick.auto_fast": "nhanh",
+  "quick.auto_off": "tắt",
+  "quick.auto_slow": "chậm",
+  "settings.auto_translate": "Tự dịch khi gõ",
+  "settings.auto_translate_fast": "Nhanh",
+  "settings.auto_translate_hint": "Chế độ chậm gửi ít yêu cầu hơn, nên các dịch vụ miễn phí ít bắt bạn chờ. Nhấn Enter luôn dịch ngay.",
+  "settings.auto_translate_off": "Tắt (nhấn Enter)",
+  "settings.auto_translate_slow": "Chậm",
+  "settings.card_typing": "Khi gõ trong panel",
+  "quick.status_auto": "Tự dịch: {mode}",
+  "quick.status_press_enter": "Nhấn ↵ để dịch"
 }

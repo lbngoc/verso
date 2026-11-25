@@ -3,8 +3,7 @@
 use std::time::Duration;
 
 use verso_lib::updater::{
-    is_newer, is_prerelease, should_check, should_offer, wait_before_check, Progress,
-    ProgressTracker,
+    is_newer, is_prerelease, should_check, should_offer, CheckSchedule, Progress, ProgressTracker,
 };
 
 #[test]
@@ -41,14 +40,13 @@ fn no_check_before_onboarding_finishes() {
 }
 
 #[test]
-fn schedule_is_thirty_seconds_then_every_24_hours() {
-    assert_eq!(wait_before_check(0), Duration::from_secs(30));
-    for attempt in 1..5 {
-        assert_eq!(
-            wait_before_check(attempt),
-            Duration::from_secs(24 * 60 * 60)
-        );
-    }
+fn the_schedule_checks_every_four_hours_of_wall_clock_time() {
+    let start = std::time::SystemTime::UNIX_EPOCH + Duration::from_secs(1_800_000_000);
+    let mut schedule = CheckSchedule::new();
+    assert!(schedule.due(start));
+    schedule.succeeded(start, 0);
+    assert!(!schedule.due(start + Duration::from_secs(3 * 3600)));
+    assert!(schedule.due(start + Duration::from_secs(4 * 3600)));
 }
 
 // ---- spec 004 (T013): the progress bar ----

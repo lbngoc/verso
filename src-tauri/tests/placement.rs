@@ -468,3 +468,15 @@ fn only_a_keyboard_open_records_the_app_in_front() {
     assert!(!records_capture_target(PanelAnchor::TrayIcon(rect)));
     assert!(!records_capture_target(PanelAnchor::Region(rect)));
 }
+
+#[test]
+fn the_update_window_adds_the_chrome_the_page_cannot_use() {
+    // 0.1.9 on the owner's Mac: the window was 220 pt but the page only 188 pt, so the bottom buttons
+    // were cut off. The window is the content plus that gap (spec 004 FR-027).
+    use verso_lib::window_manager::{update_window_height, UPDATE_MAX_HEIGHT, UPDATE_MIN_HEIGHT};
+    assert_eq!(update_window_height(500.0, 32.0), 532.0);
+    assert_eq!(update_window_height(100.0, 32.0), UPDATE_MIN_HEIGHT + 32.0);
+    assert_eq!(update_window_height(500.0, -5.0), 500.0);
+    // A page at the cap still gets its chrome on top (the offer with long notes).
+    assert_eq!(update_window_height(900.0, 32.0), UPDATE_MAX_HEIGHT + 32.0);
+}

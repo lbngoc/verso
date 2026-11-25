@@ -53,7 +53,7 @@ ignores it and writes it back as `false`.
 
 The first launch offers **Check for updates automatically**, pre-checked, with an explanation of the
 request. Leave it on and Verso asks `github.com` for one file, `latest.json`, about 30 seconds after setup
-finishes and then once a day; turn it off (in the introduction or later in **Settings › About**) and Verso
+finishes and then about every 4 hours (again 30 minutes after a failed check); turn it off (in the introduction or later in **Settings › About**) and Verso
 makes no update request at all. The request is an ordinary HTTPS download of a public file: it carries no
 text, no selection, no clipboard content, no settings and no identifier. GitHub sees what it sees for any
 public download (an IP address and a user agent), under its own policy:

@@ -1,4 +1,4 @@
-import type { EngineAttempt, Language, TranslationResult } from "./ipc";
+import type { Language, TranslationResult } from "./ipc";
 
 export interface NoticeItem {
   key: string;
@@ -16,22 +16,8 @@ export function buildNotices(result: TranslationResult, extra: NoticeItem[] = []
     });
   }
 
-  const failed = result.attempts.filter(
-    (attempt: EngineAttempt) => attempt.outcome.outcome === "error",
-  );
-  if (failed.length > 0) {
-    const lastFailure = failed[failed.length - 1];
-    if (lastFailure.outcome.outcome === "error") {
-      notices.push({
-        key: "notice.fallback",
-        params: {
-          from: engineName(lastFailure.engine_id),
-          to: engineName(result.engine_id),
-          reason: lastFailure.outcome.error.kind,
-        },
-      });
-    }
-  }
+  // Another engine answering after one failed is not the user's concern: the engine name already
+  // says who answered, and the failure stays in the log (spec 004 FR-032).
 
   return [...notices, ...extra];
 }

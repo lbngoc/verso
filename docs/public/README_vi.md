@@ -31,7 +31,7 @@
 brew install --cask lbngoc/verso/verso
 ```
 
-> **Cập nhật:** Verso tự cập nhật sau khi bạn đồng ý kiểm tra hằng ngày nên không cần `brew upgrade`
+> **Cập nhật:** Verso tự cập nhật sau khi bạn đồng ý kiểm tra tự động nên không cần `brew upgrade`
 > (cask đặt `auto_updates`).
 
 ### 🪟 winget (Windows)
@@ -40,7 +40,7 @@ brew install --cask lbngoc/verso/verso
 winget install lbngoc.Verso
 ```
 
-> **Cập nhật:** Verso tự cập nhật sau khi bạn đồng ý kiểm tra hằng ngày nên không cần `winget upgrade`.
+> **Cập nhật:** Verso tự cập nhật sau khi bạn đồng ý kiểm tra tự động nên không cần `winget upgrade`.
 > SmartScreen vẫn hỏi xác nhận một lần vì bộ cài chưa được ký số.
 
 ### 📦 Tải thủ công
@@ -88,7 +88,7 @@ Bộ cài không cần quyền quản trị.
 - 🪟 **Bảng dịch nhanh** — `Alt+Shift+T` (hoặc bấm biểu tượng khay) mở bảng cho văn bản bạn tự nhập; `Tab` đổi ngôn ngữ
 - 🔁 **Hai engine, tự chuyển khi lỗi** — Google Translate và Microsoft Translator (Bing); không cần tài khoản hay API key
 - 🎯 **Popup bấm phím là dùng** — nhận phím ngay khi có kết quả: `c` sao chép, `s` đọc, `-` `=` `0` cỡ chữ
-- 🔄 **Tự cập nhật** — bản tải về được ký và xác minh, sau khi bạn đồng ý kiểm tra hằng ngày
+- 🔄 **Tự cập nhật** — bản tải về được ký và xác minh, sau khi bạn đồng ý kiểm tra tự động
 
 ### 📋 Đầy đủ
 

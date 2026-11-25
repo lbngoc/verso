@@ -68,6 +68,19 @@ right-clicking Verso in Applications and choosing **Open**.)
   in **Settings › General › Screen translation** if Automatic guesses wrong. You can also type the text
   into the panel yourself, or choose **Try another region**.
 
+## Vietnamese accents get lost when typing in the panel (macOS)
+
+Some Vietnamese input methods offer a typing mode that deletes the letter you just typed with a
+simulated Backspace and then inserts the accented letter. In Verso's panel these two steps can arrive
+in the wrong order, so the accent disappears (for example **dd** gives **d** instead of **đ**). Ordinary
+macOS text fields are not affected, which is why other apps type fine.
+
+- **VietTelex:** open VietTelex's settings, tab **Ứng dụng**, find Verso and set its typing mode
+  (**Cơ chế gõ**) to **Gạch chân**. The menu item **Cơ chế gõ** shows the mode Verso uses right now;
+  **Phím thật** ("Tap backspace") is the one that loses accents.
+- **Other input methods** (EVKey, OpenKey…): if they have a per-app option, choose the mode that shows
+  an underline while you type (marked text) for Verso.
+
 ## Where the logs are
 
 - macOS: `~/Library/Logs/app.versotranslate/verso.log`

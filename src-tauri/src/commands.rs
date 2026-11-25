@@ -560,6 +560,34 @@ pub fn quick_screen_prepared(seq: u64) {
     window_manager::quick_screen_prepared(seq);
 }
 
+/// Spec 004 T106: whether the panel traces key and input events (started with `--trace-input`).
+#[tauri::command]
+pub fn input_trace_enabled() -> bool {
+    std::env::args().any(|argument| argument == "--trace-input")
+}
+
+/// One traced input event (no typed characters, see `src/lib/inputTrace.ts`).
+#[tauri::command]
+pub fn trace_input(line: String) {
+    log::info!("input trace: {line}");
+}
+
+/// Spec 004 FR-028: a page's content scale and CSS size, logged next to its window frame.
+#[tauri::command]
+pub fn report_viewport(
+    app: AppHandle,
+    window: tauri::WebviewWindow,
+    dpr: f64,
+    width: f64,
+    height: f64,
+) {
+    log::info!(
+        "viewport: {} dpr={dpr} css={width}x{height}",
+        window.label()
+    );
+    window_manager::note_viewport(&app, &window, height);
+}
+
 /// The popup rendered the reset "Translating" state; the show may go on (FR-022).
 #[tauri::command]
 pub fn popup_prepared(seq: u64) {

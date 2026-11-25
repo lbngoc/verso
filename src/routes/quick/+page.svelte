@@ -7,7 +7,10 @@
   import { setUiLanguage, t as translator } from "$lib/i18n";
   import { initAppearance } from "$lib/stores/appearance";
   import { initTheme } from "$lib/stores/theme";
-  import { fontPx } from "$lib/textSize";
+  import EngineLabel from "$lib/components/EngineLabel.svelte";
+  import type { FooterStatus } from "$lib/footerStatus";
+  import { traceInput } from "$lib/inputTrace";
+  import { panelFontPx } from "$lib/textSize";
   import { isRtl, type NoticeItem } from "$lib/notices";
   import { buildNotices } from "$lib/notices";
   import { quickKey, type QuickFocus } from "./keymap";
@@ -24,9 +27,9 @@
     type QuickScreenEvent,
     type SettingsProfile,
     type TranslationResult,
+    type AutoTranslate,
   } from "$lib/ipc";
 
-  const DEBOUNCE_MS = 400;
   const MIN_REQUEST_INTERVAL_MS = 1000;
 
   let textarea: HTMLTextAreaElement | undefined = $state();
@@ -44,7 +47,6 @@
   let copied = $state(false);
   let speaking = $state(false);
   let step = $state(0);
-  let isMac = $state(true);
   let focus = $state<QuickFocus>("input");
   let captureFailure = $state<CaptureFailure | null>(null);
   let lastTranslated = "";
@@ -60,21 +62,43 @@
   let unlisteners: Array<() => void> = [];
 
   // The keys that work right now are tinted; the others stay quiet (FR-048).
-  const footerKeys = $derived([
-    { label: "↵", text: $translator("quick.key_translate"), active: focus === "input" },
-    {
-      label: "Esc",
-      text:
-        focus === "input" && result
-          ? $translator("quick.key_back")
-          : $translator("quick.key_close"),
-      active: true,
-    },
-    { label: "⇥", text: $translator("quick.key_swap"), active: false },
-    { label: isMac ? "⌘," : "Ctrl+,", text: $translator("quick.key_settings"), active: false },
-  ]);
+  // Translate as you type (spec 004 FR-033): the delay after the last keystroke, none when off.
+  const autoMode = $derived<AutoTranslate>(settings?.auto_translate ?? "slow");
+  const AUTO_DELAY_MS: Record<AutoTranslate, number | null> = { fast: 400, slow: 1000, off: null };
+  const NEXT_MODE: Record<AutoTranslate, AutoTranslate> = {
+    fast: "slow",
+    slow: "off",
+    off: "fast",
+  };
+
+  async function cycleAutoMode(): Promise<void> {
+    const next = NEXT_MODE[autoMode];
+    const saved = await commands.updateSettings({ auto_translate: next }).catch(() => null);
+    if (saved) settings = saved;
+  }
 
   const notices = $derived(result ? buildNotices(result) : ([] as NoticeItem[]));
+
+  const noticeText = $derived(
+    notices.length ? $translator(notices[0].key, notices[0].params ?? {}) : "",
+  );
+
+  // The status bar's right side (FR-034): a notice when there is one, otherwise the
+  // auto-translate mode or, when it is off, the Enter tip; a click cycles fast → slow → off.
+  const footerStatus = $derived<FooterStatus>(
+    noticeText
+      ? { text: noticeText }
+      : {
+          text:
+            autoMode === "off"
+              ? $translator("quick.status_press_enter")
+              : $translator("quick.status_auto", {
+                  mode: $translator(`quick.auto_${autoMode}`),
+                }),
+          onclick: () => void cycleAutoMode(),
+          title: $translator("quick.auto_cycle"),
+        },
+  );
   const rtl = $derived(result ? isRtl(result.direction_used.target, languages) : false);
   const direction = $derived(
     result
@@ -83,11 +107,8 @@
   );
   const detectedLabel = $derived(detected ? detected.toUpperCase() : "");
   const mac = typeof navigator !== "undefined" && navigator.userAgent.includes("Mac");
-  const resultFontSize = $derived(fontPx(step, mac));
-  const noticeText = $derived(
-    notices.length ? $translator(notices[0].key, notices[0].params ?? {}) : "",
-  );
-
+  // One text size for the source field and the result (spec 004 FR-031).
+  const panelFontSize = $derived(panelFontPx(step, mac));
   // Applies the reducer's state to the page fields it mirrors.
   function dispatch(event: SessionEvent): void {
     session = screenSession(session, event);
@@ -239,7 +260,8 @@
 
   function schedule(): void {
     if (debounceTimer) clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(runTranslation, DEBOUNCE_MS);
+    const delay = AUTO_DELAY_MS[autoMode];
+    if (delay !== null) debounceTimer = setTimeout(runTranslation, delay);
     commands
       .detectLanguage(text)
       .then((language) => {
@@ -317,6 +339,8 @@
         metaKey: event.metaKey,
         ctrlKey: event.ctrlKey,
         altKey: event.altKey,
+        isComposing: event.isComposing,
+        keyCode: event.keyCode,
       },
       Boolean(result),
     );
@@ -380,7 +404,7 @@
   onMount(() => {
     let cancelled = false;
     void (async () => {
-      isMac = (await initAppearance()).os === "macos";
+      await initAppearance();
       settings = await initTheme();
       if (!settings) settings = await commands.getSettings().catch(() => null);
       languages = await commands.listLanguages().catch(() => []);
@@ -427,6 +451,7 @@
 
       await tick();
       textarea?.focus();
+      if (textarea) unlisteners.push(await traceInput(textarea));
       // Created on first use (T122): the listeners are in place, so the backend may show the panel
       // and send a queued prefill. Not inside requestAnimationFrame: WebKit pauses it while the
       // window is hidden, which it is until this call.
@@ -446,7 +471,12 @@
   });
 </script>
 
-<main class="material-surface quick" onpointerdown={focusCurrentWindow}>
+<main
+  class="material-surface quick"
+  style:--panel-text={`${panelFontSize}px`}
+  style:--panel-line="1.45"
+  onpointerdown={focusCurrentWindow}
+>
   <header class="quick-header">
     <LanguagePicker
       {languages}
@@ -549,9 +579,9 @@
     {:else if result}
       <div class="result-meta">
         <span class="direction">{direction}</span>
-        <span class="engine">{result.engine_id}</span>
+        <EngineLabel engineId={result.engine_id} />
       </div>
-      <p class="result-text" class:rtl style:font-size={`${resultFontSize}px`}>{result.text}</p>
+      <p class="result-text" class:rtl>{result.text}</p>
     {:else if loading}
       <div class="loading">
         <span class="spinner" aria-hidden="true"></span>
@@ -569,8 +599,8 @@
     {copied}
     {speaking}
     canSpeak={Boolean(result)}
-    notice={noticeText}
-    keys={footerKeys}
+    canCopy={Boolean(result)}
+    status={footerStatus}
     keysActive={focus === "result" && Boolean(result)}
     oncopy={() => void copyResult()}
     onspeak={() => void speakResult()}
@@ -646,19 +676,28 @@
     text-decoration: underline;
   }
 
-  textarea {
-    width: 100%;
+  /* Source field and result share one box and one text style (spec 004 FR-031): same radius,
+     fill, stroke, padding, size and line height. */
+  textarea,
+  .result-area {
     box-sizing: border-box;
-    resize: none;
-    min-height: 72px;
-    max-height: 104px;
     border: none;
     border-radius: 10px;
     background: var(--surface-raised);
     box-shadow: inset 0 0 0 1px var(--stroke);
-    padding: 10px 36px 10px 12px;
-    font: inherit;
+    padding: 10px 12px;
+    font-family: inherit;
+    font-size: var(--panel-text);
+    line-height: var(--panel-line);
     color: var(--text);
+  }
+
+  textarea {
+    width: 100%;
+    resize: none;
+    min-height: 72px;
+    max-height: 104px;
+    padding-right: 36px;
     user-select: text;
     flex: none;
   }
@@ -675,8 +714,6 @@
     min-height: 80px;
     overflow: auto;
     user-select: text;
-    border-radius: 8px;
-    padding: 6px 4px;
   }
 
   .result-area.focused {
@@ -697,14 +734,12 @@
     color: var(--text-secondary);
   }
 
-  .engine {
-    font-size: 11px;
-    color: var(--text-tertiary);
-  }
-
-  .result-text {
+  /* Wins over the platform stylesheets' larger popup result size: the panel result matches its
+     source field (FR-031). */
+  .result-area .result-text {
     margin: 0;
-    line-height: var(--line-height);
+    font-size: inherit;
+    line-height: inherit;
     white-space: pre-wrap;
     overflow-wrap: anywhere;
     color: var(--text);
@@ -718,7 +753,6 @@
   .placeholder {
     margin: 0;
     color: var(--text-tertiary);
-    font-size: 12px;
   }
 
   .loading {

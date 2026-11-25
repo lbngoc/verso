@@ -14,6 +14,7 @@ export interface QuickScreenEvent {
 
 export type Origin = "selection" | "typed" | "screen";
 export type Theme = "system" | "light" | "dark";
+export type AutoTranslate = "fast" | "slow" | "off";
 export type Material = "glass" | "vibrancy" | "acrylic" | "opaque";
 export type UiTheme = "light" | "dark";
 
@@ -121,6 +122,8 @@ export interface SettingsProfile {
   check_updates: boolean;
   telemetry_opt_in: boolean;
   quick_paste_clipboard: boolean;
+  /** Translate as you type in the panel (spec 004 FR-033). */
+  auto_translate: AutoTranslate;
   accent: Accent;
   text_size_step: number;
   skipped_update_version: string | null;

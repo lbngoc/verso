@@ -375,9 +375,10 @@
     />
     <PopupFooter
       canSpeak={false}
+      canCopy={false}
       oncopy={() => undefined}
       onspeak={() => undefined}
-      hint={$translator("popup.esc_hint")}
+      status={{ text: $translator("popup.esc_hint") }}
     />
   {:else}
     <PopupHeader
@@ -404,8 +405,9 @@
       {copied}
       {speaking}
       canSpeak={voiceAvailable !== false}
-      notice={noticeText}
-      keys={[{ label: "Esc", text: $translator("quick.key_close"), active: true }]}
+      status={noticeText
+        ? { text: noticeText }
+        : { key: "Esc", text: $translator("quick.key_close") }}
       oncopy={() => void copyResult()}
       onspeak={() => void speakResult()}
     />

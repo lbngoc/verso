@@ -2,13 +2,14 @@
 //!
 //! The policy lives here as pure functions so it can be tested without a server: when a check is
 //! allowed (never before onboarding ends, never when the user turned it off), when a release is an
-//! offer (newer than the running version, never a pre-release), and the 30 s / 24 h schedule.
+//! offer (newer than the running version, never a pre-release), and the schedule (30 s after start,
+//! then every 4 hours of wall-clock time, spec 004 FR-029).
 //!
 //! The network side is `tauri-plugin-updater`; the private key never reaches the app, and the
 //! signature is verified against the built-in public key before anything is installed.
 
 use std::sync::OnceLock;
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 
 use parking_lot::Mutex;
 use serde::Serialize;
@@ -18,9 +19,73 @@ use tauri_plugin_updater::Update;
 
 use crate::commands::AppState;
 
-/// First check 30 s after start, then once a day (contracts/update-channel.md).
+/// First check 30 s after start (contracts/update-channel.md), then every 4 hours of wall-clock time
+/// (spec 004 FR-029; was once a day).
 pub const FIRST_CHECK_DELAY: Duration = Duration::from_secs(30);
-pub const CHECK_INTERVAL: Duration = Duration::from_secs(24 * 60 * 60);
+pub const CHECK_INTERVAL: Duration = Duration::from_secs(4 * 60 * 60);
+/// A failed check (offline, server busy) is tried again sooner.
+pub const RETRY_AFTER_FAILURE: Duration = Duration::from_secs(30 * 60);
+/// How often the loop looks at the clock: a check due after a sleep follows within this much.
+pub const SCHEDULE_TICK: Duration = Duration::from_secs(15 * 60);
+/// Spread of the interval, so installs do not all ask at the same minute (±10 % of 4 h).
+pub const JITTER_MAX_SECS: i64 = 24 * 60;
+
+/// When the next automatic check is due, measured on the wall clock (`SystemTime`), not on a
+/// monotonic timer: on macOS a monotonic sleep stops while the machine sleeps, so the old daily
+/// timer could slip by days. Pure, so it is tested without waiting.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct CheckSchedule {
+    last_success: Option<SystemTime>,
+    last_failure: Option<SystemTime>,
+    /// Added to the interval after each success, in seconds (−JITTER_MAX_SECS..=JITTER_MAX_SECS).
+    jitter_secs: i64,
+}
+
+impl CheckSchedule {
+    pub const fn new() -> Self {
+        Self {
+            last_success: None,
+            last_failure: None,
+            jitter_secs: 0,
+        }
+    }
+
+    /// Whether a check should run at `now`.
+    pub fn due(&self, now: SystemTime) -> bool {
+        let elapsed = |since: SystemTime| now.duration_since(since).ok();
+        let failure_is_newer = match (self.last_failure, self.last_success) {
+            (Some(failure), Some(success)) => failure > success,
+            (Some(_), None) => true,
+            _ => false,
+        };
+        if failure_is_newer {
+            // A clock set back makes `elapsed` fail: check rather than wait for an unknown time.
+            return self
+                .last_failure
+                .and_then(elapsed)
+                .map_or(true, |waited| waited >= RETRY_AFTER_FAILURE);
+        }
+        match self.last_success {
+            None => true,
+            Some(success) => elapsed(success).map_or(true, |waited| {
+                let interval = CHECK_INTERVAL.as_secs() as i64 + self.jitter_secs;
+                waited.as_secs() as i64 >= interval
+            }),
+        }
+    }
+
+    /// A check finished (an offer or "up to date"); `jitter_secs` spreads the next interval.
+    pub fn succeeded(&mut self, now: SystemTime, jitter_secs: i64) {
+        self.last_success = Some(now);
+        self.last_failure = None;
+        self.jitter_secs = jitter_secs.clamp(-JITTER_MAX_SECS, JITTER_MAX_SECS);
+    }
+
+    /// A check failed; the next one is due after `RETRY_AFTER_FAILURE`.
+    pub fn failed(&mut self, now: SystemTime) {
+        self.last_failure = Some(now);
+    }
+}
 
 /// The offer announced to the UI and kept for the Install button (spec 009, data-model `UpdateOffer`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -42,15 +107,6 @@ fn pending() -> &'static Mutex<Option<Update>> {
 
 fn pending_bytes() -> &'static Mutex<Option<Vec<u8>>> {
     PENDING_BYTES.get_or_init(|| Mutex::new(None))
-}
-
-/// How long to wait before check number `attempt` (0 = the first one).
-pub fn wait_before_check(attempt: u32) -> Duration {
-    if attempt == 0 {
-        FIRST_CHECK_DELAY
-    } else {
-        CHECK_INTERVAL
-    }
 }
 
 /// `1.2.3` → `(1, 2, 3)`; anything else has no comparable core and is never offered.
@@ -156,38 +212,44 @@ fn announce(app: &AppHandle, info: &UpdateInfo) {
     crate::tray::set_update_available(app, Some(&info.version));
 }
 
-/// Starts the automatic schedule. Nothing is requested before the onboarding choice is saved.
+/// Starts the automatic schedule. Nothing is requested before the onboarding choice is saved; then
+/// the first check follows about 30 s later and the next ones come every 4 hours of wall-clock time
+/// (a failed one again after 30 minutes). An offer only updates the tray item.
 pub fn start(app: AppHandle) {
     tauri::async_runtime::spawn(async move {
-        let mut attempt = 0u32;
+        let mut schedule = CheckSchedule::new();
         loop {
-            // Until onboarding ends, retry often: the first check should follow the user's choice by
-            // about 30 s, not wait for a start that already happened. Afterwards it is 30 s then daily.
-            let onboarding = app
+            let onboarded = app
                 .state::<AppState>()
                 .settings
                 .get()
                 .first_run_engine_choice_at
                 .is_some();
-            let wait = if onboarding {
-                wait_before_check(attempt)
+            // Before the first check (and until onboarding ends) look every 30 s; afterwards the
+            // clock is read every 15 minutes.
+            let wait = if onboarded && schedule != CheckSchedule::new() {
+                SCHEDULE_TICK
             } else {
                 FIRST_CHECK_DELAY
             };
             tokio::time::sleep(wait).await;
 
-            if !auto_check_enabled(&app) {
-                if onboarding {
-                    attempt = attempt.saturating_add(1);
-                }
+            if !onboarded || !auto_check_enabled(&app) || !schedule.due(SystemTime::now()) {
                 continue;
             }
-            attempt = attempt.saturating_add(1);
-
             match check(&app, false).await {
-                Ok(Some(info)) => announce(&app, &info),
-                Ok(None) => log::debug!("update check: up to date"),
-                Err(error) => log::warn!("update check failed: {error}"),
+                Ok(found) => {
+                    let jitter = rand::random_range(-JITTER_MAX_SECS..=JITTER_MAX_SECS);
+                    schedule.succeeded(SystemTime::now(), jitter);
+                    match found {
+                        Some(info) => announce(&app, &info),
+                        None => log::debug!("update check: up to date"),
+                    }
+                }
+                Err(error) => {
+                    schedule.failed(SystemTime::now());
+                    log::warn!("update check failed: {error}; trying again in 30 minutes");
+                }
             }
         }
     });
@@ -393,10 +455,53 @@ mod tests {
         assert!(should_offer("0.1.0", "0.2.0"));
     }
 
+    fn at(seconds: u64) -> SystemTime {
+        SystemTime::UNIX_EPOCH + Duration::from_secs(1_800_000_000 + seconds)
+    }
+
     #[test]
-    fn schedule_is_thirty_seconds_then_daily() {
-        assert_eq!(wait_before_check(0), Duration::from_secs(30));
-        assert_eq!(wait_before_check(1), Duration::from_secs(86_400));
-        assert_eq!(wait_before_check(7), Duration::from_secs(86_400));
+    fn the_first_check_is_due_at_once_then_every_four_hours() {
+        let mut schedule = CheckSchedule::new();
+        assert!(schedule.due(at(0)));
+        schedule.succeeded(at(0), 0);
+        assert!(!schedule.due(at(4 * 3600 - 1)));
+        assert!(schedule.due(at(4 * 3600)));
+    }
+
+    #[test]
+    fn a_check_is_due_right_after_a_long_sleep() {
+        // The wall clock moved 9 hours while the machine slept: due at the next tick.
+        let mut schedule = CheckSchedule::new();
+        schedule.succeeded(at(0), 0);
+        assert!(schedule.due(at(9 * 3600)));
+    }
+
+    #[test]
+    fn a_failed_check_is_retried_after_thirty_minutes() {
+        let mut schedule = CheckSchedule::new();
+        schedule.succeeded(at(0), 0);
+        schedule.failed(at(4 * 3600));
+        assert!(!schedule.due(at(4 * 3600 + 29 * 60)));
+        assert!(schedule.due(at(4 * 3600 + 30 * 60)));
+        schedule.succeeded(at(4 * 3600 + 30 * 60), 0);
+        assert!(!schedule.due(at(5 * 3600)));
+    }
+
+    #[test]
+    fn the_jitter_moves_the_interval_within_ten_percent() {
+        let mut schedule = CheckSchedule::new();
+        schedule.succeeded(at(0), 10_000);
+        // Clamped to +24 minutes.
+        assert!(!schedule.due(at(4 * 3600 + 24 * 60 - 1)));
+        assert!(schedule.due(at(4 * 3600 + 24 * 60)));
+        schedule.succeeded(at(0), -24 * 60);
+        assert!(schedule.due(at(4 * 3600 - 24 * 60)));
+    }
+
+    #[test]
+    fn a_clock_set_back_makes_the_check_due() {
+        let mut schedule = CheckSchedule::new();
+        schedule.succeeded(at(10_000), 0);
+        assert!(schedule.due(at(0)));
     }
 }

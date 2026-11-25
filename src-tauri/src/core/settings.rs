@@ -74,6 +74,34 @@ pub fn default_screen_shortcut() -> &'static str {
 }
 
 /// The screen translate module (spec 004): off until the user turns it on.
+/// When the panel translates while the user types (spec 004 FR-033). Unknown values fall back to
+/// the default, so a hand-edited file stays valid.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum AutoTranslate {
+    /// About 0.4 s after typing stops.
+    Fast,
+    /// About 1 s after typing stops: half the requests of `Fast`, still live.
+    #[default]
+    Slow,
+    /// Only Enter translates.
+    Off,
+}
+
+impl<'de> Deserialize<'de> for AutoTranslate {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let raw = String::deserialize(deserializer)?;
+        Ok(match raw.trim().to_ascii_lowercase().as_str() {
+            "fast" => AutoTranslate::Fast,
+            "off" => AutoTranslate::Off,
+            _ => AutoTranslate::Slow,
+        })
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct OcrSettings {
@@ -121,6 +149,8 @@ pub struct SettingsProfile {
     pub telemetry_opt_in: bool,
     /// Paste the clipboard into the quick panel when nothing is selected (FR-011). Off by default.
     pub quick_paste_clipboard: bool,
+    /// Translate as you type in the panel: fast, slow (default) or off (spec 004 FR-033).
+    pub auto_translate: AutoTranslate,
     /// Accent colour source (FR-027): the app teal, or the system accent behind a contrast guard.
     pub accent: Accent,
     /// Result text size step, clamped to −2…=4 (FR-005).
@@ -154,6 +184,7 @@ impl Default for SettingsProfile {
             check_updates: false,
             telemetry_opt_in: false,
             quick_paste_clipboard: false,
+            auto_translate: AutoTranslate::Slow,
             accent: Accent::App,
             text_size_step: 0,
             skipped_update_version: None,

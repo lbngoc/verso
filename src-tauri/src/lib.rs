@@ -203,6 +203,11 @@ pub fn run() {
                 });
             }
 
+            if std::env::args().any(|argument| argument == "--layout-probe") {
+                let handle = handle.clone();
+                std::thread::spawn(move || window_manager::layout_probe(&handle));
+            }
+
             if let Some(iterations) = self_test_iterations() {
                 let handle = handle.clone();
                 std::thread::spawn(move || window_manager::self_test(&handle, iterations));
@@ -240,6 +245,9 @@ pub fn run() {
             commands::quick_ready,
             commands::quick_screen_prepared,
             commands::popup_prepared,
+            commands::report_viewport,
+            commands::input_trace_enabled,
+            commands::trace_input,
             commands::hide_quick,
             commands::open_settings,
             commands::open_onboarding,

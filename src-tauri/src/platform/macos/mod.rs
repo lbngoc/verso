@@ -160,7 +160,36 @@ impl PlatformServices for MacosServices {
     fn apply_settings_material(&self, window: &WebviewWindow, appearance: &Appearance) {
         material::apply_settings(window, appearance);
     }
+
+    fn activate_for_typing(&self) {
+        let own = std::process::id() as i32;
+        let frontmost = objc2_app_kit::NSWorkspace::sharedWorkspace()
+            .frontmostApplication()
+            .map(|app| app.processIdentifier());
+        if let Some(pid) = frontmost.filter(|pid| *pid != own) {
+            PREVIOUS_APP.store(pid, std::sync::atomic::Ordering::SeqCst);
+        }
+        activate_app();
+    }
+
+    fn end_typing(&self) {
+        let Some(mtm) = objc2::MainThreadMarker::new() else {
+            return;
+        };
+        let pid = PREVIOUS_APP.swap(0, std::sync::atomic::Ordering::SeqCst);
+        if pid == 0 || !objc2_app_kit::NSApplication::sharedApplication(mtm).isActive() {
+            return;
+        }
+        if let Some(app) =
+            objc2_app_kit::NSRunningApplication::runningApplicationWithProcessIdentifier(pid)
+        {
+            app.activateWithOptions(objc2_app_kit::NSApplicationActivationOptions::empty());
+        }
+    }
 }
+
+/// The app that was active when the panel opened for typing (spec 004 FR-030); 0 when none.
+static PREVIOUS_APP: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(0);
 
 /// Makes Verso the active app after it became a regular app, so the menu bar (and its key equivalents
 /// such as Cmd+C, Cmd+V, Cmd+Q) is Verso's. Opening Settings from the non-activating quick panel left

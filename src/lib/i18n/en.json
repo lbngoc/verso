@@ -1,6 +1,6 @@
 {
   "about.automatic": "Check for updates automatically",
-  "about.automatic_hint": "Once a day Verso asks GitHub for the latest version. The request carries no text and no identifier.",
+  "about.automatic_hint": "About every 4 hours, Verso asks GitHub for the latest version. The request carries no text and no identifier.",
   "about.available": "Version {version} is available.",
   "about.check_failed": "Could not reach the update service. Try again later.",
   "about.check_now": "Check now",
@@ -47,7 +47,6 @@
   "error.report_problem": "Report a problem",
   "error.timeout": "The translation service took too long. Try again.",
   "error.unsupported_pair": "This language pair is not supported by the engine.",
-  "notice.fallback": "{to} answered after {from} failed ({reason}).",
   "notice.not_restored": "The clipboard could not be restored.",
   "notice.partial_restore": "The clipboard was partly restored; these formats were skipped: {formats}",
   "notice.redirected": "Translated into {target} because the source is already {source}.",
@@ -69,7 +68,7 @@
   "onboarding.step_permission": "Step 2 of 2",
   "onboarding.subtitle": "Translate selected or typed text instantly, without leaving the app you are in.",
   "onboarding.title": "Welcome to Verso",
-  "onboarding.updates_body": "Once a day, Verso asks GitHub for the latest version. The request carries no text and no identifier.",
+  "onboarding.updates_body": "About every 4 hours, Verso asks GitHub for the latest version. The request carries no text and no identifier.",
   "onboarding.updates_title": "Check for updates automatically",
   "popup.close": "Close",
   "popup.copied": "Copied",
@@ -244,5 +243,17 @@
   "tray.translate_screen": "Translate Screen Region",
   "permission.accessibility_name": "Accessibility",
   "permission.accessibility_body": "Lets Verso read the text you select in other apps.",
-  "permission.screen_recording_row_body": "Lets Verso read the text in the screen area you select. Images are never saved."
+  "permission.screen_recording_row_body": "Lets Verso read the text in the screen area you select. Images are never saved.",
+  "quick.auto_cycle": "Translate as you type: click to switch fast / slow / off",
+  "quick.auto_fast": "fast",
+  "quick.auto_off": "off",
+  "quick.auto_slow": "slow",
+  "settings.auto_translate": "Translate as you type",
+  "settings.auto_translate_fast": "Fast",
+  "settings.auto_translate_hint": "Slow sends fewer requests, so the free services are less likely to make you wait. Enter always translates at once.",
+  "settings.auto_translate_off": "Off (press Enter)",
+  "settings.auto_translate_slow": "Slow",
+  "settings.card_typing": "Typing in the panel",
+  "quick.status_auto": "Auto-translate: {mode}",
+  "quick.status_press_enter": "Press ↵ to translate"
 }

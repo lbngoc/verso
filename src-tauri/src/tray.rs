@@ -322,28 +322,52 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
-/// The tray icon's frame from a click event, in the logical points the placement maths uses
-/// (physical pixels divided by the scale of the monitor the icon is on).
-fn tray_icon_rect(app: &AppHandle, rect: tauri::Rect) -> crate::platform::Rect {
+/// The tray icon's frame for placing the panel, in the logical points the placement maths uses
+/// (spec 004 FR-026). The click happens on the icon, so the cursor at the click marks it, in points
+/// of the display whose menu bar or taskbar holds it. 0.1.9 converted the event's pixel rect with
+/// `monitor_from_point`, which picked the wrong display on a Retina 2x + external 1x setup whose
+/// displays share an edge (the panel opened in the wrong place).
+fn tray_icon_rect(_app: &AppHandle, rect: tauri::Rect) -> crate::platform::Rect {
+    let cursor = crate::platform::services().cursor_position();
+    let icon = icon_rect_at(cursor);
     let position = rect.position.to_physical::<f64>(1.0);
     let size = rect.size.to_physical::<f64>(1.0);
-    let scale = app
-        .monitor_from_point(position.x, position.y)
-        .ok()
-        .flatten()
-        .map_or(1.0, |monitor| monitor.scale_factor())
-        .max(0.5);
+    log::info!(
+        "tray click: raw position=({:.1},{:.1}) size=({:.1},{:.1}) cursor={cursor:?} -> icon={icon:?}",
+        position.x,
+        position.y,
+        size.width,
+        size.height
+    );
+    icon
+}
+
+/// A status-item-sized rectangle centred on `cursor`.
+pub fn icon_rect_at(cursor: crate::platform::Point) -> crate::platform::Rect {
+    const WIDTH: f64 = 22.0;
+    const HEIGHT: f64 = 24.0;
     crate::platform::Rect {
-        x: position.x / scale,
-        y: position.y / scale,
-        width: size.width / scale,
-        height: size.height / scale,
+        x: cursor.x - WIDTH / 2.0,
+        y: cursor.y - HEIGHT / 2.0,
+        width: WIDTH,
+        height: HEIGHT,
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_icon_rect_is_centred_on_the_click() {
+        // An external display above the built-in one has negative y; the rect stays on it.
+        let icon = icon_rect_at(crate::platform::Point {
+            x: 1989.0,
+            y: -1069.0,
+        });
+        assert_eq!(icon.x + icon.width / 2.0, 1989.0);
+        assert_eq!(icon.y + icon.height / 2.0, -1069.0);
+    }
 
     #[test]
     fn every_variant_decodes_and_is_square() {

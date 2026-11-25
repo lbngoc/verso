@@ -16,6 +16,15 @@ export function fontPx(step: number, mac: boolean): number {
   return Math.round((base * percentFor(step)) / 100);
 }
 
+/**
+ * The panel's text (source field and result alike, spec 004 FR-031): the system body size at the
+ * default step — 13 px on macOS, 14 px (Segoe UI) on Windows — scaled by the same step.
+ */
+export function panelFontPx(step: number, mac: boolean): number {
+  const base = mac ? 13 : 14;
+  return Math.round((base * percentFor(step)) / 100);
+}
+
 export function label(step: number): string {
   return `${percentFor(step)} %`;
 }

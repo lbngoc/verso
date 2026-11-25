@@ -77,13 +77,6 @@
   color: var(--text-tertiary);
 }
 
-[data-os="windows"] .quick textarea {
-  font-size: 15px;
-  border: 1px solid var(--stroke);
-  border-radius: 5px;
-  background: var(--surface-raised);
-}
-
 [data-os="windows"] .settings-card {
   background: var(--surface-raised);
   border: 1px solid var(--stroke);
