@@ -897,7 +897,7 @@ fn hide_quick_with(app: &AppHandle, restore: bool) {
         platform::services().restore_capture_target();
     }
     // Give activation back to the app that was active before the panel (FR-030), unless a main
-    // window (Settings from ⌘,, the update window, Setup) is being opened and takes over.
+    // window (Settings from ⌘,, Setup) is being opened and takes over.
     let main_window_taking_over =
         main_window_keeps_focus(*MAIN_REQUESTED_AT.lock(), std::time::Instant::now())
             || any_main_window(app, |window| window.is_visible().unwrap_or(false));
@@ -1006,89 +1006,8 @@ fn open_settings(app: &AppHandle, url: &str) {
     }
 }
 
-/// How the update window was opened: `check` from About, `offer` from the tray (spec 009 T050).
-static UPDATE_MODE: parking_lot::Mutex<String> = parking_lot::Mutex::new(String::new());
-
-pub fn take_update_mode() -> String {
-    let mode = UPDATE_MODE.lock().clone();
-    if mode.is_empty() {
-        "check".into()
-    } else {
-        mode
-    }
-}
-
-pub const UPDATE_WIDTH: f64 = 600.0;
-pub const UPDATE_MIN_HEIGHT: f64 = 220.0;
-pub const UPDATE_MAX_HEIGHT: f64 = 560.0;
-
-/// The height the update window takes for the content its page measured (spec 004 R11).
-pub fn clamp_update_height(requested: f64) -> f64 {
-    if requested.is_finite() {
-        requested.clamp(UPDATE_MIN_HEIGHT, UPDATE_MAX_HEIGHT)
-    } else {
-        UPDATE_MIN_HEIGHT
-    }
-}
-
-/// Fits the open update window to its content; the width stays, so does the top-left corner.
-pub fn resize_update_window(app: &AppHandle, height: f64) {
-    *UPDATE_CONTENT_HEIGHT.lock() = Some(height);
-    apply_update_height(app);
-}
-
-/// The content height the update page asked for last (CSS px = points).
-static UPDATE_CONTENT_HEIGHT: parking_lot::Mutex<Option<f64>> = parking_lot::Mutex::new(None);
-
-/// Points of the window that the page cannot use (the title bar area over the webview), learned
-/// from the page's own viewport report: 0.1.9 sized the window to the content and lost the bottom
-/// 32 points (FR-027).
-static UPDATE_CHROME: parking_lot::Mutex<f64> = parking_lot::Mutex::new(0.0);
-
-/// The window height that shows `content` points of page when `chrome` points are not the page's.
-pub fn update_window_height(content: f64, chrome: f64) -> f64 {
-    // The limits are for the page; the chrome comes on top, or a page at the cap is cut again.
-    clamp_update_height(content) + chrome.clamp(0.0, 120.0)
-}
-
-fn apply_update_height(app: &AppHandle) {
-    let Some(content) = *UPDATE_CONTENT_HEIGHT.lock() else {
-        return;
-    };
-    if let Some(window) = app.get_webview_window("update") {
-        let height = update_window_height(content, *UPDATE_CHROME.lock());
-        let _ = window.set_size(LogicalSize::new(UPDATE_WIDTH, height));
-        info!("update window: content {content} pt -> window {height} pt");
-        log_window_frame(&window, "update (resized)");
-    }
-}
-
-/// A page reported its viewport (FR-028). For the update window the gap between the window's
-/// height and the page's height is the chrome; when it changes, the last request is re-applied.
-pub fn note_viewport(app: &AppHandle, window: &WebviewWindow, css_height: f64) {
-    if window.label() != "update" {
-        return;
-    }
-    let (Ok(size), Ok(scale)) = (window.inner_size(), window.scale_factor()) else {
-        return;
-    };
-    let chrome = (size.to_logical::<f64>(scale).height - css_height).max(0.0);
-    let changed = {
-        let mut known = UPDATE_CHROME.lock();
-        let changed = (*known - chrome).abs() >= 1.0;
-        if changed {
-            *known = chrome;
-        }
-        changed
-    };
-    if changed {
-        info!("update window: page area is {chrome} pt shorter than the window");
-        apply_update_height(app);
-    }
-}
-
 /// `--layout-probe` (spec 004 Revision 3 diagnosis): opens the panel under a tray-like anchor at the
-/// top of every display, then the update window, logging where each lands; quits at the end.
+/// top of every display, then Settings, logging where each lands; quits at the end.
 pub fn layout_probe(app: &AppHandle) {
     std::thread::sleep(std::time::Duration::from_secs(4));
     let monitors = monitor_snapshots(app);
@@ -1125,50 +1044,9 @@ pub fn layout_probe(app: &AppHandle) {
         std::thread::sleep(std::time::Duration::from_millis(600));
         let _ = window.close();
     }
-    info!("layout probe: update window");
-    open_update_window(app, "check");
-    std::thread::sleep(std::time::Duration::from_secs(6));
-    if let Some(window) = app.get_webview_window("update") {
-        log_window_frame(&window, "update (probe end)");
-    }
     std::thread::sleep(std::time::Duration::from_secs(1));
     info!("layout probe: done");
     app.exit(0);
-}
-
-/// Opens (or focuses) the update dialog: 600 wide, as tall as its content (260 while checking, 460
-/// for an offer at first), not resizable by the user, created hidden (R14).
-pub fn open_update_window(app: &AppHandle, mode: &str) {
-    note_main_requested();
-    if focus_setup_if_open(app) {
-        return;
-    }
-    *UPDATE_MODE.lock() = mode.to_string();
-    if let Some(window) = app.get_webview_window("update") {
-        bring_to_front(app, &window);
-        let _ = window.emit("update-mode", mode);
-        return;
-    }
-    let builder = tauri::WebviewWindowBuilder::new(
-        app,
-        "update",
-        tauri::WebviewUrl::App("update.html".into()),
-    )
-    .title(crate::ui_text::current(
-        app,
-        crate::ui_text::Text::UpdateTitle,
-    ))
-    .inner_size(UPDATE_WIDTH, if mode == "offer" { 460.0 } else { 260.0 })
-    .min_inner_size(UPDATE_WIDTH, UPDATE_MIN_HEIGHT)
-    .resizable(false)
-    .visible(false);
-    match builder.build() {
-        Ok(window) => {
-            reveal_on_ready(app, &window);
-            track_main_window(app, &window);
-        }
-        Err(error) => warn!("could not open the update window: {error}"),
-    }
 }
 
 /// Renames the open main windows after the UI language changed.
@@ -1176,7 +1054,6 @@ pub fn retitle_main_windows(app: &AppHandle) {
     use crate::ui_text::{current, Text};
     for (label, key) in [
         ("settings", Text::SettingsTitle),
-        ("update", Text::UpdateTitle),
         ("onboarding", Text::WelcomeTitle),
     ] {
         if let Some(window) = app.get_webview_window(label) {
@@ -1185,7 +1062,7 @@ pub fn retitle_main_windows(app: &AppHandle) {
     }
 }
 
-/// When a main window (Setup, Settings, Update) was last asked for; hiding the popup right after
+/// When a main window (Setup, Settings) was last asked for; hiding the popup right after
 /// must not hand the foreground back to the source app (T143).
 static MAIN_REQUESTED_AT: parking_lot::Mutex<Option<std::time::Instant>> =
     parking_lot::Mutex::new(None);
@@ -1203,8 +1080,9 @@ pub fn main_window_keeps_focus(
     requested.is_some_and(|at| now.saturating_duration_since(at) < MAIN_FOCUS_GRACE)
 }
 
-/// Setup, Settings and the update dialog: the windows that give Verso a Dock icon (FR-053).
-const MAIN_WINDOWS: [&str; 3] = ["onboarding", "settings", "update"];
+/// Setup and Settings: the windows that give Verso a Dock icon (FR-053). Updates are shown in
+/// Settings › About (spec 011); there is no separate update window.
+const MAIN_WINDOWS: [&str; 2] = ["onboarding", "settings"];
 
 /// While Setup is open nothing else opens: it comes to the front instead (FR-052).
 pub fn focus_setup_if_open(app: &AppHandle) -> bool {
@@ -1410,10 +1288,8 @@ pub fn permission_step_kind() -> PermissionKind {
 pub fn show_onboarding(app: &AppHandle) {
     note_main_requested();
     // Setup takes over: it is the only main window while it is open (FR-052).
-    for label in ["settings", "update"] {
-        if let Some(window) = app.get_webview_window(label) {
-            let _ = window.close();
-        }
+    if let Some(window) = app.get_webview_window("settings") {
+        let _ = window.close();
     }
     if let Some(window) = app.get_webview_window("onboarding") {
         bring_to_front(app, &window);

@@ -16,7 +16,6 @@ pub enum Text {
     UpdateAvailable,
     TooltipBusy,
     SettingsTitle,
-    UpdateTitle,
     WelcomeTitle,
 }
 
@@ -39,7 +38,6 @@ pub fn text(ui_language: &str, key: Text) -> &'static str {
         ),
         Text::TooltipBusy => pick(vi, "Verso — translating…", "Verso — đang dịch…"),
         Text::SettingsTitle => pick(vi, "Verso Settings", "Cài đặt Verso"),
-        Text::UpdateTitle => pick(vi, "Software Update", "Cập nhật phần mềm"),
         Text::WelcomeTitle => pick(vi, "Welcome to Verso", "Chào mừng đến với Verso"),
     }
 }

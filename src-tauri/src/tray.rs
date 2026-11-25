@@ -296,7 +296,7 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
             }
             "settings" => window_manager::show_settings(app),
             "about" => window_manager::show_settings_section(app, "about"),
-            "update" => window_manager::open_update_window(app, "offer"),
+            "update" => window_manager::show_settings_section(app, "about"),
             "report" => {
                 if let Err(error) = crate::commands::report_problem(app.clone()) {
                     log::warn!("problem report could not be opened: {error}");

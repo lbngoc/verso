@@ -363,29 +363,6 @@ pub fn app_info() -> AppInfo {
 
 /// Opens a link from the update notes in the default browser (http/https only, spec 009 T047).
 #[tauri::command]
-pub async fn open_update_window(app: AppHandle, mode: String) {
-    window_manager::open_update_window(&app, if mode == "offer" { "offer" } else { "check" });
-}
-
-#[tauri::command]
-pub fn hide_update_window(app: AppHandle) {
-    if let Some(window) = app.get_webview_window("update") {
-        let _ = window.close();
-    }
-}
-
-/// The update page reports the height its content needs.
-#[tauri::command]
-pub fn resize_update_window(app: AppHandle, height: f64) {
-    window_manager::resize_update_window(&app, height);
-}
-
-#[tauri::command]
-pub fn update_mode() -> String {
-    window_manager::take_update_mode()
-}
-
-#[tauri::command]
 pub fn open_url(app: AppHandle, url: String) -> Result<(), String> {
     use tauri_plugin_opener::OpenerExt;
     let parsed = url::Url::parse(&url).map_err(|error| format!("invalid url: {error}"))?;
@@ -574,18 +551,11 @@ pub fn trace_input(line: String) {
 
 /// Spec 004 FR-028: a page's content scale and CSS size, logged next to its window frame.
 #[tauri::command]
-pub fn report_viewport(
-    app: AppHandle,
-    window: tauri::WebviewWindow,
-    dpr: f64,
-    width: f64,
-    height: f64,
-) {
+pub fn report_viewport(window: tauri::WebviewWindow, dpr: f64, width: f64, height: f64) {
     log::info!(
         "viewport: {} dpr={dpr} css={width}x{height}",
         window.label()
     );
-    window_manager::note_viewport(&app, &window, height);
 }
 
 /// The popup rendered the reset "Translating" state; the show may go on (FR-022).

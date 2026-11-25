@@ -1,32 +1,21 @@
-// "Check for Updates…" in Settings → About (spec 009 FR-050): the check runs in place; the update
-// window opens only when a newer release is offered.
+// "Check for Updates…" in Settings › About (spec 011 US2): the check runs in place and its result,
+// an offer with its notes included, is shown in About. No window opens.
 
-export type CheckState = "idle" | "checking" | "up_to_date" | "failed";
+import type { UpdateStatus } from "./ipc";
 
-export interface CheckDeps<Offer> {
-  check: () => Promise<Offer | null>;
-  openOffer: () => Promise<void>;
-}
-
-/** Runs one check, reporting each state; resolves with the final one. */
-export async function runUpdateCheck<Offer>(
-  deps: CheckDeps<Offer>,
-  report: (state: CheckState) => void,
-): Promise<CheckState> {
-  report("checking");
-  let offer: Offer | null;
+/** Runs one manual check, reporting `checking` and then the status; resolves with the final one. */
+export async function runUpdateCheck(
+  check: () => Promise<UpdateStatus>,
+  report: (status: UpdateStatus) => void,
+  current: UpdateStatus,
+): Promise<UpdateStatus> {
+  report({ ...current, phase: "checking", error: null });
+  let next: UpdateStatus;
   try {
-    offer = await deps.check();
+    next = await check();
   } catch {
-    report("failed");
-    return "failed";
+    next = { ...current, phase: "check_failed", error: "offline" };
   }
-  if (!offer) {
-    report("up_to_date");
-    return "up_to_date";
-  }
-  // The window shows the notes and the choices; the section goes back to rest.
-  report("idle");
-  await deps.openOffer().catch(() => undefined);
-  return "idle";
+  report(next);
+  return next;
 }

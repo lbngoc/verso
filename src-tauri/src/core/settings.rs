@@ -157,6 +157,8 @@ pub struct SettingsProfile {
     pub text_size_step: i8,
     /// Version the user skipped in the update dialog (FR-023); must parse as a version.
     pub skipped_update_version: Option<String>,
+    /// Last successful update check, RFC 3339 UTC (spec 011): shown in Settings › About.
+    pub last_update_check_at: Option<String>,
     /// One-time notes already seen by the user (R7), e.g. `speak-unbound`.
     pub notes_seen: Vec<String>,
     /// Unknown fields written by a newer build are preserved on save.
@@ -188,6 +190,7 @@ impl Default for SettingsProfile {
             accent: Accent::App,
             text_size_step: 0,
             skipped_update_version: None,
+            last_update_check_at: None,
             notes_seen: Vec::new(),
             extra: serde_json::Map::new(),
         }
@@ -668,6 +671,18 @@ mod tests {
         assert_eq!(profile.accent, Accent::App);
         assert!(profile.notes_seen.is_empty());
         assert_eq!(profile.skipped_update_version, None);
+    }
+
+    #[test]
+    fn an_old_profile_without_the_last_check_time_loads() {
+        let (profile, _dir) = load_json(r#"{"schema":1,"check_updates":true}"#);
+        assert_eq!(profile.last_update_check_at, None);
+        assert!(profile.check_updates);
+        let (profile, _dir) = load_json(r#"{"last_update_check_at":"2026-11-25T08:00:00Z"}"#);
+        assert_eq!(
+            profile.last_update_check_at.as_deref(),
+            Some("2026-11-25T08:00:00Z")
+        );
     }
 
     #[test]

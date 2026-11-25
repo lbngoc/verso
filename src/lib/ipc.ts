@@ -127,6 +127,7 @@ export interface SettingsProfile {
   accent: Accent;
   text_size_step: number;
   skipped_update_version: string | null;
+  last_update_check_at: string | null;
   notes_seen: string[];
   [key: string]: unknown;
 }
@@ -148,6 +149,30 @@ export interface UpdateProgress {
   /** `null` when the server did not say how long the file is: the bar is indeterminate. */
   total: number | null;
   percent: number | null;
+}
+
+/** Where the update flow stands (spec 011 data-model § Update status); held by the backend. */
+export type UpdatePhase =
+  | "idle"
+  | "checking"
+  | "up_to_date"
+  | "check_failed"
+  | "available"
+  | "downloading"
+  | "ready_on_quit"
+  | "installing"
+  | "install_failed";
+
+export type UpdateFailure = "offline" | "download" | "verify";
+
+export interface UpdateStatus {
+  phase: UpdatePhase;
+  offer: UpdateInfo | null;
+  /** Last successful check, RFC 3339 UTC. */
+  last_checked: string | null;
+  /** Only while downloading. */
+  progress: UpdateProgress | null;
+  error: UpdateFailure | null;
 }
 
 export interface EngineAvailability {
@@ -266,14 +291,13 @@ export const commands = {
       enginesDisabled,
       engineOrder,
     }),
-  checkForUpdate: () => invoke<UpdateInfo | null>("check_for_update"),
+  /** Read when About opens: from memory, no network (SC-003). */
+  updateStatus: () => invoke<UpdateStatus>("update_status"),
+  checkForUpdate: () => invoke<UpdateStatus>("check_for_update"),
   installUpdate: () => invoke<void>("install_update"),
   installUpdateOnQuit: () => invoke<void>("install_update_on_quit"),
   skipUpdateVersion: (version: string) => invoke<void>("skip_update_version", { version }),
-  openUpdateWindow: (mode: "check" | "offer") => invoke<void>("open_update_window", { mode }),
-  updateMode: () => invoke<string>("update_mode"),
   appInfo: () => invoke<AppInfo>("app_info"),
-  hideUpdateWindow: () => invoke<void>("hide_update_window"),
   openUrl: (url: string) => invoke<void>("open_url", { url }),
   /** The quick page has its listeners; the backend may show it and send a queued prefill. */
   quickReady: () => invoke<void>("quick_ready"),
@@ -294,8 +318,6 @@ export const commands = {
   quickScreenPrepared: (seq: number) => invoke<void>("quick_screen_prepared", { seq }),
   /** The popup has rendered the reset "Translating" state; the backend may show it (FR-022). */
   popupPrepared: (seq: number) => invoke<void>("popup_prepared", { seq }),
-  /** The update window reports the height its content needs (clamped by the backend). */
-  resizeUpdateWindow: (height: number) => invoke<void>("resize_update_window", { height }),
 };
 
 export const events = {
@@ -344,10 +366,9 @@ export const events = {
     listen("selftest-painted", () => handler()),
   emitSelfTestPainted: () => emit("selftest-painted", {}),
   emitPageReady: () => emit("page-ready", {}),
-  onUpdateAvailable: (handler: (payload: UpdateInfo) => void): Promise<UnlistenFn> =>
-    listen<UpdateInfo>("update-available", (event) => handler(event.payload)),
-  onUpdateProgress: (handler: (payload: UpdateProgress) => void): Promise<UnlistenFn> =>
-    listen<UpdateProgress>("update-progress", (event) => handler(event.payload)),
+  /** Every change of the update flow, including download progress (spec 011). */
+  onUpdateStatus: (handler: (payload: UpdateStatus) => void): Promise<UnlistenFn> =>
+    listen<UpdateStatus>("update-status", (event) => handler(event.payload)),
 };
 
 export const errorTextKey = (error: EngineError): string => {

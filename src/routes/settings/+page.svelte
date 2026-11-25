@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
   import Sidebar from "$lib/components/Sidebar.svelte";
-  import type { SidebarGroup, SidebarItem } from "$lib/nav";
+  import { SECTION_TINTS, type SidebarGroup, type SidebarItem } from "$lib/nav";
   import { setUiLanguage, t as translator } from "$lib/i18n";
   import { initAppearance } from "$lib/stores/appearance";
   import { initTheme } from "$lib/stores/theme";
@@ -13,7 +13,14 @@
   import PopupPanel from "./sections/PopupPanel.svelte";
   import Permissions from "./sections/Permissions.svelte";
   import About from "./sections/About.svelte";
-  import { commands, events, type EngineInfo, type Language, type SettingsProfile } from "$lib/ipc";
+  import {
+    commands,
+    events,
+    type EngineInfo,
+    type Language,
+    type SettingsProfile,
+    type UpdateStatus,
+  } from "$lib/ipc";
 
   let settings = $state<SettingsProfile | null>(null);
   let engines = $state<EngineInfo[]>([]);
@@ -24,6 +31,9 @@
   let isMac = $state(true);
   let section = $state("languages");
   let collapsed = $state(false);
+  let updateStatus = $state<UpdateStatus | null>(null);
+  // The About badge: an offer the user has not skipped (spec 011 FR-013), live while Settings is open.
+  const updateBadge = $derived(updateStatus?.offer && !updateStatus.offer.skipped ? 1 : 0);
 
   const groups = $derived.by<SidebarGroup[]>(() => {
     const appItems: SidebarItem[] = [
@@ -37,7 +47,7 @@
         icon: "shield",
       });
     }
-    return [
+    const groupsList: SidebarGroup[] = [
       {
         title: $translator("settings.group_translation"),
         items: [
@@ -58,10 +68,29 @@
       },
       {
         title: "",
-        items: [{ id: "about", label: $translator("settings.section_about"), icon: "info" }],
+        items: [
+          {
+            id: "about",
+            label: $translator("settings.section_about"),
+            icon: "info",
+            badge: updateBadge,
+          },
+        ],
       },
     ];
+    // macOS draws each section on its coloured tile; Windows Settings uses plain glyphs.
+    return groupsList.map((group) => ({
+      ...group,
+      items: group.items.map((item) => ({
+        ...item,
+        tint: isMac ? SECTION_TINTS[item.id] : undefined,
+      })),
+    }));
   });
+
+  const sectionTitle = $derived(
+    groups.flatMap((group) => group.items).find((item) => item.id === section)?.label ?? "",
+  );
 
   function allowed(id: string): boolean {
     return groups.some((group) => group.items.some((item) => item.id === id));
@@ -135,7 +164,9 @@
             conflict = payload.reason;
           }),
           events.onSettingsSection((next) => select(next)),
+          events.onUpdateStatus((next) => (updateStatus = next)),
         ]);
+        updateStatus = await commands.updateStatus().catch(() => null);
       } catch (error) {
         console.error("settings could not load", error);
       } finally {
@@ -168,7 +199,7 @@
       <p class="loading">{$translator("popup.loading")}</p>
     {:else}
       <header class="head">
-        <h1>{$translator("settings.title")}</h1>
+        <h1>{sectionTitle}</h1>
         <span class="state" aria-live="polite">
           {saving ? $translator("settings.saving") : saved ? $translator("settings.saved") : ""}
         </span>
@@ -194,7 +225,7 @@
       {:else if section === "permissions"}
         <Permissions {settings} />
       {:else if section === "about"}
-        <About {settings} onupdate={update} />
+        <About {settings} {updateStatus} onupdate={update} />
       {/if}
     {/if}
   </main>
@@ -212,23 +243,32 @@
     min-width: 0;
     overflow-y: auto;
     padding: 18px 24px 28px;
-    background: var(--surface-opaque);
+    background: var(--settings-surface);
   }
 
   .head {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
+    gap: 12px;
     margin-bottom: 14px;
   }
 
+  /* macOS: the section name in the toolbar area at the top of the content column (System Settings);
+     Windows: the large page title at the top of the content (Windows Settings). */
   h1 {
     margin: 0;
-    font-size: 17px;
+    font-size: var(--type-page-title-size);
+    font-weight: var(--type-page-title-weight);
+    line-height: 1.25;
+  }
+
+  :global([data-os="windows"]) .head {
+    margin: 6px 0 20px;
   }
 
   .state {
-    font-size: 11px;
+    font-size: var(--type-caption-size);
     color: var(--text-tertiary);
   }
 
@@ -240,7 +280,7 @@
 
   .conflict {
     margin: 0;
-    font-size: 12px;
+    font-size: var(--type-row-description-size);
     color: var(--danger);
   }
 

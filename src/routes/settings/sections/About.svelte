@@ -1,28 +1,71 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import appIcon from "$lib/assets/app-icon.png";
+  import Button from "$lib/components/Button.svelte";
   import Card from "$lib/components/Card.svelte";
   import Icon from "$lib/components/Icon.svelte";
   import SettingRow from "$lib/components/SettingRow.svelte";
   import Switch from "$lib/components/Switch.svelte";
+  import UpdateCard from "$lib/components/UpdateCard.svelte";
   import { t } from "$lib/i18n";
-  import { commands, type AppInfo, type SettingsProfile } from "$lib/ipc";
-  import { runUpdateCheck, type CheckState } from "$lib/updateCheck";
+  import { commands, type AppInfo, type SettingsProfile, type UpdateStatus } from "$lib/ipc";
+  import { runUpdateCheck } from "$lib/updateCheck";
 
-  // About: identity, links and the update card (spec 009, contracts/settings-window.md).
-  // Links open by name; their URLs live in src-tauri/src/links.rs (the public repository).
+  // About: identity, links, the update offer and Software Update (spec 011 US2,
+  // contracts/update-in-settings.md § About layout). The update status lives in the backend; the
+  // Settings shell reads it on open and follows `update-status`, so a download keeps going and shows
+  // here when Settings is reopened. Links open by name; their URLs live in src-tauri/src/links.rs.
   let {
     settings,
+    updateStatus,
     onupdate,
   }: {
     settings: SettingsProfile;
+    updateStatus: UpdateStatus | null;
     onupdate: (patch: Record<string, unknown>) => Promise<void>;
   } = $props();
 
+  const IDLE: UpdateStatus = {
+    phase: "idle",
+    offer: null,
+    last_checked: null,
+    progress: null,
+    error: null,
+  };
+
   let info = $state<AppInfo | null>(null);
   let copied = $state(false);
-  // The check runs here; the update dialog opens only when there is something to install (FR-050).
-  let check = $state<CheckState>("idle");
+  // A check reported here before (or without) the backend's event, e.g. when the call itself fails.
+  let reported = $state<UpdateStatus | null>(null);
+  const windows = typeof navigator !== "undefined" && navigator.userAgent.includes("Windows");
+
+  $effect(() => {
+    // A newer status from the backend replaces what the page reported.
+    void updateStatus;
+    reported = null;
+  });
+
+  const status = $derived(reported ?? updateStatus ?? IDLE);
+  const busy = $derived(
+    status.phase === "checking" ||
+      status.phase === "downloading" ||
+      status.phase === "ready_on_quit" ||
+      status.phase === "installing",
+  );
+  const lastChecked = $derived(
+    status.last_checked
+      ? $t("about.last_checked", { when: formatTime(status.last_checked) })
+      : $t("about.update_never_checked"),
+  );
+
+  function formatTime(iso: string): string {
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return iso;
+    return date.toLocaleString(settings.ui_language === "vi" ? "vi-VN" : "en", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+  }
 
   onMount(() => {
     void commands
@@ -32,10 +75,20 @@
   });
 
   async function checkForUpdates(): Promise<void> {
-    await runUpdateCheck(
-      { check: commands.checkForUpdate, openOffer: () => commands.openUpdateWindow("offer") },
-      (state) => (check = state),
-    );
+    await runUpdateCheck(commands.checkForUpdate, (next) => (reported = next), status);
+  }
+
+  function install(): void {
+    void commands.installUpdate().catch(() => undefined);
+  }
+
+  function installOnQuit(): void {
+    void commands.installUpdateOnQuit().catch(() => undefined);
+  }
+
+  function skip(): void {
+    const version = status.offer?.version;
+    if (version) void commands.skipUpdateVersion(version).catch(() => undefined);
   }
 
   async function diagnostics(): Promise<void> {
@@ -47,70 +100,75 @@
 
 <div class="stack">
   <Card>
-    <div class="head">
-      <div class="identity">
-        <img src={appIcon} alt="" width="72" height="72" />
-        <div class="names">
-          <h2>{$t("app.name")}</h2>
-          <p class="hint">{$t("about.full_name")}</p>
-          <p class="hint">
-            {#if info}
-              {$t("about.version_build", { version: info.version, date: info.build_date })}
-            {/if}
-          </p>
-        </div>
-      </div>
-      <div class="links">
-        <button type="button" onclick={() => void commands.openPublicPage("home")}>
-          {$t("about.github")}
-        </button>
-        <button type="button" onclick={() => void commands.reportProblem()}>
-          {$t("about.report")}
-        </button>
-        <button type="button" onclick={() => void diagnostics()}>
-          {$t("about.diagnostics")}
-        </button>
-        {#if copied}<span class="hint">{$t("about.diagnostics_copied")}</span>{/if}
+    <div class="identity">
+      <img src={appIcon} alt="" width="64" height="64" />
+      <div class="names">
+        <h2>{$t("app.name")}</h2>
+        <p class="row-value">{$t("about.full_name")}</p>
+        <p class="row-value">
+          {#if info}
+            {$t("about.version_build", { version: info.version, date: info.build_date })}
+          {/if}
+        </p>
       </div>
     </div>
+    {#snippet footer()}
+      {#if copied}<span class="copied caption" role="status">{$t("about.diagnostics_copied")}</span
+        >{/if}
+      <Button onclick={() => void commands.openPublicPage("home")}>{$t("about.github")}</Button>
+      <Button onclick={() => void commands.reportProblem()}>{$t("about.report")}</Button>
+      <Button onclick={() => void diagnostics()}>{$t("about.diagnostics")}</Button>
+    {/snippet}
   </Card>
 
-  <Card title={$t("about.updates")} helper={$t("about.automatic_hint")}>
-    <SettingRow label={$t("about.automatic")}>
+  <UpdateCard
+    {status}
+    {windows}
+    oninstall={install}
+    oninstallonquit={installOnQuit}
+    onskip={skip}
+  />
+
+  <Card title={$t("about.updates")}>
+    <SettingRow label={$t("about.automatic")} description={$t("about.automatic_hint")}>
       <Switch
         checked={settings.check_updates}
         label={$t("about.automatic")}
         onchange={(checked) => void onupdate({ check_updates: checked })}
       />
     </SettingRow>
-    <div class="row">
-      <button type="button" disabled={check === "checking"} onclick={() => void checkForUpdates()}>
-        {$t("about.check_updates")}
-      </button>
-      <span class="status" role="status">
-        {#if check === "checking"}
-          <span class="hint">{$t("about.checking")}</span>
-        {:else if check === "up_to_date"}
-          <span class="ok"><Icon name="check" size={14} />{$t("about.up_to_date")}</span>
-        {:else if check === "failed"}
-          <span class="warn"><Icon name="warning" size={14} />{$t("about.check_failed")}</span>
-        {/if}
-      </span>
+    <div class="check" role="status">
+      {#if status.phase === "checking"}
+        <span class="row-value">{$t("about.checking")}</span>
+      {:else if status.phase === "up_to_date"}
+        <span class="ok"><Icon name="check" size={14} />{$t("about.up_to_date")}</span>
+        <span class="row-value">{lastChecked}</span>
+      {:else if status.phase === "check_failed"}
+        <span class="warn"><Icon name="warning" size={14} />{$t("about.check_failed")}</span>
+        <span class="row-value">{lastChecked}</span>
+      {:else}
+        <span class="row-value">{lastChecked}</span>
+      {/if}
     </div>
+    {#snippet footer()}
+      <Button disabled={busy} onclick={() => void checkForUpdates()}>
+        {$t("about.check_updates")}
+      </Button>
+    {/snippet}
   </Card>
 
-  <p class="legal">
-    <button type="button" class="link" onclick={() => void commands.openPublicPage("terms")}>
+  <p class="legal caption">
+    <Button variant="link" onclick={() => void commands.openPublicPage("terms")}>
       {$t("about.terms")}
-    </button>
+    </Button>
     ·
-    <button type="button" class="link" onclick={() => void commands.openPublicPage("privacy")}>
+    <Button variant="link" onclick={() => void commands.openPublicPage("privacy")}>
       {$t("about.privacy")}
-    </button>
+    </Button>
     ·
-    <button type="button" class="link" onclick={() => void commands.openPublicPage("licences")}>
+    <Button variant="link" onclick={() => void commands.openPublicPage("licences")}>
       {$t("about.licences")}
-    </button>
+    </Button>
   </p>
 </div>
 
@@ -118,92 +176,67 @@
   .stack {
     display: flex;
     flex-direction: column;
-    gap: 12px;
-  }
-
-  /* Card rows draw a hairline above each row: the identity and its links form one row, no line. */
-  .head {
-    flex-direction: column;
-    align-items: stretch !important;
-    gap: 10px;
-    padding: 10px 0 12px;
+    gap: var(--group-gap);
   }
 
   .identity {
-    display: flex;
-    align-items: center;
     gap: 14px;
+    padding: 14px 0 6px;
   }
 
   .identity img {
-    border-radius: 16px;
+    border-radius: 14px;
+  }
+
+  .names {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
   }
 
   .names h2 {
     margin: 0;
-    font-size: 20px;
-    font-weight: 600;
+    font-size: var(--type-page-title-size);
+    font-weight: var(--type-page-title-weight);
   }
 
-  .hint {
-    margin: 2px 0;
-    font-size: 12px;
-    color: var(--text-secondary);
+  .names p {
+    margin: 0;
   }
 
-  .links,
-  .row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+  .copied {
+    margin-right: auto;
+    align-self: center;
+  }
+
+  .check {
     flex-wrap: wrap;
-    font-size: 13px;
+    gap: 6px 12px;
   }
 
-  .status span {
+  .check .ok,
+  .check .warn {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    font-size: 12px;
+    font-size: var(--type-row-value-size);
+    font-weight: 600;
   }
 
-  .status .ok {
+  .ok {
     color: var(--success);
-    font-weight: 600;
   }
 
-  .status .warn {
+  .warn {
     color: var(--warning);
-    font-weight: 600;
-  }
-
-  button {
-    border: none;
-    border-radius: 6px;
-    height: var(--control-height);
-    padding: 0 12px;
-    background: var(--surface-opaque);
-    box-shadow: inset 0 0 0 1px var(--stroke);
-    color: var(--text);
-    font-size: 12px;
-  }
-
-  button:disabled {
-    opacity: 0.6;
   }
 
   .legal {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px;
     margin: 0;
-    font-size: 11px;
-    color: var(--text-tertiary);
-    text-align: center;
-  }
-
-  .link {
-    background: none;
-    box-shadow: none;
-    padding: 0;
-    color: var(--text-secondary);
-    text-decoration: underline;
+    padding: 0 var(--card-padding-x);
   }
 </style>
