@@ -5,7 +5,7 @@ the release tag, so a tag needs its section before it is pushed.
 
 ## Unreleased
 
-## 0.1.9 — 2026-11-23
+## 0.1.9 — 2026-11-25
 
 Screen translation now shows its result in the translation panel, where you can correct the text, and
 the panel, Settings and popup are tidied up.
@@ -14,7 +14,8 @@ the panel, Settings and popup are tidied up.
 
 - **Screen translation opens the translation panel.** After you drag around some text, the panel opens next
   to the area with the text Verso read, already being translated. Fix a misread word and the translation
-  follows; **Copy** and **Speak** work as usual, and **Esc** returns you to the app you were in.
+  follows; **Copy** and **Speak** work as usual, and **Esc** returns you to the app you were in. Closing
+  the panel while the text is still being read cancels the translation: nothing is sent.
 - **The panel opens where you would look for it:** under the tray icon when you click it, upper-centre of
   the screen for `⌥⇧T`, and beside the selected area for a screen result.
 - **Screen translation options moved into the existing sections:** the switch and recognition language are
