@@ -61,8 +61,8 @@ quarantine flag, and Accessibility is asked for as in step 3.
    [TROUBLESHOOTING.md](TROUBLESHOOTING.md)).
 4. Start Verso. The mark (two arrows) appears in the menu bar. Select some text in another app and press
    `Alt+Shift+Z`; the result appears next to the selection. `Alt+Shift+T` opens the quick panel.
-   Verso runs from the menu bar: it has no Dock icon while you are not using one of its windows (setup,
-   Settings or the update window).
+   Verso runs from the menu bar: it has no Dock icon while you are not using one of its windows (setup or
+   Settings).
 
 Verso starts with the system at login only if **Launch at login** is enabled in Settings.
 
@@ -111,13 +111,13 @@ it on.
 
 ## Updates
 
-Verso updates itself. When the daily check finds a newer stable release, the tray shows **Update
-available**; **Check for Updates…** in **Settings › About** opens the update dialog, which renders the
-release notes and offers **Install and Relaunch**, **Install on Quit** and **Skip This Version**. An
-install downloads the update, verifies its signature with the key built into the app and replaces the
-installed version; a download that does not verify is discarded and the current version keeps working.
-Pre-release builds are never offered, a skipped version stays hidden until a newer one appears, and the
-automatic check can be switched off in the dialog or in **Settings › About**.
+Verso updates itself. When the check (about every 4 hours) finds a newer stable release, the tray shows
+**Update available** and **About** in Settings gets a red badge. **Settings › About** shows the release
+notes with **Install Now**, **Install on Quit** and **Skip This Version**, and the download progress;
+**Check for Updates…** there asks at once. An install downloads the update, verifies its signature with the
+key built into the app and replaces the installed version; a download that does not verify is discarded
+and the current version keeps working. Pre-release builds are never offered, a skipped version stays
+hidden until a newer one appears, and the automatic check can be switched off in **Settings › About**.
 
 ## Where your data lives
 

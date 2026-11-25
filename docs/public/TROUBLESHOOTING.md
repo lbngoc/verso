@@ -107,9 +107,17 @@ Security problems go through [SECURITY.md](SECURITY.md), not a public issue.
 
 ## Updates
 
-- **No update is offered.** The automatic check runs about 30 seconds after setup finishes and then once a
-  day; press **Check now** in **Settings › About** to ask immediately. The check is off if you turned off
-  **Check for updates automatically** during setup.
+- **Where updates are shown.** Everything about updates is in **Settings › About**: when a newer version
+  is found, a red badge appears on **About** and the tray menu shows **Update available**; About then
+  shows what is new with **Skip This Version**, **Install on Quit** and **Install Now**, and the download
+  progress in the same place. There is no separate update window. A download keeps going if you close
+  Settings; open About again to see where it is.
+- **No update is offered.** The automatic check runs about 30 seconds after setup finishes and then about
+  every 4 hours; **Last checked** under **Automatic updates** says when it last succeeded. Press **Check
+  for Updates…** in **Settings › About** to ask immediately. The check is off if you turned off **Check for
+  updates automatically** during setup.
+- **Verso quit during a download.** Nothing was installed; the app you have keeps working. The next check
+  (automatic, or **Check for Updates…**) finds the update again.
 - **The update could not be verified.** The download did not match the signature that ships in the app,
   so nothing was replaced. Try again; if it keeps happening, report it rather than downloading an
   installer from anywhere else.

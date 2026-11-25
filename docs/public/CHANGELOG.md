@@ -5,6 +5,26 @@ the release tag, so a tag needs its section before it is pushed.
 
 ## Unreleased
 
+Settings now looks like the system's own settings, and updates are shown right in Settings.
+
+### Changed
+
+- **Settings looks like System Settings on macOS and Settings on Windows:** the same text sizes and
+  weights in every section, group headings above their boxes, each control on the right of the first line
+  of its setting (also when a Vietnamese label wraps), the system's grey buttons at the right end of a row
+  or at the bottom right of a box, and coloured section icons in the sidebar on macOS. Setup follows the
+  same look, with its button at the bottom right.
+- **Updates live in Settings › About:** a red badge on **About** says an update is waiting; About shows
+  what is new with **Skip This Version**, **Install on Quit** and **Install Now**, the download progress,
+  and when the last check succeeded. **Update available** in the tray opens it. The separate update window
+  is gone.
+
+### Fixed
+
+- **The panel and popup stay readable over bright windows on macOS 26.** Liquid Glass could turn light
+  behind them while their text stayed light in dark mode; they now keep a surface in the theme's colour,
+  with the glass showing softly through.
+
 ## 0.1.10 — 2026-11-25
 
 Verso's windows now fit on every display of a Mac with a Retina screen and an external monitor, the
