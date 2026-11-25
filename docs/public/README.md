@@ -4,18 +4,28 @@
 </h1>
 
 <p align="center">
-  <img src="https://camo.githubusercontent.com/782429a6a8e7c3c86ca73fe31edaa6a48e78379e77e8c6c2a9637f67f475092c/68747470733a2f2f696d672e736869656c64732e696f2f6769746875622f646f776e6c6f6164732f6c626e676f632f766572736f2d7472616e736c6174652f746f74616c3f6c6162656c3d446f776e6c6f616473" alt="Downloads" />
-  <img src="https://camo.githubusercontent.com/a641b6b512e1ad7fbb9b5475951207d9763eac53877779acffefbd7b8fa6b9ba/68747470733a2f2f696d672e736869656c64732e696f2f6769746875622f762f72656c656173652f6c626e676f632f766572736f2d7472616e736c6174653f6c6162656c3d56657273696f6e" alt="Version" />
-  <img src="https://camo.githubusercontent.com/f0cb8ba13592d31161791daf5df230b9e7c063b00e304ac5a2f0661e7e2c8a57/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f4c6963656e73652d4d49542d626c75652e737667" alt="License: MIT" />
-  <img src="https://camo.githubusercontent.com/2f3c09ff456bca9042c7e963a35e2a779cfd8d1a0558f31b1e8073c28223f1cc/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f506c6174666f726d2d6d61634f532d3030303030303f6c6f676f3d6170706c65266c6f676f436f6c6f723d7768697465" alt="Platform: macOS" />
-  <img src="https://camo.githubusercontent.com/b1601f2fbc84f5ddd0396e874463e38a59c66eafa42a2ca1a155ed86883c9c16/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f506c6174666f726d2d57696e646f77732d3030373844343f6c6f676f3d77696e646f7773266c6f676f436f6c6f723d7768697465" alt="Platform: Windows" />
-  <img src="https://camo.githubusercontent.com/64e6fed4924d45957f4d18dea192648c8707a35f983519e55a1169c06996b833/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f4c616e67756167652d454e25323025374325323056492d7465616c" alt="Language: EN | VI" />
-</p>
-
-<p align="center">
   <strong>A small translator for selected or typed text, on macOS and Windows.</strong><br>
   Select, press a shortcut, read. No account. No telemetry.
 </p>
+
+<p align="center">
+  <a href="https://github.com/lbngoc/verso-translate/releases/latest"><img src="https://img.shields.io/github/v/release/lbngoc/verso-translate?label=Version&color=2f7bbf" alt="Version"></a>
+  <a href="https://github.com/lbngoc/verso-translate/releases"><img src="https://img.shields.io/github/downloads/lbngoc/verso-translate/total?label=Downloads&color=2f7bbf" alt="Downloads"></a>
+  <a href="#-homebrew-macos"><img src="https://img.shields.io/badge/Homebrew%20Cask-lbngoc%2Fverso%2Fverso-2f7bbf" alt="Homebrew Cask"></a>
+  <a href="#-winget-windows"><img src="https://img.shields.io/badge/WinGet-lbngoc.Verso-2f7bbf" alt="WinGet"></a>
+  <img src="https://img.shields.io/badge/macOS-13.0%2B-5ba02e" alt="macOS 13.0+">
+  <img src="https://img.shields.io/badge/Windows-10%20%7C%2011-5ba02e" alt="Windows 10 | 11">
+  <a href="https://github.com/lbngoc/verso/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-2f7bbf" alt="License: MIT"></a>
+</p>
+
+---
+
+### (Chọn ngôn ngữ dưới đây / Choose your language below)
+
+<a href="README_vi.md"><img src="https://img.shields.io/badge/Language-Ti%E1%BA%BFng%20Vi%E1%BB%87t-c4473d" alt="Language: Tiếng Việt"></a>
+<a href="README.md"><img src="https://img.shields.io/badge/Language-English-5ba02e" alt="Language: English"></a>
+
+---
 
 <p align="center">
   <img src="assets/screenshot.png" alt="Verso Settings, Engines tab" width="100%">
@@ -35,6 +45,9 @@ brew install --cask lbngoc/verso/verso
 > (the cask is marked `auto_updates`).
 
 ### 🪟 winget (Windows)
+
+> **Pending review:** the winget package is [waiting for review by the winget-pkgs moderators](https://github.com/microsoft/winget-pkgs/pull/484566),
+> so this command does not find it yet. Until then, use the installer under **Manual download** below.
 
 ```powershell
 winget install lbngoc.Verso
@@ -129,6 +142,3 @@ the form for you). The terms that apply to the binaries are in [TERMS.md](TERMS.
 
 Copyright © 2026 Ngoc Luong.
 
----
-
-[Tiếng Việt](README_vi.md)
