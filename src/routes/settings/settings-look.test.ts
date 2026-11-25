@@ -2,7 +2,7 @@
 // the About update card use only the shared text levels and the shared Button, and no action button
 // sits in a centred block.
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join, relative, resolve } from "node:path";
+import { join, relative, resolve, sep } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const root = resolve(__dirname, "../../..");
@@ -24,6 +24,9 @@ const components = [
   "ScreenTranslateCard.svelte",
 ].map((name) => join(root, "src/lib/components", name));
 
+// Paths use "/" in this file, also on Windows, where node:path joins with "\\".
+const slash = (path: string) => path.split(sep).join("/");
+
 const files = [
   ...svelteFiles(join(root, "src/routes/settings")),
   ...svelteFiles(join(root, "src/routes/onboarding")),
@@ -34,7 +37,7 @@ const files = [
       return false;
     }
   }),
-];
+].map(slash);
 
 /** Allowed deviations, each with its reason. Keep this list short. */
 const EXCEPTIONS: Array<{
@@ -86,7 +89,7 @@ function elementsWithClass(markup: string, className: string): string[] {
 }
 
 function offences(path: string) {
-  const file = relative(root, path);
+  const file = slash(relative(root, path));
   const { markup, style } = parts(readFileSync(path, "utf8"));
   const found: string[] = [];
 
