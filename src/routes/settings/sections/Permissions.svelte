@@ -8,21 +8,9 @@
   let { settings }: { settings: SettingsProfile } = $props();
 </script>
 
-<div class="rows">
-  <Card>
-    <PermissionRow kind="accessibility" />
-  </Card>
+<Card>
+  <PermissionRow kind="accessibility" />
   {#if settings.ocr.enabled}
-    <Card>
-      <PermissionRow kind="screen_recording" />
-    </Card>
+    <PermissionRow kind="screen_recording" />
   {/if}
-</div>
-
-<style>
-  .rows {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-</style>
+</Card>

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onDestroy, onMount } from "svelte";
+  import Button from "./Button.svelte";
   import Icon from "./Icon.svelte";
   import SettingRow from "./SettingRow.svelte";
   import Switch from "./Switch.svelte";
@@ -13,8 +14,8 @@
   import { createPermissionPoll } from "$lib/permissionPoll";
 
   // One permission as one row in Settings › Permissions (spec 004 FR-014, contracts/ui-polish.md):
-  // granted, it is a name, a description and a switch that opens the system pane; missing, it adds
-  // a warning and the way to fix it. Re-checked every second while missing, so the row flips
+  // granted, it is a name, a description and a switch that opens the system pane; missing, the
+  // buttons that fix it take the switch's place on the right and a warning sits under the row. Re-checked every second while missing, so the row flips
   // without reopening Settings.
   let { kind }: { kind: PermissionKind } = $props();
 
@@ -84,52 +85,50 @@
   });
 </script>
 
-<div class="row" data-row="block">
-  <SettingRow label={name} helper={body}>
-    {#if granted}
-      {#key switchKey}
-        <Switch checked={true} label={name} onchange={() => void openPane()} />
-      {/key}
-    {/if}
-  </SettingRow>
-
-  {#if !granted}
-    <p class="warning" role="status">
-      <Icon name="warning" size={14} />
-      {$t("settings.permission_missing")}
-    </p>
-    <div class="actions">
-      {#if reason === "after_update"}
-        <button class="primary" type="button" onclick={() => void reset()}>
-          {$t("permission.reset")}
-        </button>
-        <button type="button" onclick={() => void openPane()}>{$t("capture.grant")}</button>
-      {:else}
-        <button class="primary" type="button" onclick={() => void openPane()}>
-          {$t("capture.grant")}
-        </button>
-      {/if}
-      {#if restartHint}
-        <button type="button" onclick={() => void commands.restartApp()}>
-          {$t("permission.restart")}
-        </button>
-      {/if}
-    </div>
-    {#if resetState === "done"}
-      <p class="note">{$t("permission.switch_on_now")}</p>
-    {:else if resetState === "failed"}
-      <p class="note">{$t("permission.reset_failed")}</p>
-    {/if}
+{#snippet missing()}
+  <!-- Missing: the fixes sit under the row, right-aligned, so a long label or button never squeezes. -->
+  <div class="actions">
     {#if restartHint}
-      <p class="note">{$t("permission.restart_hint")}</p>
+      <Button onclick={() => void commands.restartApp()}>{$t("permission.restart")}</Button>
     {/if}
+    {#if reason === "after_update"}
+      <Button onclick={() => void openPane()}>{$t("capture.grant")}</Button>
+      <Button variant="primary" onclick={() => void reset()}>{$t("permission.reset")}</Button>
+    {:else}
+      <Button variant="primary" onclick={() => void openPane()}>{$t("capture.grant")}</Button>
+    {/if}
+  </div>
+  <p class="warning" role="status">
+    <Icon name="warning" size={14} />
+    {kind === "screen_recording"
+      ? $t("settings.screen_permission_missing")
+      : $t("settings.permission_missing")}
+  </p>
+  {#if resetState === "done"}
+    <p class="note">{$t("permission.switch_on_now")}</p>
+  {:else if resetState === "failed"}
+    <p class="note">{$t("permission.reset_failed")}</p>
   {/if}
-</div>
+  {#if restartHint}
+    <p class="note">{$t("permission.restart_hint")}</p>
+  {/if}
+{/snippet}
+
+<SettingRow kind="block" label={name} description={body} content={granted ? undefined : missing}>
+  {#if granted}
+    {#key switchKey}
+      <Switch checked={true} label={name} onchange={() => void openPane()} />
+    {/key}
+  {/if}
+</SettingRow>
 
 <style>
-  .row {
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
     gap: 8px;
-    padding-bottom: 8px;
+    margin-bottom: 6px;
   }
 
   .warning {
@@ -137,37 +136,13 @@
     align-items: center;
     gap: 6px;
     margin: 0;
-    font-size: 12px;
+    font-size: var(--type-row-description-size);
     color: var(--warning);
   }
 
-  .actions {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-
-  button {
-    height: var(--control-height);
-    padding: 0 12px;
-    border: none;
-    border-radius: 6px;
-    font-size: 12px;
-    background: var(--surface-opaque);
-    box-shadow: inset 0 0 0 1px var(--stroke);
-    color: var(--text);
-  }
-
-  button.primary {
-    background: var(--accent);
-    color: var(--accent-contrast);
-    font-weight: 600;
-    box-shadow: none;
-  }
-
   .note {
-    margin: 0;
-    font-size: 12px;
+    margin: 4px 0 0;
+    font-size: var(--type-row-description-size);
     color: var(--text-secondary);
   }
 </style>

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { getCurrentWindow } from "@tauri-apps/api/window";
+  import Button from "$lib/components/Button.svelte";
   import Card from "$lib/components/Card.svelte";
   import Icon from "$lib/components/Icon.svelte";
   import PermissionGuide from "$lib/components/PermissionGuide.svelte";
@@ -171,21 +172,23 @@
         {#each order as id, index (id)}
           {@const service = SERVICES.find((item) => item.id === id)}
           {#if service}
-            <SettingRow label={service.name} helper={$translator(service.receives)}>
-              <div class="reorder">
-                <button
-                  type="button"
-                  aria-label={$translator("settings.move_up")}
-                  disabled={index === 0}
-                  onclick={() => move(id, -1)}>↑</button
-                >
-                <button
-                  type="button"
-                  aria-label={$translator("settings.move_down")}
-                  disabled={index === order.length - 1}
-                  onclick={() => move(id, 1)}>↓</button
-                >
-              </div>
+            <SettingRow label={service.name} description={$translator(service.receives)}>
+              <Button
+                size="small"
+                title={$translator("settings.move_up")}
+                disabled={index === 0}
+                onclick={() => move(id, -1)}
+              >
+                <span aria-label={$translator("settings.move_up")}>↑</span>
+              </Button>
+              <Button
+                size="small"
+                title={$translator("settings.move_down")}
+                disabled={index === order.length - 1}
+                onclick={() => move(id, 1)}
+              >
+                <span aria-label={$translator("settings.move_down")}>↓</span>
+              </Button>
               <Switch checked={isOn(id)} label={service.name} onchange={() => toggle(id)} />
             </SettingRow>
           {/if}
@@ -196,15 +199,17 @@
         <SettingRow label={$translator("onboarding.appearance_title")}>
           <div class="segmented" role="radiogroup" aria-label={$translator("settings.theme")}>
             {#each THEMES as option (option.id)}
-              <button
-                type="button"
-                role="radio"
-                aria-checked={theme === option.id}
-                class:on={theme === option.id}
-                onclick={() => void chooseTheme(option.id)}
-              >
+              <label class:on={theme === option.id}>
+                <input
+                  class="sr-only"
+                  type="radio"
+                  name="theme"
+                  value={option.id}
+                  checked={theme === option.id}
+                  onchange={() => void chooseTheme(option.id)}
+                />
                 {$translator(option.label)}
-              </button>
+              </label>
             {/each}
           </div>
         </SettingRow>
@@ -214,10 +219,12 @@
         <p class="warning" role="alert">{$translator("onboarding.at_least_one")}</p>
       {/if}
 
-      <button class="primary go" type="button" onclick={continueFromEngines}>
-        <span>{$translator("onboarding.continue")}</span>
-        <Icon name="arrow-right" size={14} />
-      </button>
+      <div class="actions go">
+        <Button variant="primary" onclick={continueFromEngines}>
+          <span>{$translator("onboarding.continue")}</span>
+          <Icon name="arrow-right" size={14} />
+        </Button>
+      </div>
     </section>
   {:else}
     <section class="step-body">
@@ -234,7 +241,7 @@
       <Card>
         <SettingRow
           label={$translator("onboarding.updates_title")}
-          helper={$translator("onboarding.updates_body")}
+          description={$translator("onboarding.updates_body")}
         >
           <Switch
             checked={checkUpdates}
@@ -252,10 +259,12 @@
         })}
       </p>
 
-      <button class="primary wide go" type="button" bind:this={startButton} onclick={finish}>
-        <span>{$translator("onboarding.finish")}</span>
-        <Icon name="arrow-right" size={16} />
-      </button>
+      <div class="actions go">
+        <Button variant="primary" bind:element={startButton} onclick={finish}>
+          <span>{$translator("onboarding.finish")}</span>
+          <Icon name="arrow-right" size={14} />
+        </Button>
+      </div>
     </section>
   {/if}
 </main>
@@ -275,13 +284,15 @@
   }
 
   h1 {
-    font-size: 20px;
     margin: 0 0 4px;
+    font-size: var(--type-page-title-size);
+    font-weight: var(--type-page-title-weight);
   }
 
   h2 {
-    font-size: 15px;
     margin: 0;
+    font-size: var(--type-group-heading-size);
+    font-weight: var(--type-group-heading-weight);
   }
 
   .step-body {
@@ -290,10 +301,6 @@
     display: flex;
     flex-direction: column;
     gap: 10px;
-  }
-
-  .step-body > .primary {
-    margin-top: auto;
   }
 
   .step-body p {
@@ -307,7 +314,7 @@
     margin: 10px 0 0;
     padding: 0;
     list-style: none;
-    font-size: 12px;
+    font-size: var(--type-caption-size);
     color: var(--text-tertiary);
   }
 
@@ -324,7 +331,7 @@
     height: 18px;
     border-radius: 50%;
     border: 1px solid currentColor;
-    font-size: 11px;
+    font-size: var(--type-caption-size);
     line-height: 1;
   }
 
@@ -333,63 +340,41 @@
     font-weight: 600;
   }
 
-  .reorder {
-    display: flex;
-    gap: 4px;
-  }
-
-  .reorder button {
-    width: var(--control-height);
-    height: var(--control-height);
-    padding: 0;
-    font-size: 12px;
-  }
-
   .hint {
-    font-size: 11px;
+    font-size: var(--type-caption-size);
     color: var(--text-tertiary);
   }
 
   .warning {
-    font-size: 12px;
+    font-size: var(--type-row-description-size);
     color: var(--danger);
   }
 
-  .primary {
-    align-self: flex-start;
-    height: 36px;
-    border: none;
-    border-radius: 8px;
-    background: var(--accent);
-    color: var(--accent-contrast);
-    font-weight: 600;
-    padding: 0 18px;
+  /* The step's action sits bottom right, like a macOS assistant (contracts/settings-look.md). */
+  .actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: auto;
   }
 
   /* The arrow slides right on hover and focus; reduced motion keeps it still. */
-  .primary.go {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-  }
-
-  .primary.go :global(.icon) {
+  .go :global(.icon) {
     transition: transform 160ms ease;
   }
 
-  .primary.go:hover :global(.icon),
-  .primary.go:focus-visible :global(.icon) {
+  .go :global(button:hover .icon),
+  .go :global(button:focus-visible .icon) {
     transform: translateX(4px);
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .primary.go :global(.icon) {
+    .go :global(.icon) {
       transition: none;
     }
 
-    .primary.go:hover :global(.icon),
-    .primary.go:focus-visible :global(.icon) {
+    .go :global(button:hover .icon),
+    .go :global(button:focus-visible .icon) {
       transform: none;
     }
   }
@@ -401,25 +386,25 @@
     background: var(--hover);
   }
 
-  .segmented button {
-    height: 24px;
+  .segmented label {
+    display: inline-flex;
+    align-items: center;
+    height: 22px;
     padding: 0 10px;
-    border: none;
     border-radius: 6px;
-    background: transparent;
     color: var(--text-secondary);
-    font-size: 12px;
+    font-size: var(--type-row-value-size);
+    cursor: pointer;
   }
 
-  .segmented button.on {
+  .segmented label.on {
     background: var(--surface-opaque);
     color: var(--accent-text);
     font-weight: 600;
     box-shadow: inset 0 0 0 1px var(--stroke);
   }
 
-  .primary.wide {
-    align-self: stretch;
-    width: 100%;
+  .segmented label:has(input:focus-visible) {
+    box-shadow: var(--focus-ring);
   }
 </style>

@@ -46,34 +46,41 @@
   .value {
     display: grid;
     place-items: center;
-    height: var(--control-height);
+    height: var(--button-height);
     line-height: 1;
     box-sizing: border-box;
   }
 
   button {
-    min-width: var(--control-height);
+    min-width: var(--button-height);
     padding: 0;
     border: none;
-    border-radius: 6px;
-    background: var(--surface-opaque);
-    box-shadow: inset 0 0 0 1px var(--stroke);
+    border-radius: var(--button-radius);
+    background: var(--button-fill);
+    box-shadow: inset 0 0 0 0.5px var(--button-stroke);
     color: var(--text);
-    font-size: 15px;
+    /* The − and + glyphs read a step larger than the row text. */
+    font-size: calc(var(--type-row-label-size) + 2px);
+  }
+
+  button:hover:not(:disabled) {
+    background: var(--button-fill-hover);
   }
 
   button:disabled {
     opacity: 0.4;
+    background: var(--button-fill);
   }
 
   .reset {
     padding: 0 10px;
-    font-size: 12px;
+    font-size: var(--type-row-description-size);
     color: var(--text-secondary);
   }
 
   .value {
     min-width: 52px;
+    font-size: var(--type-row-value-size);
     color: var(--text-secondary);
     font-variant-numeric: tabular-nums;
   }

@@ -1,10 +1,12 @@
 <script lang="ts">
   import Icon from "./Icon.svelte";
-  import type { SidebarGroup } from "$lib/nav";
+  import { TINT_COLOURS, type SidebarGroup } from "$lib/nav";
   import { t } from "$lib/i18n";
 
   // Settings sidebar: grouped sections with icons, a selected row in the accent colour and a collapse
-  // toggle next to the traffic lights (spec 009, contracts/settings-window.md).
+  // toggle next to the traffic lights (spec 009, contracts/settings-window.md). macOS draws System
+  // Settings' coloured icon tiles; Windows keeps plain glyphs. A badge is a red count capsule, a dot
+  // on the icon when collapsed (spec 011 R5).
 
   let {
     groups,
@@ -67,8 +69,18 @@
           type="button"
           onclick={() => onselect(item.id)}
         >
-          <Icon name={item.icon} />
-          <span>{item.label}</span>
+          <span
+            class="glyph"
+            class:tile={item.tint !== undefined}
+            style:--tile={item.tint ? TINT_COLOURS[item.tint] : undefined}
+          >
+            <Icon name={item.icon} size={item.tint ? 12 : 16} />
+            {#if item.badge}<span class="dot" aria-hidden="true"></span>{/if}
+          </span>
+          <span class="label">{item.label}</span>
+          {#if item.badge}
+            <span class="badge" aria-label={String(item.badge)}>{item.badge}</span>
+          {/if}
         </button>
       {/each}
     {/each}
@@ -133,10 +145,8 @@
 
   .group {
     margin: 12px 8px 4px;
-    font-size: 10px;
+    font-size: var(--type-caption-size);
     font-weight: 600;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
     color: var(--text-tertiary);
   }
 
@@ -148,14 +158,73 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    height: 30px;
+    height: 32px;
     padding: 0 8px;
     border: none;
     border-radius: 7px;
     background: transparent;
     color: var(--text);
-    font-size: 13px;
+    font-size: var(--type-sidebar-item-size);
+    font-weight: var(--type-sidebar-item-weight);
     text-align: left;
+  }
+
+  .label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .glyph {
+    position: relative;
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 20px;
+    height: 20px;
+  }
+
+  /* System Settings' rounded tiles: a white glyph on the section colour (macOS only). */
+  :global([data-os="macos"]) .glyph.tile {
+    border-radius: 5px;
+    background: var(--tile);
+    color: var(--tile-glyph);
+  }
+
+  .badge {
+    flex: none;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 9px;
+    background: var(--badge-fill);
+    color: var(--badge-text);
+    font-size: var(--type-caption-size);
+    font-weight: 600;
+    line-height: 18px;
+    text-align: center;
+  }
+
+  .dot {
+    display: none;
+    position: absolute;
+    top: -3px;
+    right: -3px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--badge-fill);
+    box-shadow: 0 0 0 1.5px var(--surface-opaque);
+  }
+
+  .sidebar.collapsed .dot {
+    display: block;
+  }
+
+  .sidebar.collapsed .badge {
+    display: none;
   }
 
   .item:hover {
@@ -167,7 +236,47 @@
     color: var(--accent-text);
   }
 
-  .sidebar.collapsed .item span {
+  /* Windows Settings: a light fill, the normal text colour and an accent pill at the left edge. */
+  :global([data-os="windows"]) .item.selected {
+    position: relative;
+    background: var(--hover);
+    color: var(--text);
+  }
+
+  :global([data-os="windows"]) .item.selected::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 50%;
+    width: 3px;
+    height: 16px;
+    margin-top: -8px;
+    border-radius: 2px;
+    background: var(--accent);
+  }
+
+  /* Contrast themes (forced colours): the system's own selection colours, so the row never turns
+     dark-on-dark; the tile and the pill are not needed. */
+  @media (forced-colors: active) {
+    .item.selected,
+    :global([data-os]) .item.selected {
+      forced-color-adjust: none;
+      background: Highlight;
+      color: HighlightText;
+    }
+
+    :global([data-os]) .item.selected::before {
+      display: none;
+    }
+  }
+
+  /* System Settings: the selected section is an accent-filled row with white text. */
+  :global([data-os="macos"]) .item.selected {
+    background: var(--accent);
+    color: var(--accent-contrast);
+  }
+
+  .sidebar.collapsed .item .label {
     display: none;
   }
 

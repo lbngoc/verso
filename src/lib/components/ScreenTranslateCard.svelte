@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import Button from "./Button.svelte";
   import Card from "./Card.svelte";
   import SettingRow from "./SettingRow.svelte";
   import Switch from "./Switch.svelte";
@@ -84,7 +85,7 @@
 
 {#if supported}
   <Card title={$t("ocr.card_title")}>
-    <SettingRow label={$t("ocr.enable")} helper={$t("ocr.enable_hint")}>
+    <SettingRow label={$t("ocr.enable")} description={$t("ocr.enable_hint")}>
       <Switch
         checked={enabled}
         disabled={!available && !enabled}
@@ -103,7 +104,7 @@
     {#if refusal}
       <p class="notice" role="alert">{refusal}</p>
     {/if}
-    <SettingRow label={$t("ocr.language")} helper={enabled ? "" : $t("ocr.language_off_hint")}>
+    <SettingRow label={$t("ocr.language")} description={enabled ? "" : $t("ocr.language_off_hint")}>
       <select
         class:dim={!enabled}
         value={settings.ocr.language}
@@ -118,26 +119,14 @@
       </select>
     </SettingRow>
     {#if mac && enabled && available && permission !== "granted"}
-      <button class="link" type="button" onclick={onpermissions}>
-        {$t("ocr.permission_link")}
-      </button>
+      <div class="permission">
+        <Button variant="link" onclick={onpermissions}>{$t("ocr.permission_link")}</Button>
+      </div>
     {/if}
   </Card>
 {/if}
 
 <style>
-  select {
-    height: var(--control-height);
-    max-width: 220px;
-    border: none;
-    border-radius: 6px;
-    padding: 0 8px;
-    background: var(--surface-opaque);
-    box-shadow: inset 0 0 0 1px var(--stroke);
-    color: var(--text);
-    font-size: 12px;
-  }
-
   .dim {
     opacity: 0.5;
   }
@@ -145,7 +134,7 @@
   .notice {
     margin: 0;
     padding: 6px 0;
-    font-size: 12px;
+    font-size: var(--type-row-description-size);
     color: var(--warning);
   }
 
@@ -155,17 +144,7 @@
     color: var(--text-secondary);
   }
 
-  .link {
-    justify-content: flex-start;
-    border: none;
-    background: none;
-    padding: 0;
-    color: var(--accent);
-    font-size: 12px;
-    text-align: left;
-  }
-
-  .link:hover {
-    text-decoration: underline;
+  .permission {
+    font-size: var(--type-row-description-size);
   }
 </style>

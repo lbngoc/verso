@@ -7,6 +7,30 @@
   --font-size-result: 17px;
 }
 
+/* macOS 26 System Settings (spec 011 R1/R4), measured on macOS 26.6 at Retina 2x (T003,
+   specs/011-settings-native-look/reference): 13 pt labels, values and sidebar, 11 pt descriptions on a
+   16 pt line, 15 pt semibold toolbar title, 13 pt semibold group headings outside the box; boxes with a
+   10 pt inset and a ~12 pt radius; borderless push buttons 24 pt high, radius 6; rows 36 pt, 44 pt with a
+   push button. */
+[data-os="macos"] {
+  --type-sidebar-item-size: 13px;
+  --type-page-title-size: 15px;
+  --type-page-title-weight: 600;
+  --type-group-heading-size: 13px;
+  --type-group-heading-weight: 600;
+  --type-row-label-size: 13px;
+  --type-row-description-size: 11px;
+  --type-row-value-size: 13px;
+  --type-caption-size: 11px;
+  --button-radius: 6px;
+  --button-height: 24px;
+  --button-height-small: 22px;
+  --button-padding-x: 12px;
+  --card-radius: 12px;
+  --card-padding-x: 10px;
+  --row-min-height: 36px;
+}
+
 [data-os="macos"][data-material="glass"] {
   --radius-large: 22px;
 }

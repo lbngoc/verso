@@ -200,7 +200,7 @@
     border-radius: 6px;
     background: var(--surface-opaque);
     box-shadow: inset 0 0 0 1px var(--stroke);
-    font-size: 12px;
+    font-size: var(--type-row-value-size);
     color: var(--text);
     display: inline-flex;
     align-items: center;
@@ -216,7 +216,7 @@
 
   .recording-text,
   .unset {
-    font-size: 11px;
+    font-size: var(--type-caption-size);
     color: var(--text-secondary);
   }
 
@@ -230,7 +230,7 @@
     border-radius: 5px;
     background: transparent;
     color: var(--text-tertiary);
-    font-size: 12px;
+    font-size: var(--type-row-description-size);
   }
 
   .mini:hover {
@@ -250,7 +250,7 @@
     box-shadow:
       inset 0 0 0 1px var(--stroke),
       var(--shadow-menu);
-    font-size: 11px;
+    font-size: var(--type-caption-size);
     color: var(--danger);
     white-space: nowrap;
   }

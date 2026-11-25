@@ -15,7 +15,7 @@
   } = $props();
 </script>
 
-<Card title={$t("settings.card_languages")} helper={$t("settings.secondary_hint")}>
+<Card>
   <SettingRow label={$t("settings.target_language")}>
     <select
       aria-label={$t("settings.target_language")}
@@ -27,7 +27,7 @@
       {/each}
     </select>
   </SettingRow>
-  <SettingRow label={$t("settings.secondary_language")}>
+  <SettingRow label={$t("settings.secondary_language")} description={$t("settings.secondary_hint")}>
     <select
       aria-label={$t("settings.secondary_language")}
       value={settings.secondary_lang}
@@ -51,9 +51,3 @@
     </select>
   </SettingRow>
 </Card>
-
-<style>
-  select {
-    min-width: 200px;
-  }
-</style>

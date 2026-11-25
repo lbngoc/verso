@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Button from "$lib/components/Button.svelte";
   import Card from "$lib/components/Card.svelte";
   import SettingRow from "$lib/components/SettingRow.svelte";
   import Switch from "$lib/components/Switch.svelte";
@@ -81,7 +82,7 @@
     {#if ocrSupported}
       <SettingRow
         label={$t("ocr.shortcut_row")}
-        helper={settings.ocr.enabled ? "" : $t("ocr.shortcut_off_hint")}
+        description={settings.ocr.enabled ? "" : $t("ocr.shortcut_off_hint")}
       >
         <ShortcutRecorder
           action="screen"
@@ -97,18 +98,18 @@
   {#if speakCollided}
     <div class="note" role="status">
       <p>{$t("shortcut.note.speak_unbound")}</p>
-      <button type="button" onclick={() => void dismissNote("speak-unbound")}
-        >{$t("update.ok")}</button
-      >
+      <Button variant="primary" size="small" onclick={() => void dismissNote("speak-unbound")}>
+        {$t("settings.note_ok")}
+      </Button>
     </div>
   {/if}
 
   {#if quickCollided}
     <div class="note" role="status">
       <p>{$t("shortcut.note.quick_unbound")}</p>
-      <button type="button" onclick={() => void dismissNote("quick-unbound")}
-        >{$t("update.ok")}</button
-      >
+      <Button variant="primary" size="small" onclick={() => void dismissNote("quick-unbound")}>
+        {$t("settings.note_ok")}
+      </Button>
     </div>
   {/if}
 
@@ -127,7 +128,7 @@
   .section {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: var(--group-gap);
   }
 
   .note {
@@ -138,20 +139,11 @@
     border-radius: 10px;
     background: var(--accent-soft);
     color: var(--text);
-    font-size: 12px;
+    font-size: var(--type-row-description-size);
   }
 
   .note p {
     margin: 0;
     flex: 1;
-  }
-
-  .note button {
-    border: none;
-    border-radius: 6px;
-    padding: 3px 10px;
-    background: var(--accent);
-    color: var(--accent-contrast);
-    font-size: 12px;
   }
 </style>

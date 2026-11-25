@@ -1,10 +1,12 @@
 <script lang="ts">
+  import Button from "$lib/components/Button.svelte";
   import Card from "$lib/components/Card.svelte";
+  import SettingRow from "$lib/components/SettingRow.svelte";
   import Switch from "$lib/components/Switch.svelte";
   import { t } from "$lib/i18n";
   import type { EngineInfo } from "$lib/ipc";
 
-  // Engine list: order and on/off inside the "Engines" card (moved from the 0.1.x page).
+  // Engine list: one row per engine with its order buttons and switch on the right (spec 011).
 
   let {
     engines,
@@ -55,121 +57,46 @@
     }
   }
 
+  function status(engine: EngineInfo): string {
+    if (!isOn(engine.id)) return $t("settings.engine_disabled");
+    if (engine.cooldown_remaining_s > 0) {
+      return $t("settings.engine_cooldown", { seconds: engine.cooldown_remaining_s });
+    }
+    if (engine.availability.state === "available") return $t("settings.engine_available");
+    return engine.availability.reason ?? engine.availability.state;
+  }
+
   function serviceProvider(id: string): string {
     return id === "http-bing" ? "Microsoft" : "Google";
   }
 </script>
 
 <Card title={$t("settings.card_engines")} helper={$t("settings.engines_hint")}>
-  <div class="engines">
-    {#each order as id, index (id)}
-      {@const engine = byId.get(id)}
-      {#if engine}
-        <article class="engine" class:off={!isOn(id)}>
-          <div class="switch-slot">
-            <Switch checked={isOn(id)} label={serviceName(id)} onchange={() => toggle(id)} />
-          </div>
-          <div class="meta">
-            <strong>{serviceName(id)}</strong>
-            <span class="receives">
-              {$t("settings.engine_receives", { service: serviceProvider(id) })}
-            </span>
-            <span class="status">
-              {#if !isOn(id)}
-                {$t("settings.engine_disabled")}
-              {:else if engine.cooldown_remaining_s > 0}
-                {$t("settings.engine_cooldown", { seconds: engine.cooldown_remaining_s })}
-              {:else if engine.availability.state === "available"}
-                {$t("settings.engine_available")}
-              {:else}
-                {engine.availability.reason ?? engine.availability.state}
-              {/if}
-            </span>
-          </div>
-          <div class="reorder">
-            <button
-              type="button"
-              title={$t("settings.move_up")}
-              aria-label={$t("settings.move_up")}
-              disabled={index === 0}
-              onclick={() => move(id, -1)}
-            >
-              ↑
-            </button>
-            <button
-              type="button"
-              title={$t("settings.move_down")}
-              aria-label={$t("settings.move_down")}
-              disabled={index === order.length - 1}
-              onclick={() => move(id, 1)}
-            >
-              ↓
-            </button>
-          </div>
-        </article>
-      {/if}
-    {/each}
-  </div>
+  {#each order as id, index (id)}
+    {@const engine = byId.get(id)}
+    {#if engine}
+      <SettingRow
+        label={serviceName(id)}
+        description={`${$t("settings.engine_receives", { service: serviceProvider(id) })} · ${status(engine)}`}
+      >
+        <Button
+          size="small"
+          title={$t("settings.move_up")}
+          disabled={index === 0}
+          onclick={() => move(id, -1)}
+        >
+          <span aria-label={$t("settings.move_up")}>↑</span>
+        </Button>
+        <Button
+          size="small"
+          title={$t("settings.move_down")}
+          disabled={index === order.length - 1}
+          onclick={() => move(id, 1)}
+        >
+          <span aria-label={$t("settings.move_down")}>↓</span>
+        </Button>
+        <Switch checked={isOn(id)} label={serviceName(id)} onchange={() => toggle(id)} />
+      </SettingRow>
+    {/if}
+  {/each}
 </Card>
-
-<style>
-  .engines {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .engine {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    padding: 10px 12px;
-    border: 1px solid var(--stroke);
-    border-radius: var(--radius-small);
-    background: var(--surface-raised);
-  }
-
-  .engine.off {
-    opacity: 0.65;
-  }
-
-  .meta {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    flex: 1;
-    min-width: 0;
-  }
-
-  .receives {
-    font-size: 11px;
-    color: var(--text-secondary);
-  }
-
-  .status {
-    font-size: 11px;
-    color: var(--text-tertiary);
-  }
-
-  .reorder {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  .reorder button {
-    padding: 0 6px;
-    font-size: 11px;
-    line-height: 1.4;
-  }
-
-  .switch-slot {
-    margin-top: 2px;
-    flex: none;
-  }
-
-  .engines {
-    display: block;
-    width: 100%;
-  }
-</style>

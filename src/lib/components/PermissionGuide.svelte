@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onDestroy, onMount } from "svelte";
+  import Button from "./Button.svelte";
   import Card from "./Card.svelte";
   import SettingRow from "./SettingRow.svelte";
   import StatusBadge from "./StatusBadge.svelte";
@@ -88,25 +89,21 @@
       label={kind === "screen_recording"
         ? $t("permission.screen_recording_name")
         : $t("settings.permission")}
-    >
+    ></SettingRow>
+    <!-- The actions belong to the group: bottom right of the box, so a long label never squeezes. -->
+    {#snippet footer()}
       {#if granted}
         <!-- Nothing to do: the badge below says it is granted. -->
       {:else if reason === "after_update"}
-        <button class="primary" type="button" onclick={() => void resetAndGrant()}>
+        <Button onclick={() => void openSettings()}>{$t("capture.grant")}</Button>
+        <Button variant="primary" onclick={() => void resetAndGrant()}>
           {$t("permission.reset")}
-        </button>
-        <button class="secondary" type="button" onclick={() => void openSettings()}>
-          {$t("capture.grant")}
-        </button>
+        </Button>
       {:else}
-        <button class="primary" type="button" onclick={() => void openSettings()}>
-          {$t("capture.grant")}
-        </button>
-        <button class="secondary" type="button" onclick={() => void poll.recheckNow()}>
-          {$t("capture.recheck")}
-        </button>
+        <Button onclick={() => void poll.recheckNow()}>{$t("capture.recheck")}</Button>
+        <Button variant="primary" onclick={() => void openSettings()}>{$t("capture.grant")}</Button>
       {/if}
-    </SettingRow>
+    {/snippet}
   </Card>
 
   <StatusBadge
@@ -117,10 +114,8 @@
   {#if !granted}
     {#if restartHint}
       <p class="next">{$t("permission.restart_hint")}</p>
-      <div>
-        <button class="secondary" type="button" onclick={() => void commands.restartApp()}>
-          {$t("permission.restart")}
-        </button>
+      <div class="restart">
+        <Button onclick={() => void commands.restartApp()}>{$t("permission.restart")}</Button>
       </div>
     {/if}
     {#if resetState === "done"}
@@ -143,49 +138,34 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
-    font-size: 12px;
+    font-size: var(--type-row-description-size);
     color: var(--text);
   }
 
   .notice strong {
-    font-size: 13px;
+    font-size: var(--type-row-label-size);
   }
 
-  button {
-    height: var(--control-height);
-    padding: 0 12px;
-    border: none;
-    border-radius: 6px;
-    font-size: 12px;
-  }
-
-  .primary {
-    background: var(--accent);
-    color: var(--accent-contrast);
-    font-weight: 600;
-  }
-
-  .secondary {
-    background: var(--surface-opaque);
-    box-shadow: inset 0 0 0 1px var(--stroke);
-    color: var(--text);
+  .restart {
+    display: flex;
+    justify-content: flex-end;
   }
 
   .next {
     margin: 0;
-    font-size: 12px;
+    font-size: var(--type-row-description-size);
     font-weight: 600;
     color: var(--text);
   }
 
   .hint {
     margin: 0;
-    font-size: 11px;
+    font-size: var(--type-caption-size);
     color: var(--text-tertiary);
   }
 
   .hint.emphasis {
-    font-size: 12px;
+    font-size: var(--type-row-description-size);
     color: var(--text);
   }
 </style>

@@ -139,3 +139,70 @@ describe("status colours (spec 009 FR-029, FR-043)", () => {
     }
   });
 });
+
+describe("Settings colour levels on the card fill (spec 011 R2, data-model § Text level)", () => {
+  const read = (file: string) => readFileSync(resolve(__dirname, file), "utf8");
+  const tokens = read("tokens.css");
+  function hexes(css: string, selector: string): Record<string, string> {
+    const start = css.indexOf(`${selector} {`);
+    expect(start, selector).toBeGreaterThanOrEqual(0);
+    const body = css.slice(start, css.indexOf("}", start));
+    return Object.fromEntries(
+      [...body.matchAll(/--([\w-]+):\s*(#[0-9a-fA-F]{6})/g)].map((match) => [match[1], match[2]]),
+    );
+  }
+  const light = hexes(tokens, '[data-theme="light"]');
+  const dark = hexes(tokens, '[data-theme="dark"]');
+  const windowsLight = hexes(tokens, '[data-os="windows"]');
+  const windowsDark = hexes(tokens, '[data-os="windows"][data-theme="dark"]');
+
+  // macOS Settings overrides the box fill (and the light secondary level) from the T003 reference;
+  // Windows sets its own --card-fill.
+  const macLight = hexes(tokens, '[data-os="macos"][data-theme="light"] .onboarding-body');
+  const macDark = hexes(tokens, '[data-os="macos"][data-theme="dark"] .settings-body');
+  const cases = [
+    {
+      name: "macOS light",
+      text: { ...light, "text-secondary": macLight["text-secondary"] },
+      card: macLight["card-fill"],
+    },
+    { name: "macOS dark", text: dark, card: macDark["card-fill"] },
+    { name: "macOS dark, window", text: dark, card: macDark["settings-surface"] },
+    { name: "Windows light", text: light, card: windowsLight["card-fill"] },
+    { name: "Windows dark", text: dark, card: windowsDark["card-fill"] },
+    {
+      name: "Windows light, page",
+      text: light,
+      card: hexes(tokens, '[data-os="windows"] .settings-body')["settings-surface"],
+    },
+    {
+      name: "Windows dark, page",
+      text: dark,
+      card: hexes(tokens, '[data-os="windows"][data-theme="dark"] .settings-body')[
+        "settings-surface"
+      ],
+    },
+  ];
+
+  it("primary and secondary reach 4.5:1, tertiary 3:1, in every case", () => {
+    for (const { name, text, card } of cases) {
+      expect(card, `${name} card fill`).toBeDefined();
+      expect(contrastRatio(text["text"], card), `${name} primary`).toBeGreaterThanOrEqual(4.5);
+      expect(
+        contrastRatio(text["text-secondary"], card),
+        `${name} secondary`,
+      ).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(text["text-tertiary"], card), `${name} tertiary`).toBeGreaterThanOrEqual(
+        3,
+      );
+    }
+  });
+
+  it("the levels keep their order: primary darker (light) or brighter (dark) than secondary", () => {
+    for (const { name, text, card } of cases) {
+      expect(contrastRatio(text["text"], card), `${name} primary vs secondary`).toBeGreaterThan(
+        contrastRatio(text["text-secondary"], card),
+      );
+    }
+  });
+});

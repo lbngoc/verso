@@ -31,6 +31,53 @@
   --hairline-strong: rgba(0, 0, 0, 0.12);
   /* The dimmed screen of the region picker: the same in light and dark (spec 004). */
   --capture-scrim: rgba(0, 0, 0, 0.35);
+
+  /* Settings, Setup and About text levels (spec 011 R1, contracts/settings-look.md). Components use
+     only these; the per-OS files set the platform values. Weights are 400 or 600 only. */
+  --type-sidebar-item-size: 13px;
+  --type-sidebar-item-weight: 400;
+  --type-page-title-size: 15px;
+  --type-page-title-weight: 600;
+  --type-group-heading-size: 13px;
+  --type-group-heading-weight: 600;
+  --type-row-label-size: 13px;
+  --type-row-label-weight: 400;
+  --type-row-description-size: 11px;
+  --type-row-description-weight: 400;
+  --type-row-value-size: 13px;
+  --type-row-value-weight: 400;
+  --type-caption-size: 11px;
+  --type-caption-weight: 400;
+
+  /* Secondary button (R4) and the grouped card (R3). */
+  --button-fill: rgba(0, 0, 0, 0.05);
+  --button-fill-hover: rgba(0, 0, 0, 0.09);
+  --button-stroke: rgba(0, 0, 0, 0.12);
+  --button-radius: 6px;
+  --button-height: 24px;
+  --button-height-small: 22px;
+  --button-padding-x: 12px;
+  --card-radius: 10px;
+  --card-fill: var(--surface-raised);
+  --card-padding-x: 14px;
+  --row-min-height: 36px;
+  /* Space between two boxes, and the extra space above a box that has a group heading. */
+  --group-gap: 12px;
+  --group-heading-space: 16px;
+  /* The Settings content column (the window background behind the boxes). */
+  --settings-surface: var(--surface-opaque);
+
+  /* macOS sidebar icon tiles (System Settings) and the red count badge (spec 011 R5). */
+  --tint-blue: #0a84ff;
+  --tint-gray: #8e8e93;
+  --tint-green: #30d158;
+  --tint-orange: #ff9f0a;
+  --tint-purple: #bf5af2;
+  --tint-red: #ff453a;
+  --tint-teal: #40c8e0;
+  --tile-glyph: #ffffff;
+  --badge-fill: #ff3b30;
+  --badge-text: #ffffff;
 }
 
 :root,
@@ -68,6 +115,119 @@
   --accent-contrast: #06231e;
   --accent-text: #5cc9b6;
   --accent-soft: color-mix(in srgb, var(--accent) 22%, transparent);
+  --button-fill: rgba(255, 255, 255, 0.12);
+  --button-fill-hover: rgba(255, 255, 255, 0.17);
+  --button-stroke: rgba(255, 255, 255, 0.1);
+}
+
+/* macOS System Settings colours measured in the T003 reference (macOS 26.6): borderless push buttons
+   at ~7 % black / white over the box; light boxes #f7f7f7 on white, dark boxes #383838 on #323232;
+   descriptions and values a lighter grey than spec 009's (still ≥ 4.5:1 on the box). */
+[data-os="macos"] {
+  --button-fill: rgba(0, 0, 0, 0.07);
+  --button-fill-hover: rgba(0, 0, 0, 0.11);
+  --button-stroke: transparent;
+}
+
+[data-os="macos"][data-theme="light"] .settings-body,
+[data-os="macos"][data-theme="light"] .onboarding-body {
+  --text-secondary: #6a6a6d;
+  --card-fill: #f7f7f7;
+}
+
+[data-os="macos"][data-theme="dark"] {
+  --button-fill: rgba(255, 255, 255, 0.07);
+  --button-fill-hover: rgba(255, 255, 255, 0.11);
+  --button-stroke: transparent;
+}
+
+[data-os="macos"][data-theme="dark"] .settings-body {
+  --settings-surface: #323232;
+  --card-fill: #383838;
+}
+
+/* System Settings' pop-up buttons (T003 reference): no box, the value right-aligned in the row's text
+   colour, an up-down chevron after it, a light fill on hover. */
+[data-os="macos"] .settings-body select,
+[data-os="macos"] .onboarding-body select {
+  appearance: none;
+  -webkit-appearance: none;
+  height: var(--button-height);
+  padding: 0 22px 0 8px;
+  border: none;
+  border-radius: var(--button-radius);
+  box-shadow: none;
+  background-color: transparent;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='14' viewBox='0 0 10 14'%3E%3Cpath d='M2 5l3-3 3 3M2 9l3 3 3-3' fill='none' stroke='%238e8e93' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+  background-size: 10px 14px;
+  color: var(--text);
+  font-size: var(--type-row-value-size);
+  text-align: right;
+  text-align-last: right;
+  cursor: default;
+}
+
+[data-os="macos"] .settings-body select:hover:not(:disabled),
+[data-os="macos"] .onboarding-body select:hover:not(:disabled) {
+  background-color: var(--button-fill);
+}
+
+/* Windows 11 Settings colours (spec 011 R4): ControlFillColorDefault / ControlStrokeColorDefault for
+   the standard button, CardBackgroundFillColorDefault over the content for cards. */
+[data-os="windows"] {
+  --button-fill: rgba(255, 255, 255, 0.7);
+  --button-fill-hover: rgba(249, 249, 249, 0.5);
+  --button-stroke: rgba(0, 0, 0, 0.0578);
+  --button-stroke-bottom: rgba(0, 0, 0, 0.1622);
+  --card-fill: #fbfbfb;
+}
+
+/* Windows Settings' ComboBox: the standard control fill and stroke, a chevron at the right, the value
+   left-aligned, at least 120 px wide. */
+[data-os="windows"] .settings-body select,
+[data-os="windows"] .onboarding-body select {
+  appearance: none;
+  -webkit-appearance: none;
+  min-width: 120px;
+  height: var(--button-height);
+  padding: 0 32px 0 11px;
+  border: none;
+  border-radius: var(--button-radius);
+  background-color: var(--button-fill);
+  box-shadow:
+    inset 0 0 0 1px var(--button-stroke),
+    inset 0 -1px 0 var(--button-stroke-bottom);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.5L6 8l3.5-3.5' fill='none' stroke='%23808080' stroke-width='1.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 11px center;
+  background-size: 12px 12px;
+  color: var(--text);
+  font-size: var(--type-row-value-size);
+}
+
+[data-os="windows"] .settings-body select:hover:not(:disabled),
+[data-os="windows"] .onboarding-body select:hover:not(:disabled) {
+  background-color: var(--button-fill-hover);
+}
+
+/* Windows Settings' page behind the cards (the Mica fallback, SolidBackgroundFillColorBase), measured in
+   the T002 reference: without it the #fbfbfb cards vanish on white. */
+[data-os="windows"] .settings-body {
+  --settings-surface: #f3f3f3;
+}
+
+[data-os="windows"][data-theme="dark"] .settings-body {
+  --settings-surface: #202020;
+}
+
+[data-os="windows"][data-theme="dark"] {
+  --button-fill: rgba(255, 255, 255, 0.0605);
+  --button-fill-hover: rgba(255, 255, 255, 0.0837);
+  --button-stroke: rgba(255, 255, 255, 0.093);
+  --button-stroke-bottom: rgba(255, 255, 255, 0.0698);
+  --card-fill: #2b2b2b;
 }
 
 /* Material-aware surface. The fallback colour matches theme-tokens.ts. */
@@ -119,7 +279,6 @@ body.quick-body {
 }
 
 body.settings-body,
-body.update-body,
 body.onboarding-body {
   background: var(--surface-opaque);
   user-select: text;
@@ -195,6 +354,21 @@ select {
   color: var(--text-secondary);
 }
 
+/* A value shown as a row's control (a version, a status): row-value level, secondary colour. */
+.row-value {
+  font-size: var(--type-row-value-size);
+  font-weight: var(--type-row-value-weight);
+  color: var(--text-secondary);
+}
+
+/* A caption line outside a card or under a group (spec 011 R1). */
+.caption {
+  font-size: var(--type-caption-size);
+  font-weight: var(--type-caption-weight);
+  line-height: 1.35;
+  color: var(--text-tertiary);
+}
+
 .sr-only {
   position: absolute;
   width: 1px;
@@ -249,5 +423,22 @@ select {
 @media (prefers-reduced-motion: reduce) {
   .spinner {
     animation-duration: 2.4s;
+  }
+}
+
+/* Windows contrast themes (forced colours, spec 011 S6): box shadows are dropped, so the edges that
+   carry meaning become real borders in the system colours. */
+@media (forced-colors: active) {
+  .settings-body .card,
+  .onboarding-body .card {
+    border: 1px solid CanvasText;
+  }
+
+  .settings-body .button:not(.link),
+  .onboarding-body .button:not(.link),
+  .settings-body select,
+  .onboarding-body select,
+  .settings-body .recorder .field {
+    border: 1px solid ButtonText;
   }
 }

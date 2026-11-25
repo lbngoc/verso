@@ -50,7 +50,10 @@
 
 <div class="stack">
   <Card title={$t("settings.card_typing")}>
-    <SettingRow label={$t("settings.auto_translate")} helper={$t("settings.auto_translate_hint")}>
+    <SettingRow
+      label={$t("settings.auto_translate")}
+      description={$t("settings.auto_translate_hint")}
+    >
       <select
         value={settings.auto_translate}
         aria-label={$t("settings.auto_translate")}
@@ -117,7 +120,7 @@
   .stack {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: var(--group-gap);
   }
 
   .preview {
@@ -135,7 +138,7 @@
     gap: 6px 12px;
     margin: 0;
     padding: 8px 0;
-    font-size: 12px;
+    font-size: var(--type-row-description-size);
     color: var(--text-secondary);
   }
 
@@ -153,10 +156,8 @@
   dt.group {
     grid-column: 1 / -1;
     margin-top: 6px;
-    font-size: 11px;
+    font-size: var(--type-row-label-size);
     font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
     color: var(--text);
   }
 

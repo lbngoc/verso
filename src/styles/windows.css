@@ -10,6 +10,26 @@
   --switch-height: 20px;
   --switch-thumb: 12px;
   --font-size-result: 16px;
+
+  /* Windows 11 Settings (spec 011 R1/R4): Fluent type ramp — Body 14, Body Strong 14 semibold,
+     Caption 12, Title 28 semibold; standard button 32 px, radius 4, ControlFillColorDefault with a
+     1 px ControlStrokeColorDefault (colours in tokens.css); settings cards radius 4, rows at least 52 px (51 measured in the T002 reference). */
+  --type-sidebar-item-size: 14px;
+  --type-page-title-size: 28px;
+  --type-page-title-weight: 600;
+  --type-group-heading-size: 14px;
+  --type-group-heading-weight: 600;
+  --type-row-label-size: 14px;
+  --type-row-description-size: 12px;
+  --type-row-value-size: 14px;
+  --type-caption-size: 12px;
+  --button-radius: 4px;
+  --button-height: 32px;
+  --button-height-small: 28px;
+  --button-padding-x: 12px;
+  --card-radius: 4px;
+  --card-padding-x: 16px;
+  --row-min-height: 52px;
 }
 
 [data-os="windows"] .material-surface {

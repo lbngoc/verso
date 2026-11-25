@@ -48,10 +48,6 @@
   .stack {
     display: flex;
     flex-direction: column;
-    gap: 16px;
-  }
-
-  select {
-    min-width: 160px;
+    gap: var(--group-gap);
   }
 </style>
